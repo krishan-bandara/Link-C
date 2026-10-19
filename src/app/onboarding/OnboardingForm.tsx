@@ -173,7 +173,7 @@ export default function OnboardingForm({
               </div>
 
               <label className="rise flex cursor-pointer items-start gap-3 text-sm" style={{ animationDelay: '580ms' }}>
-                <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[var(--accent)]" />
+                <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 h-6 w-6 shrink-0 accent-[var(--accent)]" />
                 <span>I have read and accept</span>
               </label>
 

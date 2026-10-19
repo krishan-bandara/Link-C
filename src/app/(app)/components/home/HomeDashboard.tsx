@@ -84,14 +84,14 @@ export default function HomeDashboard() {
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted sm:text-base">{sub}</p>
 
-          <div className="mt-5 grid grid-cols-1 gap-2.5 min-[420px]:max-md:grid-cols-3 min-[1100px]:grid-cols-3">
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-2.5 md:grid-cols-1 min-[1100px]:grid-cols-3">
             <StatTile icon={MailOpen} label="Unread messages" value={unread} />
             <StatTile icon={Globe2} label="Online now" value={onlineNow} />
             <StatTile icon={MessagesSquare} label="Chats active today" value={today} />
           </div>
         </section>
 
-        <nav aria-label="Quick actions" className="flex flex-wrap gap-2">
+        <nav aria-label="Quick actions" className="flex flex-wrap gap-2.5">
           <Chip href="/settings" icon={Settings}>
             Settings
           </Chip>

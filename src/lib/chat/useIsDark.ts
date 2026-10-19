@@ -20,7 +20,7 @@ function subscribe(cb: () => void) {
   };
 }
 
-/** True when the effective theme is dark (data-theme on <html>, or the OS setting for 'system'). Dark is the default. */
+/** True when the effective theme is dark (data-theme on <html>, or the OS setting for 'system'). Light is the default. */
 export function useIsDark(): boolean {
-  return useSyncExternalStore(subscribe, read, () => true);
+  return useSyncExternalStore(subscribe, read, () => false);
 }

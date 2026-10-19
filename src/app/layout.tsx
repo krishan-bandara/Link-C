@@ -32,7 +32,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const jar = await cookies();
   const t = jar.get(THEME_COOKIE)?.value;
   const a = decodeURIComponent(jar.get(ACCENT_COOKIE)?.value ?? '');
-  const theme = isTheme(t) ? t : 'dark';
+  const theme = isTheme(t) ? t : 'light';
   const accent = isHex(a) ? a : DEFAULT_ACCENT;
   return (
     <html lang="en" data-theme={theme} style={accentStyle(accent)} suppressHydrationWarning>

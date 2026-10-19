@@ -75,7 +75,7 @@ export default function Wizard({
   const [wPreset, setWPreset] = useState(initialPrefs.wallpaperPreset);
   const [wAsset, setWAsset] = useState(initialPrefs.wallpaperAssetId);
   const [wBusy, setWBusy] = useState(false);
-  const [dark, setDark] = useState(true);
+  const [dark, setDark] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confetti, setConfetti] = useState<Piece[] | null>(null);

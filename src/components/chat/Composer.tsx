@@ -254,7 +254,7 @@ export default function Composer({
         </button>
       </div>
       {near && (
-        <p className={`px-2 pt-1 text-right text-[11px] ${text.length >= MAX - 50 ? 'text-danger' : 'text-muted'}`} aria-live="polite">
+        <p className={`px-2 pt-1 text-right text-xs ${text.length >= MAX - 50 ? 'text-danger' : 'text-muted'}`} aria-live="polite">
           {text.length}/{MAX}
         </p>
       )}

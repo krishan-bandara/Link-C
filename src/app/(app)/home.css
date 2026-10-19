@@ -287,7 +287,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.95rem;
+  min-height: 44px;
+  padding: 0.6rem 1.05rem;
   border-radius: 9999px;
   border: 1px solid var(--c-edge);
   background: color-mix(in srgb, var(--c-panel) 65%, transparent);
@@ -324,6 +325,7 @@
   flex-direction: column;
   gap: 0.8rem;
   height: 100%;
+  min-height: 44px;
   padding: 1rem;
   border-radius: 1.4rem;
   overflow: hidden;

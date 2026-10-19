@@ -106,7 +106,7 @@ function ReactionChip({ emoji, n, own, animate, onToggle }: { emoji: string; n: 
   const inner = (
     <>
       <span>{emoji}</span>
-      {n > 1 && <span className="text-[11px] text-muted">{n}</span>}
+      {n > 1 && <span className="text-xs text-muted">{n}</span>}
     </>
   );
   return own ? (
@@ -225,7 +225,7 @@ export default function MessageBubble({
 
 
   const meta = (
-    <span className={`flex items-center gap-1 text-[11px] leading-none text-muted ${bare ? 'cv-meta-chip rounded-full px-2 py-1' : ''}`}>
+    <span className={`flex items-center gap-1 text-xs leading-none text-muted ${bare ? 'cv-meta-chip rounded-full px-2 py-1' : ''}`}>
       <span>{time}</span>
       {mine && <Ticks m={msg} />}
     </span>
@@ -267,7 +267,7 @@ export default function MessageBubble({
 
   return (
     <div data-mid={msg.id} className={`group flex ${mine ? 'justify-end' : 'justify-start'} ${firstOfRun ? 'mt-2.5' : 'mt-0.5'} ${fresh ? (mine ? 'cv-in-mine' : 'cv-in-theirs') : ''}`}>
-      <div ref={wrapRef} onMouseEnter={checkRoom} className={`relative flex min-w-0 max-w-[80%] flex-col ${mine ? 'items-end' : 'items-start'} ${open ? 'z-20' : ''}`}>
+      <div ref={wrapRef} onMouseEnter={checkRoom} className={`relative flex min-w-0 max-w-[85%] flex-col ${mine ? 'items-end' : 'items-start'} ${open ? 'z-20' : ''}`}>
         {open && <button type="button" tabIndex={-1} aria-label="Close menu" className="fixed inset-0 -z-10 cursor-default" onClick={() => setOpen(false)} />}
         {open && <div className={`absolute bottom-full z-10 mb-1 ${mine ? 'right-0' : 'left-0'}`}>{pill}</div>}
         {!open && (
