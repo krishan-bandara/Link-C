@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens: the night-sky, frosted-glass, cyan-to-violet look from the design folder (design/README.md).
+ * Use these classes everywhere instead of hard-coded neutral or emerald colours:
+ *   bg-app  bg-panel  bg-panel-2  border-line  text-main  text-muted  text-tick  text-danger  bg-danger
+ *   bg-accent  text-accent  text-accent-ink  bg-bubble-out  bg-bubble-in  bg-chat
+ * Extra helpers (plain classes below): .glass (frosted card), .bg-grad / .text-grad (cyan to violet), .ring-glow, .rise (entrance).
+ * The theme is set on the html element (data-theme light, dark or system); the accent colour via --accent and --c-accent-ink.
+ * NEVER write a star followed by a slash inside this comment: it ends the comment and breaks the whole stylesheet.
+ */
+@theme inline {
+  --color-app: var(--c-app);
+  --color-panel: var(--c-panel);
+  --color-panel-2: var(--c-panel-2);
+  --color-line: var(--c-line);
+  --color-main: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-bubble-out: var(--c-bubble-out);
+  --color-bubble-in: var(--c-bubble-in);
+  --color-chat: var(--c-chat);
+  --color-tick: var(--c-tick);
+  --color-danger: var(--c-danger);
+}
+
+:root {
+  --accent: #6ee7f9;
+  --c-accent-ink: #04121a;
+  --a2: #a78bfa; /* second end of the cyan to violet gradient */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* dark is the default */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --c-app: #070b14;
+  --c-panel: #0f1626;
+  --c-panel-2: #182139;
+  --c-line: #26324f;
+  --c-text: #eef2fb;
+  --c-muted: #9aa6bf;
+  --c-bubble-out: color-mix(in srgb, var(--accent) 24%, #0f1626);
+  --c-bubble-in: #141d33;
+  --c-chat: #070b14;
+  --c-accent-text: var(--accent);
+  --c-tick: #6ee7f9;
+  --c-danger: #ff7a8a;
+  --c-glass: rgba(16, 22, 38, 0.62);
+  --c-edge: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --c-app: #f3f6fd;
+  --c-panel: #ffffff;
+  --c-panel-2: #e8edf8;
+  --c-line: #d3dbee;
+  --c-text: #0b1220;
+  --c-muted: #55627d;
+  --c-bubble-out: color-mix(in srgb, var(--accent) 22%, #ffffff);
+  --c-bubble-in: #ffffff;
+  --c-chat: #eaf0fb;
+  --c-accent-text: color-mix(in srgb, var(--accent) 55%, #000000);
+  --c-tick: #0b7fa3;
+  --c-danger: #d6123a;
+  --c-glass: rgba(255, 255, 255, 0.7);
+  --c-edge: rgba(11, 18, 32, 0.12);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme='system'] {
+    color-scheme: light;
+    --c-app: #f3f6fd;
+    --c-panel: #ffffff;
+    --c-panel-2: #e8edf8;
+    --c-line: #d3dbee;
+    --c-text: #0b1220;
+    --c-muted: #55627d;
+    --c-bubble-out: color-mix(in srgb, var(--accent) 22%, #ffffff);
+    --c-bubble-in: #ffffff;
+    --c-chat: #eaf0fb;
+    --c-accent-text: color-mix(in srgb, var(--accent) 55%, #000000);
+    --c-tick: #0b7fa3;
+    --c-danger: #d6123a;
+    --c-glass: rgba(255, 255, 255, 0.7);
+    --c-edge: rgba(11, 18, 32, 0.12);
+  }
+}
+
+html,
+body {
+  background:
+    radial-gradient(1200px 700px at 20% 10%, color-mix(in srgb, var(--a2) 14%, var(--c-app)) 0, transparent 60%),
+    radial-gradient(900px 600px at 85% 90%, color-mix(in srgb, var(--accent) 10%, var(--c-app)) 0, transparent 55%),
+    var(--c-app);
+  background-attachment: fixed;
+  color: var(--c-text);
+}
+
+body {
+  min-height: 100dvh;
+  -webkit-tap-highlight-color: transparent;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Safe-area insets (notch, home bar). A transparent border ADDS to the element's own padding; padding would replace it. */
+.safe-top {
+  border-top: env(safe-area-inset-top) solid transparent;
+}
+.safe-bottom {
+  border-bottom: env(safe-area-inset-bottom) solid transparent;
+}
+
+/* Accent used as TEXT needs more contrast than accent used as a fill, especially on the light theme. */
+.text-accent {
+  color: var(--c-accent-text);
+}
+
+/* typing indicator dots */
+@keyframes lc-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+.typing-dot {
+  display: inline-block;
+  height: 6px;
+  width: 6px;
+  border-radius: 9999px;
+  background: var(--c-muted);
+  animation: lc-bounce 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* ---- shared look helpers (design/README.md) ---- */
+.glass {
+  background: var(--c-glass);
+  border: 1px solid var(--c-edge);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+.bg-grad {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+}
+.text-grad {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ring-glow {
+  box-shadow: 0 0 0 1px var(--c-edge), 0 8px 30px -12px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+@keyframes lc-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.rise { animation: lc-rise 0.45s var(--ease) both; }
+@keyframes lc-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.pop { animation: lc-pop 0.35s var(--ease) both; }
+@keyframes lc-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--c-panel-2) 25%, var(--c-panel) 50%, var(--c-panel-2) 75%);
+  background-size: 200% 100%;
+  animation: lc-shimmer 1.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise, .pop, .skeleton, .typing-dot { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; }
+}
+
+/* gradient text must stay readable on the light theme: use the darker pair there */
+:root[data-theme='light'] .text-grad {
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 55%, #000), color-mix(in srgb, var(--a2) 60%, #000));
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme='system'] .text-grad {
+    background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 55%, #000), color-mix(in srgb, var(--a2) 60%, #000));
+  }
+}
+
+/* Windows High Contrast / forced colours: controls that are only a fill or a gradient need a visible edge. */
+@media (forced-colors: active) {
+  .bg-grad,
+  .ui-switch,
+  .ui-swatch,
+  button[role='radio'] {
+    border: 1px solid ButtonText;
+    forced-color-adjust: none;
+  }
+  .ui-switch span { background: ButtonText; }
+}

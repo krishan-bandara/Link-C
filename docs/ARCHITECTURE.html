@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link-C Architecture (final)</title>
+<style>
+  :root{
+    --bg:#070b14; --panel:#0f1626; --panel2:#182139; --line:#26324f; --text:#e8eefc; --muted:#93a0bf;
+    --cyan:#6ee7f9; --violet:#a78bfa; --ok:#5eead4; --warn:#fbbf24; --bad:#fb7185;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#eef2fb; --panel:#ffffff; --panel2:#f1f5ff; --line:#d3dbee; --text:#0f1626; --muted:#52607f; --cyan:#0e7490; --violet:#6d28d9; --ok:#0f766e; --warn:#a16207; --bad:#be123c; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}
+  h1{font-size:2rem;margin:.2em 0;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{margin:2.2em 0 .6em;font-size:1.35rem;border-bottom:1px solid var(--line);padding-bottom:.3em}
+  h3{margin:1.4em 0 .4em;font-size:1.05rem;color:var(--cyan)}
+  p,li{color:var(--text)} .muted{color:var(--muted)}
+  code,.mono{font-family:ui-monospace,Consolas,Menlo,monospace;font-size:.88em}
+  code{background:var(--panel2);border:1px solid var(--line);padding:1px 6px;border-radius:6px}
+  .meta{color:var(--muted);font-size:.9rem}
+  nav.toc{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin:18px 0;display:flex;flex-wrap:wrap;gap:6px 16px}
+  nav.toc a{color:var(--cyan);text-decoration:none;font-size:.9rem}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:.9rem}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:0}
+  .tbl{overflow-x:auto}
+  .tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.75rem;border:1px solid var(--line);color:var(--muted)}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  /* diagram */
+  .diagram{display:grid;gap:10px;margin:14px 0}
+  .row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:stretch}
+  .node{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:.88rem}
+  .node b{display:block;color:var(--cyan);margin-bottom:2px}
+  .node.v b{color:var(--violet)} .node.g b{color:var(--ok)} .node.w b{color:var(--warn)}
+  .zone{border:1px dashed var(--line);border-radius:16px;padding:10px;background:color-mix(in srgb,var(--panel) 70%,transparent)}
+  .zone>.label{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
+  .arrow{text-align:center;color:var(--muted);font-size:.85rem}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:8px 0}
+  .steps li{counter-increment:s;position:relative;padding:6px 0 6px 38px}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:6px;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--violet));color:#071018;font-weight:700;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+  @media print{ body{background:#fff;color:#000} .card,table,.node{border-color:#bbb} nav.toc{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Link-C: full architecture</h1>
+<p class="meta">Private, invite-only, secure chat web app (PWA) for 1 to under 50 people. State as built on 2026-10-19. Personal project, separate from any Softlogic system.</p>
+
+<nav class="toc" aria-label="Contents">
+  <a href="#overview">1 Overview</a><a href="#system">2 System diagram</a><a href="#stack">3 Tech stack</a><a href="#code">4 Code layout</a>
+  <a href="#data">5 Data model</a><a href="#auth">6 Authentication</a><a href="#chat">7 Messaging &amp; realtime</a><a href="#media">8 Media &amp; snaps</a>
+  <a href="#alerts">9 Alerts (push, SMS)</a><a href="#admin">10 Admin panel</a><a href="#security">11 Security controls</a><a href="#api">12 Routes &amp; APIs</a>
+  <a href="#deploy">13 Deployment</a><a href="#ops">14 Operations</a><a href="#limits">15 Limits &amp; risks</a><a href="#cost">16 Cost</a><a href="#migrations">17 Migrations</a><a href="#tests">18 Testing</a>
+</nav>
+
+<h2 id="overview">1. Overview</h2>
+<div class="grid g2">
+  <div class="card">
+    <h3>What it is</h3>
+    <ul>
+      <li>WhatsApp-style chat: text, emoji, reactions, stickers, photos, videos, view-once snaps, voice/video calls, consent-based location sharing.</li>
+      <li>Invite-only: the owner invites people; public sign-up is disabled.</li>
+      <li>Works as an installable web app (PWA) on PC, Android and iPhone.</li>
+      <li>Night-sky glass design (cyan to violet), dark and light modes, accent colours, wallpapers.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Key decisions</h3>
+    <ul>
+      <li>Login: <b>email + password</b>. No emailed links or codes. One-time invite link, person picks name + strong password.</li>
+      <li>Server-side encryption (not end-to-end): files encrypted per file with AES-256-GCM, wrapped by a master key.</li>
+      <li>Database: owner's personal <b>free Supabase cloud</b> project (Mumbai), not self-hosted.</li>
+      <li>Hosting: Docker Compose on a Linux VM, published to the internet only through a <b>Cloudflare Tunnel</b> (no inbound ports).</li>
+      <li>Auto sign-out after <b>1 minute</b> of inactivity.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="system">2. System diagram</h2>
+<div class="diagram" role="img" aria-label="System architecture diagram">
+  <div class="zone"><div class="label">Users</div>
+    <div class="row">
+      <div class="node"><b>Browser / PWA</b>PC, Android, iPhone. Service worker for install and push. Supabase JS client for realtime and RLS-protected reads.</div>
+      <div class="node"><b>Phone OS push</b>Apple, Google, Mozilla, Microsoft push services deliver notifications when the app is closed.</div>
+    </div>
+  </div>
+  <div class="arrow">HTTPS &darr;</div>
+  <div class="zone"><div class="label">Cloudflare (free)</div>
+    <div class="row">
+      <div class="node"><b>DNS + TLS</b><span class="mono">link-c.innoforge.dpdns.org</span></div>
+      <div class="node"><b>Tunnel</b>Existing tunnel <span class="mono">Tunnel-Linux-prod-VM</span> routes to <span class="mono">http://127.0.0.1:3005</span>.</div>
+      <div class="node"><b>Access</b>Extra login gate on <span class="mono">/admin*</span>.</div>
+    </div>
+  </div>
+  <div class="arrow">&darr;</div>
+  <div class="zone"><div class="label">Linux VM &middot; Docker Compose project "linkc" (isolated from n8n)</div>
+    <div class="row">
+      <div class="node"><b>app</b>Next.js 15 (UI, API routes, middleware). Read-only container, all capabilities dropped. Listens on 127.0.0.1:3005.</div>
+      <div class="node"><b>worker</b>Same image, background loop: snap cleanup, upload cleanup, location expiry, disk check, SMS alerts, push alerts.</div>
+      <div class="node w"><b>Local disk <span class="mono">/data</span></b>Snaps (deleted after viewing), temp uploads, encrypted read cache.</div>
+    </div>
+  </div>
+  <div class="arrow">server-side calls &darr;</div>
+  <div class="zone"><div class="label">External services</div>
+    <div class="row">
+      <div class="node g"><b>Supabase (free)</b>Auth (password), Postgres with RLS on every table, Realtime (private channels).</div>
+      <div class="node g"><b>Backblaze B2</b>Private bucket <span class="mono">link-c-bucket</span> for encrypted normal media.</div>
+      <div class="node g"><b>LiveKit Cloud</b>Voice and video calls (free tier).</div>
+      <div class="node v"><b>SMS gateway</b>Any HTTP gateway (notify.lk in use). Configured in the admin panel.</div>
+      <div class="node v"><b>Push services</b>Web Push with VAPID keys.</div>
+    </div>
+  </div>
+</div>
+
+<h2 id="stack">3. Tech stack</h2>
+<div class="tbl"><table>
+<tr><th>Layer</th><th>Choice</th><th>Notes</th></tr>
+<tr><td>Frontend</td><td>Next.js 15 App Router, React 19, TypeScript strict, Tailwind v4</td><td>Design tokens in <code>src/app/globals.css</code>; emoji-mart (lazy-loaded); lucide icons.</td></tr>
+<tr><td>Validation</td><td>zod v4, zxcvbn-ts</td><td>Password policy: 12+ characters, zxcvbn score 3+, no name/email inside.</td></tr>
+<tr><td>Auth + DB</td><td>Supabase Auth, Postgres, Realtime</td><td>RLS on every table, column-level grants, SECURITY DEFINER helper functions.</td></tr>
+<tr><td>Media storage</td><td>Backblaze B2 (S3 API) + local VM disk for snaps</td><td>Encrypted per file; B2 reads go through a local encrypted cache.</td></tr>
+<tr><td>Images</td><td>sharp</td><td>Resizing, metadata stripping, sticker conversion to webp.</td></tr>
+<tr><td>Calls</td><td>LiveKit</td><td>Tokens minted server-side.</td></tr>
+<tr><td>Push</td><td>web-push (VAPID), service worker</td><td>Generic text set in the admin panel.</td></tr>
+<tr><td>Container</td><td>Docker Compose (services <code>app</code>, <code>worker</code>)</td><td>read_only, cap_drop ALL, no-new-privileges, <code>.env</code> via env_file.</td></tr>
+<tr><td>Tests</td><td>vitest (90 unit tests), RLS SQL test, Playwright QA scripts</td><td>Playwright drives Edge.</td></tr>
+</table></div>
+
+<h2 id="code">4. Code layout</h2>
+<div class="tbl"><table>
+<tr><th>Path</th><th>Purpose</th></tr>
+<tr><td><code>src/app/(app)/</code></td><td>Signed-in app: home dashboard, chat list, <code>c/[id]</code> chat, settings, credits, layout with shell and heartbeat.</td></tr>
+<tr><td><code>src/app/login</code>, <code>invite/[token]</code>, <code>welcome</code>, <code>onboarding</code></td><td>Login (two-step terminal card), invite / password-reset page, 7-step profile wizard, privacy notice.</td></tr>
+<tr><td><code>src/app/admin/</code></td><td>Owner admin panel: dashboard, members (grid), stickers, SMS, push, limits, audit.</td></tr>
+<tr><td><code>src/app/api/</code></td><td>Route handlers (see section 12).</td></tr>
+<tr><td><code>src/components/</code></td><td>Chat UI, auth cards, UI kit, <code>IdleGuard</code>, <code>RefreshGuard</code>, <code>PushToggle</code>, <code>SoundToggle</code>.</td></tr>
+<tr><td><code>src/lib/</code></td><td>Server logic: <code>auth</code>, <code>crypto</code>, <code>storage/</code>, <code>assets</code>, <code>media</code>, <code>upload-process</code>, <code>invites</code>, <code>login-guard</code>, <code>idle</code>, <code>sms</code>, <code>push</code>, <code>sound</code>, <code>theme</code>, <code>prefs</code>.</td></tr>
+<tr><td><code>src/middleware.ts</code></td><td>CSP with nonce, session refresh, inactivity enforcement, redirect to <code>/login?next=</code>.</td></tr>
+<tr><td><code>worker/</code></td><td>Background loop, bundled to <code>dist/worker.mjs</code> by <code>scripts/build-worker.mjs</code>.</td></tr>
+<tr><td><code>supabase/migrations/</code></td><td>Nine SQL migrations (section 17).</td></tr>
+<tr><td><code>public/sw.js</code></td><td>Service worker: install, push display, notification click.</td></tr>
+<tr><td><code>docs/</code>, <code>scripts/</code>, <code>tests/</code></td><td>Deploy guide, admin guide, third-party notices; owner/secret helper scripts; unit and RLS tests.</td></tr>
+</table></div>
+
+<h2 id="data">5. Data model (main tables, all with RLS)</h2>
+<div class="tbl"><table>
+<tr><th>Table</th><th>Holds</th><th>Who can read</th></tr>
+<tr><td><code>profiles</code></td><td>Display name, about, avatar, role (owner/member), encrypted phone, <code>login_disabled</code>, SMS opt-in.</td><td>Self and chat partners; sensitive columns not readable.</td></tr>
+<tr><td><code>invites</code>, <code>invite_tokens</code></td><td>Pending invitations (email, role, phone) and one-time link hashes (SHA-256 only, 24 h, single use). Claim secret for account creation.</td><td>Server only.</td></tr>
+<tr><td><code>login_attempts</code></td><td>Failed-login counters keyed by SHA-256 of the email; 15-minute lock.</td><td>Server only.</td></tr>
+<tr><td><code>conversations</code></td><td>One row per pair (owner is linked to every member).</td><td>The two participants.</td></tr>
+<tr><td><code>messages</code></td><td>Text, sticker, media and system messages with delivered/read times.</td><td>Participants, minus anything they cleared.</td></tr>
+<tr><td><code>conversation_clears</code></td><td>Per-person "clear chat" cut-off time.</td><td>Self.</td></tr>
+<tr><td><code>message_reactions</code></td><td>One emoji per person per message.</td><td>Participants.</td></tr>
+<tr><td><code>media_items</code>, <code>media_keys</code>, <code>upload_sessions</code></td><td>Media metadata, wrapped per-file keys, resumable upload state.</td><td>Server mediated.</td></tr>
+<tr><td><code>user_assets</code>, <code>sticker_packs</code>, <code>stickers</code>, <code>user_stickers</code></td><td>Avatars, wallpapers, official and personal sticker packs.</td><td>Via API with access checks.</td></tr>
+<tr><td><code>user_prefs</code></td><td>Theme, accent, wallpaper, wizard progress.</td><td>Self.</td></tr>
+<tr><td><code>presence_state</code></td><td>Last seen, per-period alert flags (SMS and push).</td><td>Server only.</td></tr>
+<tr><td><code>push_subscriptions</code>, <code>push_settings</code></td><td>One row per phone that allowed notifications; admin-edited title, message, delay.</td><td>Own subscription; settings server only.</td></tr>
+<tr><td><code>sms_settings</code>, <code>sms_log</code></td><td>Gateway config (credentials encrypted), caps, quiet hours, delivery log.</td><td>Server only.</td></tr>
+<tr><td><code>app_settings</code>, <code>audit_log</code></td><td>Upload/storage limits; admin actions (names and ids only).</td><td>Server only.</td></tr>
+</table></div>
+<p class="muted">Key functions: <code>is_participant</code>, <code>is_active_user</code>, <code>mark_read</code>/<code>mark_delivered</code>, <code>append_chunk</code>, <code>sms_candidates</code>, <code>push_candidates</code>, <code>revoke_user_sessions</code>, <code>revoke_other_sessions</code>, <code>reserve_login_attempt</code>, <code>clear_chat</code>. Trigger <code>handle_new_user</code> only allows an account when its invite holds a valid one-time claim secret.</p>
+
+<h2 id="auth">6. Authentication and sessions</h2>
+<ol class="steps">
+  <li><b>Invite.</b> Owner enters email, name, optional phone in Admin &gt; Members. The server stores the invite and returns a one-time link (24 h, only its hash is stored).</li>
+  <li><b>Accept.</b> The person opens <span class="mono">/invite/&lt;token&gt;</span>, picks a name and a strong password (live strength meter). The server claims the token atomically, arms a one-time claim secret on the invite, and creates the Supabase user with that secret. The database trigger checks and wipes it.</li>
+  <li><b>Sign in.</b> <span class="mono">POST /api/auth/login</span>: per-IP limit (20 per 10 min), atomic per-email lockout (5 wrong tries lock 15 min), generic error for wrong password, unknown email and disabled account alike.</li>
+  <li><b>Session.</b> Supabase cookies plus an HMAC activity cookie <span class="mono">lc-act</span>. Middleware refreshes the session and rejects sessions idle for more than 90 s.</li>
+  <li><b>Idle logout.</b> <code>IdleGuard</code> warns at 45 s and signs out at 60 s; an active call, upload or location share keeps the session alive.</li>
+  <li><b>Disable / reset.</b> Owner disables a login (auth ban, sessions revoked, flag set; RLS also stops direct access immediately) or issues a reset link. Password change keeps your own session and revokes the others.</li>
+  <li><b>Refresh or close.</b> The browser confirmation box appears; confirming ends the session so the next load starts at login.</li>
+</ol>
+
+<h2 id="chat">7. Messaging and realtime</h2>
+<ul>
+  <li>Text messages are inserted by the browser straight into Postgres under RLS (participants only, type <code>text</code>, rate-limited by the database).</li>
+  <li>Stickers, media and snaps go through API routes that verify participation and use the service key.</li>
+  <li>Realtime: Postgres changes on <code>messages</code> update the chat and the list; private broadcast channels <code>conv:&lt;id&gt;</code> carry typing and online presence. The client calls <code>realtime.setAuth()</code> before subscribing; one shared channel per conversation.</li>
+  <li>Ticks: sent, delivered, read (blue) via <code>mark_delivered</code>/<code>mark_read</code>.</li>
+  <li>Clear chat hides history for one person only (policy on <code>messages</code> compares with <code>conversation_clears</code>).</li>
+  <li>Sounds: short Web Audio tones for receive, in-chat and send; on/off and volume stored per device.</li>
+</ul>
+
+<h2 id="media">8. Media, stickers and snaps</h2>
+<div class="grid g2">
+  <div class="card"><h3>Normal photos and videos</h3>
+    <ol class="steps">
+      <li>Client sends 8 MiB chunks (resumable) to <span class="mono">/api/uploads</span>.</li>
+      <li>Server assembles, checks real file type, strips metadata, makes a thumbnail.</li>
+      <li>Each file is encrypted with its own AES-256-GCM key (1 MiB segments, range requests supported); the key is wrapped by the master key.</li>
+      <li>Ciphertext goes to Backblaze B2; reads are decrypted on the fly through a local encrypted cache.</li>
+    </ol>
+    <p class="muted">Limits (admin-editable): photo 10 MB, video 300 MB, temp cap 3 GB.</p>
+  </div>
+  <div class="card"><h3>Snaps (view once / timed)</h3>
+    <ul>
+      <li>Stored only on the VM disk, encrypted, never in B2 or backups.</li>
+      <li>Deleted after the first view, or after 24 hours if unopened.</li>
+      <li>Viewer blocks save and context menu; screenshot detection is best effort only.</li>
+    </ul>
+    <h3>Stickers and profile images</h3>
+    <ul>
+      <li>96 official Microsoft Fluent Emoji stickers (MIT licence, credited in-app) in six packs, plus personal sticker packs.</li>
+      <li>Avatars and wallpapers are encrypted assets served through access-checked routes.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="alerts">9. Alerts when someone is away</h2>
+<div class="grid g2">
+  <div class="card"><h3>Push notifications (free, primary)</h3>
+    <ol class="steps">
+      <li>Person turns on <b>Phone notifications</b> in Settings once (iPhone: Add to Home Screen first) and taps Allow.</li>
+      <li>The browser creates a push address; <span class="mono">/api/push/subscribe</span> stores it (only real push-service hosts are accepted).</li>
+      <li>Worker finds people with unread messages who have been away longer than the admin-set delay and have a subscription.</li>
+      <li>It sends one generic push (title and message from Admin &gt; Push) per away period; dead subscriptions are removed.</li>
+      <li>Service worker shows the notification; tapping opens the app.</li>
+    </ol>
+  </div>
+  <div class="card"><h3>SMS (optional backup)</h3>
+    <ul>
+      <li>Generic HTTP gateway adapter: URL, method, format, templates and credentials are set in Admin &gt; SMS. Placeholders: <code>{to}</code> <code>{toDigits}</code> <code>{text}</code> <code>{sender}</code> <code>{apiKey}</code> <code>{apiSecret}</code> <code>{basicAuth}</code>.</li>
+      <li>One text per offline period, daily and monthly caps, quiet hours, per-member opt-in and verified phone.</li>
+      <li>Credentials are encrypted at rest and write-only in the UI; the gateway URL must be public https (SSRF guard).</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="admin">10. Admin panel (owner only)</h2>
+<div class="tbl"><table>
+<tr><th>Page</th><th>What the owner can do</th></tr>
+<tr><td>Dashboard</td><td>Active, disabled, online, pending invites, messages today, storage; "needs attention" cards.</td></tr>
+<tr><td>Members</td><td>Grid/list of people with search and filters; invite; copy/regenerate/revoke invite; reset password link; <b>disable or enable login</b>; per-member SMS switch and custom text; remove member (deletes data and media).</td></tr>
+<tr><td>Stickers</td><td>Create packs, upload stickers, delete packs.</td></tr>
+<tr><td>SMS</td><td>Gateway settings, credentials, caps, quiet hours, test message, delivery log.</td></tr>
+<tr><td>Push</td><td>Enable/disable, <b>notification title and message</b>, away delay, device count, test to own phone.</td></tr>
+<tr><td>Limits</td><td>Photo/video size, concurrent uploads, storage caps, upload lifetime.</td></tr>
+<tr><td>Audit</td><td>Timeline of admin actions (no emails, phones or tokens).</td></tr>
+</table></div>
+<p class="muted">Every admin page and action re-checks the owner role in the database. Cloudflare Access adds a second gate on <code>/admin*</code>.</p>
+
+<h2 id="security">11. Security controls</h2>
+<div class="tbl"><table>
+<tr><th>Area</th><th>Control</th></tr>
+<tr><td>Network</td><td>No inbound ports; Cloudflare Tunnel only; app bound to 127.0.0.1; CSP with nonce; origin checks on login/logout.</td></tr>
+<tr><td>Accounts</td><td>Invite-only; sign-up locked in the database by a one-time claim secret; strong password policy; atomic lockout; generic login errors; disabled users cut off at once (ban, session revoke, RLS); short idle logout.</td></tr>
+<tr><td>Data access</td><td>RLS on every table, column-level grants, <code>is_active_user()</code> in policies; users cannot read each other's data (tested).</td></tr>
+<tr><td>Secrets</td><td>Only in <code>.env</code> (never in git or the browser); secret key server-side only; SMS credentials encrypted; invite tokens stored as hashes.</td></tr>
+<tr><td>Files</td><td>AES-256-GCM per file, master-key wrapping, real file-type checks, metadata stripping, snaps never leave the VM.</td></tr>
+<tr><td>Abuse</td><td>Per-IP and per-user rate limits (login, presence, uploads, push, stickers), database message rate limit, SSRF allow-list for SMS and push endpoints.</td></tr>
+<tr><td>Container</td><td>read_only filesystem, all capabilities dropped, no-new-privileges, separate network and volumes from n8n, no Docker socket.</td></tr>
+<tr><td>Privacy</td><td>Generic alert text, no message content in notifications, privacy notice accepted at first login, location only by consent.</td></tr>
+</table></div>
+
+<h2 id="api">12. Routes and APIs (grouped)</h2>
+<div class="tbl"><table>
+<tr><th>Group</th><th>Routes</th></tr>
+<tr><td>Auth</td><td><code>/api/auth/login</code>, <code>/api/auth/logout</code>, <code>/api/auth/change-password</code>, <code>/api/invite/check</code>, <code>/api/invite/accept</code>, <code>/auth/confirm</code> (emergency path)</td></tr>
+<tr><td>Session</td><td><code>/api/activity</code>, <code>/api/presence</code></td></tr>
+<tr><td>Messages</td><td><code>/api/messages/sticker</code>, <code>/api/messages/[id]</code> (delete own)</td></tr>
+<tr><td>Uploads and media</td><td><code>/api/uploads</code> (+ chunks, complete), <code>/api/media/[id]</code> (+ stream, screenshot, save)</td></tr>
+<tr><td>Assets</td><td><code>/api/assets</code>, <code>/api/avatar/[userId]</code>, wallpaper, stickers routes</td></tr>
+<tr><td>Calls and location</td><td>LiveKit token route, location request / respond / stop routes</td></tr>
+<tr><td>Push</td><td><code>/api/push/key</code>, <code>/api/push/subscribe</code> (POST, DELETE)</td></tr>
+<tr><td>Phone</td><td><code>/api/phone/send</code> (SMS verification)</td></tr>
+<tr><td>Admin</td><td>Server actions in <code>src/app/admin/actions.ts</code> (all owner-checked) and <code>/api/admin/stickers</code></td></tr>
+</table></div>
+
+<h2 id="deploy">13. Deployment</h2>
+<ol class="steps">
+  <li>Supabase dashboard: sign-up OFF, Site URL = app URL, Email provider ON, Realtime public access OFF, optional short token lifetime (about 300 s).</li>
+  <li>Cloudflare: route <span class="mono">link-c.innoforge.dpdns.org</span> to <span class="mono">http://127.0.0.1:3005</span> on the existing tunnel; Access on <code>/admin*</code>. Never rotate the shared tunnel token.</li>
+  <li>Server: copy the project (without node_modules, .next, qa, .env.local), create <code>.env</code> (<code>chmod 600</code>), <code>mkdir -p data &amp;&amp; chown 1000:1000 data</code>.</li>
+  <li><code>docker compose build &amp;&amp; docker compose up -d</code>.</li>
+  <li>Owner first login via <code>scripts/owner-set-password-link.mjs</code>; invite members from Admin.</li>
+</ol>
+<p><b>Environment variables (names only):</b> <code>NEXT_PUBLIC_SUPABASE_URL</code>, <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>, <code>SUPABASE_SECRET_KEY</code>, <code>MASTER_KEY</code>, <code>SIGNING_KEY</code>, <code>APP_URL</code>, <code>B2_*</code>, <code>DATA_DIR</code>, <code>LIVEKIT_*</code>, <code>VAPID_PUBLIC_KEY</code>, <code>VAPID_PRIVATE_KEY</code>, <code>VAPID_SUBJECT</code>, <code>TZ</code>.</p>
+<p class="muted">Server size: 1 vCPU, 1 GB RAM, about 25 GB disk is comfortable (app uses roughly 150 to 200 MB, worker about 35 MB). A region near Mumbai keeps database round trips short.</p>
+
+<h2 id="ops">14. Operations</h2>
+<ul>
+  <li><b>Backups:</b> free Supabase has no restorable backups; run a nightly encrypted <code>pg_dump</code> and keep a copy of <code>MASTER_KEY</code> offline (losing it makes stored media unreadable).</li>
+  <li><b>Pausing:</b> free Supabase pauses after 7 idle days.</li>
+  <li><b>Monitoring:</b> worker logs a warning when the disk passes 80%; admin dashboard shows storage and failures.</li>
+  <li><b>Secret rotation:</b> rotate the Supabase secret key and the Backblaze key after go-live. Changing the VAPID pair makes every phone subscribe again.</li>
+  <li><b>Emergency access:</b> <code>scripts/owner-login-link.mjs</code> and <code>owner-set-password-link.mjs</code> (need the service key).</li>
+</ul>
+
+<h2 id="limits">15. Known limits and risks</h2>
+<ul>
+  <li>Encryption is server-side: whoever controls the server and <code>MASTER_KEY</code> can read media.</li>
+  <li>Snaps can be photographed or screen-recorded; screenshot alerts are best effort.</li>
+  <li>Push needs the https address; iPhone needs the app added to the Home Screen; people who never allowed notifications get nothing.</li>
+  <li>Carriers may filter SMS; the free gateway tier is limited.</li>
+  <li>Page loads are slower on slow phones because the database is remote; abandoned uploads count for up to an hour.</li>
+  <li>A person who knows an email can lock that account for 15 minutes by guessing; the owner can unlock with a reset link.</li>
+  <li>Rate limits are in memory per process (reset on restart; not shared across replicas).</li>
+</ul>
+
+<h2 id="cost">16. Cost</h2>
+<div class="tbl"><table>
+<tr><th>Item</th><th>Plan</th><th>Approx. cost</th></tr>
+<tr><td>Supabase</td><td>Free</td><td>$0</td></tr>
+<tr><td>Cloudflare (DNS, tunnel, Access)</td><td>Free</td><td>$0</td></tr>
+<tr><td>Backblaze B2</td><td>Pay as you go with spending cap</td><td>cents per month</td></tr>
+<tr><td>LiveKit Cloud</td><td>Free tier</td><td>$0</td></tr>
+<tr><td>Push notifications</td><td>Web Push</td><td>$0</td></tr>
+<tr><td>SMS (optional)</td><td>Per message at the gateway</td><td>varies</td></tr>
+<tr><td>Server</td><td>Existing VM, or a small droplet in Mumbai/Bangalore</td><td>$0 or about $6 per month (verify current prices)</td></tr>
+</table></div>
+
+<h2 id="migrations">17. Database migrations (applied in order)</h2>
+<div class="tbl"><table>
+<tr><th>#</th><th>What it adds</th></tr>
+<tr><td>1</td><td>Core schema, RLS policies, signup trigger, realtime policies</td></tr>
+<tr><td>2</td><td><code>append_chunk</code>, <code>sms_candidates</code></td></tr>
+<tr><td>3</td><td>Signup trigger fixed to run AFTER INSERT</td></tr>
+<tr><td>4</td><td>Profile extras, user assets and prefs, sticker tables, reactions</td></tr>
+<tr><td>5</td><td>Invite tokens, login attempts, <code>login_disabled</code>, <code>revoke_user_sessions</code></td></tr>
+<tr><td>6</td><td>Security hardening: <code>reserve_login_attempt</code>, <code>revoke_other_sessions</code>, <code>is_active_user</code> in policies, invite claim columns</td></tr>
+<tr><td>7</td><td>Sign-up claim lock in <code>handle_new_user</code></td></tr>
+<tr><td>8</td><td>Clear chat: <code>conversation_clears</code>, <code>clear_chat</code>, messages policy</td></tr>
+<tr><td>9</td><td>Push: subscriptions, settings, <code>push_candidates</code>, presence columns</td></tr>
+</table></div>
+
+<h2 id="tests">18. Testing summary</h2>
+<ul>
+  <li>90 unit tests (crypto, SSRF guards, password, idle, login guard, assets, credits, emoji, push allow-list, worker helpers) plus an RLS SQL test.</li>
+  <li>About ten parallel QA agents covered: design and responsive layout, full first-time journeys, chat features, admin, security and APIs, accessibility, performance and resilience, regression of late changes.</li>
+  <li>Sign-up lock-down verified: public sign-up and forged claims are refused, real invites still work.</li>
+  <li>All throwaway data removed afterwards; only the real owner, one real member and the six official sticker packs remain.</li>
+</ul>
+
+<p class="meta" style="margin-top:40px">Generated 2026-10-19. Companion documents: <code>docs/DEPLOY.md</code>, <code>docs/ADMIN-GUIDE.md</code>, <code>docs/BUILD-STATE.md</code>, <code>link-c-final-plan.md</code>.</p>
+</div>
+</body>
+</html>

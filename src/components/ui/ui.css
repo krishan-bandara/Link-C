@@ -1,0 +1,688 @@
+/* Shared look for the app shell, wizard, onboarding and settings (design/README.md). Uses tokens from globals.css. */
+
+/* ---------- buttons and fields ---------- */
+.ui-btn,
+.ui-btn-ghost,
+.ui-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.875rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease), box-shadow 0.25s var(--ease), background-color 0.2s, opacity 0.2s, filter 0.2s;
+}
+.ui-btn {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+  padding: 0.75rem 1.5rem;
+  box-shadow: 0 8px 24px -10px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.ui-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+.ui-btn:active:not(:disabled),
+.ui-btn-ghost:active:not(:disabled),
+.ui-btn-outline:active:not(:disabled),
+.ui-press:active {
+  transform: scale(0.98);
+}
+.ui-btn-ghost {
+  color: var(--c-muted);
+  padding: 0.75rem 1.25rem;
+}
+.ui-btn-ghost:hover:not(:disabled) {
+  background: var(--c-panel-2);
+  color: var(--c-text);
+}
+.ui-btn-outline {
+  border: 1px solid var(--c-edge);
+  background: color-mix(in srgb, var(--c-panel) 60%, transparent);
+  color: var(--c-text);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+}
+.ui-btn-outline:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--c-edge));
+  background: var(--c-panel-2);
+}
+.ui-btn:disabled,
+.ui-btn-ghost:disabled,
+.ui-btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ui-btn:focus-visible,
+.ui-btn-ghost:focus-visible,
+.ui-btn-outline:focus-visible,
+.ui-focus:focus-visible {
+  box-shadow: 0 0 0 2px var(--c-app), 0 0 0 4px var(--accent);
+}
+
+.ui-field {
+  width: 100%;
+  border-radius: 0.875rem;
+  border: 1px solid var(--c-edge);
+  background: color-mix(in srgb, var(--c-panel) 70%, transparent);
+  color: var(--c-text);
+  padding: 0.75rem 1rem;
+  font-size: 1rem; /* 16px stops iOS zoom */
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.25s var(--ease), background-color 0.2s;
+}
+.ui-field::placeholder {
+  color: var(--c-muted);
+}
+.ui-field:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.ui-field[readonly] {
+  color: var(--c-muted);
+}
+
+/* generic hover lift for tappable cards */
+.ui-lift {
+  transition: transform 0.2s var(--ease), box-shadow 0.25s var(--ease), border-color 0.2s, background-color 0.2s;
+}
+.ui-lift:hover {
+  transform: translateY(-2px);
+}
+.ui-lift:active {
+  transform: scale(0.98);
+}
+
+.ui-icon-btn {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--c-muted);
+  outline: none;
+  transition: background-color 0.2s, color 0.2s, transform 0.15s var(--ease);
+}
+.ui-icon-btn:hover {
+  background: var(--c-panel-2);
+  color: var(--c-text);
+}
+.ui-icon-btn:active {
+  transform: scale(0.94);
+}
+.ui-icon-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* ---------- terminal-ish labels ---------- */
+.ui-step {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--c-muted);
+}
+@keyframes ui-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.ui-cursor::after {
+  content: '';
+  display: inline-block;
+  width: 0.5ch;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: -0.12em;
+  background: var(--accent);
+  animation: ui-blink 1s steps(1) infinite;
+}
+
+/* ---------- app shell ---------- */
+.ui-row {
+  position: relative;
+  transition: background-color 0.2s, transform 0.18s var(--ease);
+}
+.ui-row:hover {
+  background: color-mix(in srgb, var(--c-panel) 85%, transparent);
+}
+.ui-row:active {
+  transform: scale(0.99);
+}
+.ui-row[aria-current='page'] {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, var(--c-panel-2)), var(--c-panel-2));
+}
+.ui-row[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background-image: linear-gradient(180deg, var(--accent), var(--a2));
+}
+.ui-badge {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.ui-menu {
+  transform-origin: top right;
+  animation: lc-rise 0.2s var(--ease) both;
+}
+.ui-avatar-ring {
+  border-radius: 9999px;
+  padding: 2px;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+}
+
+/* empty state illustration */
+@keyframes ui-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes ui-twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+.ui-float { animation: ui-float 6s ease-in-out infinite; }
+.ui-twinkle { animation: ui-twinkle 3s ease-in-out infinite; }
+
+/* ---------- toggle ---------- */
+.ui-switch {
+  position: relative;
+  height: 1.75rem;
+  width: 3rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--c-line);
+  outline: none;
+  transition: background 0.25s var(--ease), box-shadow 0.25s;
+}
+.ui-switch[aria-checked='true'] {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+}
+.ui-switch:focus-visible {
+  box-shadow: 0 0 0 2px var(--c-app), 0 0 0 4px var(--accent);
+}
+.ui-switch > span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.25s var(--ease);
+}
+.ui-switch[aria-checked='true'] > span {
+  transform: translateX(20px);
+}
+
+/* entrance animations must not keep overriding hover and press transforms once finished */
+.ui-tile.rise,
+.wz-chip.rise,
+.ui-btn.rise,
+.ui-row.rise {
+  animation-fill-mode: backwards;
+}
+
+/* ---------- picker tiles ---------- */
+.ui-tile {
+  transition: transform 0.2s var(--ease), border-color 0.2s, box-shadow 0.25s var(--ease);
+}
+.ui-tile:hover {
+  transform: translateY(-2px);
+}
+.ui-tile:active {
+  transform: scale(0.97);
+}
+.ui-tile[aria-checked='true'],
+.ui-tile[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent), 0 10px 24px -12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* ---------- uploading ring ---------- */
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+.ui-spin-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg, transparent 0 60%, var(--accent), var(--a2), transparent);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: ui-spin 1s linear infinite;
+}
+
+/* ---------- wizard ---------- */
+.wz-track {
+  position: relative;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--c-line);
+  overflow: visible;
+}
+.wz-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 9999px;
+  background-image: linear-gradient(90deg, var(--accent), var(--a2));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: width 0.55s var(--ease);
+}
+.wz-dot {
+  position: absolute;
+  top: 50%;
+  height: 12px;
+  width: 12px;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  background: var(--c-panel-2);
+  border: 2px solid var(--c-line);
+  transition: background 0.3s, border-color 0.3s, transform 0.4s var(--ease), box-shadow 0.3s;
+}
+.wz-dot[data-done='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.wz-dot[data-now='true'] {
+  transform: translate(-50%, -50%) scale(1.5);
+  background: var(--accent);
+  border-color: var(--c-app);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 14px var(--accent);
+}
+
+@keyframes wz-in-fwd {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes wz-in-back {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: none; }
+}
+.wz-slide-fwd { animation: wz-in-fwd 0.42s var(--ease) both; }
+.wz-slide-back { animation: wz-in-back 0.42s var(--ease) both; }
+
+.wz-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px dashed color-mix(in srgb, var(--accent) 55%, var(--c-line));
+  background: color-mix(in srgb, var(--c-panel) 55%, transparent);
+  transition: transform 0.25s var(--ease), border-color 0.2s, background-color 0.2s, box-shadow 0.3s;
+  outline: none;
+  cursor: pointer;
+}
+.wz-drop:hover,
+.wz-drop[data-over='true'] {
+  transform: scale(1.03);
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: 0 0 40px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.wz-drop:focus-visible {
+  box-shadow: 0 0 0 2px var(--c-app), 0 0 0 4px var(--accent);
+}
+
+.wz-chip {
+  border-radius: 9999px;
+  border: 1px solid var(--c-edge);
+  background: color-mix(in srgb, var(--c-panel) 65%, transparent);
+  color: var(--c-text);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8125rem;
+  outline: none;
+  transition: transform 0.18s var(--ease), border-color 0.2s, background 0.2s;
+}
+.wz-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+.wz-chip:active {
+  transform: scale(0.96);
+}
+.wz-chip:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* live preview phone card */
+.wz-phone {
+  border-radius: 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--c-edge);
+  background: var(--c-panel);
+  box-shadow: 0 24px 50px -24px color-mix(in srgb, var(--accent) 50%, #000);
+  transition: box-shadow 0.4s;
+}
+.wz-bubble-pop { animation: lc-pop 0.35s var(--ease) both; }
+
+/* celebration confetti: pure CSS, spawned by the Wizard as spans */
+@keyframes wz-confetti {
+  0% { transform: translate(0, 0) rotate(0deg) scale(0.4); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1); opacity: 0; }
+}
+.wz-confetti {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  height: 10px;
+  width: 6px;
+  border-radius: 2px;
+  pointer-events: none;
+  animation: wz-confetti 1.4s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+@keyframes wz-check-draw {
+  from { stroke-dashoffset: 40; }
+  to { stroke-dashoffset: 0; }
+}
+.wz-check path {
+  stroke-dasharray: 40;
+  animation: wz-check-draw 0.6s 0.2s var(--ease) both;
+}
+
+/* subtle sheen on glass cards in settings */
+.ui-sheet {
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 34px -22px color-mix(in srgb, var(--accent) 40%, #000);
+}
+
+/* =====================================================================
+   UI kit (Card, StatTile, Badge, IconButton, Tabs, EmptyState, Skeleton, PageHeader) + shared polish
+   ===================================================================== */
+
+/* Gradient text that stays readable on the light theme (the raw accent is too pale on white). */
+:root {
+  --ui-g1: var(--accent);
+  --ui-g2: var(--a2);
+}
+:root[data-theme='light'] {
+  --ui-g1: color-mix(in srgb, var(--accent) 58%, #000);
+  --ui-g2: color-mix(in srgb, var(--a2) 68%, #000);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme='system'] {
+    --ui-g1: color-mix(in srgb, var(--accent) 58%, #000);
+    --ui-g2: color-mix(in srgb, var(--a2) 68%, #000);
+  }
+}
+.ui-gtext {
+  background-image: linear-gradient(135deg, var(--ui-g1), var(--ui-g2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* aurora: three blurred drifting blobs behind a hero. Parent needs position:relative; overflow:hidden; isolation:isolate. */
+.ui-aurora {
+  --o: 0.5;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+:root[data-theme='light'] .ui-aurora {
+  --o: 0.3;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme='system'] .ui-aurora {
+    --o: 0.3;
+  }
+}
+.ui-aurora i {
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  filter: blur(46px);
+  opacity: var(--o);
+  animation: ui-drift 18s ease-in-out infinite alternate;
+}
+.ui-aurora i:nth-child(1) { width: 56%; left: -10%; top: -70%; background: var(--accent); }
+.ui-aurora i:nth-child(2) { width: 50%; right: -8%; top: -50%; background: var(--a2); animation-duration: 23s; animation-delay: -6s; }
+.ui-aurora i:nth-child(3) { width: 36%; left: 38%; bottom: -80%; background: color-mix(in srgb, var(--accent) 50%, var(--a2)); animation-duration: 27s; animation-delay: -11s; }
+@keyframes ui-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(8%, 10%, 0) scale(1.15); }
+  100% { transform: translate3d(-6%, 4%, 0) scale(0.95); }
+}
+
+/* Card */
+.ui-card {
+  position: relative;
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 34px -22px color-mix(in srgb, var(--accent) 40%, #000);
+}
+.ui-card-p-sm { padding: 0.75rem; }
+.ui-card-p-md { padding: 1rem; }
+.ui-card-p-lg { padding: 1.25rem; }
+@media (min-width: 640px) {
+  .ui-card-p-md { padding: 1.25rem; }
+  .ui-card-p-lg { padding: 1.5rem; }
+}
+.ui-card-hover {
+  outline: none;
+  cursor: pointer;
+  transition: transform 0.22s var(--ease), box-shadow 0.28s var(--ease), border-color 0.2s;
+}
+.ui-card-hover:hover,
+.ui-card-hover:focus-visible {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--c-edge));
+  box-shadow: 0 18px 40px -20px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.ui-card-hover:focus-visible {
+  box-shadow: 0 0 0 2px var(--c-app), 0 0 0 4px var(--accent);
+}
+.ui-card-hover:active { transform: scale(0.985); }
+.ui-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 600;
+  font-size: 1rem;
+}
+.ui-icon-chip {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+/* StatTile */
+.ui-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--c-panel) 55%, transparent);
+  border: 1px solid var(--c-edge);
+  min-width: 0;
+}
+.ui-stat-value {
+  font-size: 1.5rem;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ui-stat-label {
+  font-size: 0.75rem;
+  color: var(--c-muted);
+}
+
+/* Badge */
+.ui-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.125rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.ui-pill-grad { background-image: linear-gradient(135deg, var(--accent), var(--a2)); color: var(--c-accent-ink); }
+.ui-pill-accent { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--c-accent-text); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.ui-pill-muted { background: var(--c-panel-2); color: var(--c-muted); border-color: var(--c-edge); }
+.ui-pill-danger { background: color-mix(in srgb, var(--c-danger) 14%, transparent); color: var(--c-danger); border-color: color-mix(in srgb, var(--c-danger) 35%, transparent); }
+.ui-pill-success { background: color-mix(in srgb, #34d399 16%, transparent); color: color-mix(in srgb, #10b981 80%, var(--c-text)); border-color: color-mix(in srgb, #34d399 40%, transparent); }
+
+/* IconButton sizes (base look is .ui-icon-btn) */
+.ui-icon-btn-sm { height: 1.875rem; width: 1.875rem; }
+.ui-icon-btn-lg { height: 2.75rem; width: 2.75rem; }
+.ui-icon-btn-solid { background: var(--c-panel-2); color: var(--c-text); }
+.ui-icon-btn-grad { background-image: linear-gradient(135deg, var(--accent), var(--a2)); color: var(--c-accent-ink); }
+.ui-icon-btn-grad:hover { color: var(--c-accent-ink); filter: brightness(1.08); }
+
+/* Tabs with an animated underline (equal width tabs) */
+.ui-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr));
+  border-bottom: 1px solid var(--c-line);
+}
+.ui-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--c-muted);
+  outline: none;
+  transition: color 0.2s, background-color 0.2s;
+}
+.ui-tab:hover { color: var(--c-text); }
+.ui-tab[aria-selected='true'] { color: var(--c-accent-text); }
+.ui-tab:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 0.5rem; }
+.ui-tabs-bar {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 3px;
+  width: calc(100% / var(--n, 2));
+  padding: 0 14%;
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform 0.35s var(--ease);
+  pointer-events: none;
+}
+.ui-tabs-bar::after {
+  content: '';
+  display: block;
+  height: 100%;
+  border-radius: 3px 3px 0 0;
+  background-image: linear-gradient(90deg, var(--accent), var(--a2));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* EmptyState */
+.ui-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+/* PageHeader */
+.ui-pageheader {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem;
+  border-bottom: 1px solid var(--c-line);
+  background: color-mix(in srgb, var(--c-panel) 75%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+@media (min-width: 640px) {
+  .ui-pageheader { padding: 0.9rem 1.25rem; }
+}
+
+/* picker polish: animated selection rings */
+@keyframes ui-ring-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.ui-accent-dot {
+  position: relative;
+}
+.ui-accent-dot[aria-checked='true']::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 9999px;
+  border: 2px solid var(--ring, var(--accent));
+  animation: ui-ring-in 0.35s var(--ease) both;
+  pointer-events: none;
+}
+.ui-sel-check {
+  position: absolute;
+  right: 0.35rem;
+  top: 0.35rem;
+  display: flex;
+  height: 1.25rem;
+  width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+  animation: lc-pop 0.35s var(--ease) both;
+}
+.ui-wp-img {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.5s var(--ease);
+}
+.ui-tile:hover .ui-wp-img,
+.ui-tile:focus-visible .ui-wp-img {
+  transform: scale(1.14);
+}
+
+/* consistent keyboard focus ring for links and buttons that do not bring their own */
+a:focus-visible,
+button:focus-visible {
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-aurora i, .ui-accent-dot::after, .ui-sel-check { animation: none !important; }
+  .ui-card-hover, .ui-tabs-bar, .ui-wp-img { transition-duration: 0.001s !important; }
+  .ui-card-hover:hover, .ui-tile:hover .ui-wp-img { transform: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-btn, .ui-btn-ghost, .ui-btn-outline, .ui-lift, .ui-tile, .ui-row, .wz-chip, .wz-drop, .ui-icon-btn, .ui-switch, .ui-switch > span, .wz-fill, .wz-dot {
+    transition-duration: 0.001s !important;
+  }
+  .ui-btn:hover:not(:disabled), .ui-lift:hover, .ui-tile:hover, .wz-chip:hover, .wz-drop:hover { transform: none !important; }
+  .wz-slide-fwd, .wz-slide-back, .wz-bubble-pop, .ui-menu, .wz-check path { animation-duration: 0.001s !important; animation-delay: 0s !important; }
+  .ui-float, .ui-twinkle, .ui-cursor::after, .ui-spin-ring { animation: none !important; }
+  .wz-confetti { display: none; }
+}

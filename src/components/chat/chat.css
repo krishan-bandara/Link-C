@@ -1,0 +1,393 @@
+/*
+ * Conversation screen styles (night-sky glass look). Tokens come from globals.css; nothing here edits globals.
+ * Every animation is CSS only and is switched off by the reduced-motion block at the bottom.
+ * Do not write a star followed by a slash inside a comment.
+ */
+
+/* ---------- keyframes ---------- */
+@keyframes cv-in-r {
+  from { opacity: 0; transform: translateX(18px) translateY(6px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cv-in-l {
+  from { opacity: 0; transform: translateX(-18px) translateY(6px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cv-sheet-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cv-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes cv-pop-in {
+  from { opacity: 0; transform: scale(0.93) translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cv-menu-in {
+  from { opacity: 0; transform: translateY(5px) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cv-drop {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cv-emoji-in {
+  0% { opacity: 0; transform: scale(0.5); }
+  65% { opacity: 1; transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes cv-ghost {
+  0% { opacity: 0.9; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-46px) translateX(14px) scale(0.86); }
+}
+@keyframes cv-ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes cv-dot {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent); }
+  70% { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes cv-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes cv-twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+@keyframes cv-tick-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+@keyframes cv-badge {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes cv-img-in {
+  from { opacity: 0; filter: blur(14px); transform: scale(1.04); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+
+/* ---------- messages ---------- */
+.cv-in-mine { animation: cv-in-r 0.34s var(--ease) backwards; transform-origin: bottom right; }
+.cv-in-theirs { animation: cv-in-l 0.34s var(--ease) backwards; transform-origin: bottom left; }
+.cv-emoji-in { animation: cv-emoji-in 0.45s var(--ease) both; }
+
+.cv-out {
+  background: linear-gradient(135deg, transparent 0%, color-mix(in srgb, var(--a2) 20%, transparent) 100%), var(--c-bubble-out);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.16), 0 8px 20px -10px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.cv-in {
+  background: color-mix(in srgb, var(--c-bubble-in) 90%, transparent);
+  border: 1px solid var(--c-edge);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12), 0 6px 16px -12px rgba(0, 0, 0, 0.5);
+}
+.cv-meta-chip {
+  background: color-mix(in srgb, var(--c-panel) 80%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.cv-pill {
+  background: color-mix(in srgb, var(--c-panel) 90%, transparent);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--c-edge);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.55), 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+  animation: cv-menu-in 0.16s var(--ease) both;
+}
+.cv-pill-btn { transition: transform 0.16s var(--ease), background-color 0.16s; }
+.cv-pill-btn:hover { transform: translateY(-3px) scale(1.2); }
+.cv-menu {
+  background: color-mix(in srgb, var(--c-panel) 92%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--c-edge);
+  animation: cv-menu-in 0.16s var(--ease) both;
+}
+.cv-chip-react {
+  background: color-mix(in srgb, var(--c-panel) 92%, transparent);
+  transition: transform 0.15s var(--ease);
+}
+.cv-chip-react:hover { transform: translateY(-1px) scale(1.06); }
+
+.cv-opt-btn { transition: opacity 0.15s, transform 0.15s var(--ease), background-color 0.15s; }
+.cv-opt-btn:hover { transform: scale(1.12); }
+
+/* image placeholder: shimmer until loaded, then a blur-up reveal */
+.cv-media-ph {
+  background: linear-gradient(100deg, var(--c-panel-2) 30%, color-mix(in srgb, var(--accent) 14%, var(--c-panel)) 50%, var(--c-panel-2) 70%);
+  background-size: 220% 100%;
+  animation: lc-shimmer 1.3s linear infinite;
+}
+.cv-img-in { animation: cv-img-in 0.5s var(--ease) both; }
+
+/* ---------- header ---------- */
+.glass.cv-header {
+  position: relative;
+  z-index: 5;
+  border-width: 0 0 1px 0;
+  border-radius: 0;
+}
+.cv-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), color-mix(in srgb, var(--a2) 55%, transparent), transparent);
+  pointer-events: none;
+}
+.cv-online-dot {
+  display: inline-block;
+  height: 7px;
+  width: 7px;
+  border-radius: 9999px;
+  background: var(--accent);
+  animation: cv-dot 1.8s ease-out infinite;
+}
+.cv-iconbtn {
+  transition: box-shadow 0.2s var(--ease), background-color 0.2s, color 0.2s, transform 0.2s var(--ease);
+}
+.cv-iconbtn:not(:disabled):hover {
+  color: var(--c-text);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 0 18px -2px color-mix(in srgb, var(--accent) 55%, transparent);
+  transform: translateY(-1px);
+}
+.cv-iconbtn:not(:disabled):active { transform: scale(0.92); }
+
+/* ---------- list furniture ---------- */
+.cv-datechip {
+  background: var(--c-glass);
+  border: 1px solid var(--c-edge);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.cv-toast {
+  background: var(--c-glass);
+  border: 1px solid var(--c-edge);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.6);
+  animation: cv-drop 0.22s var(--ease) both;
+}
+.cv-latest {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+  box-shadow: 0 10px 26px -8px color-mix(in srgb, var(--accent) 65%, transparent), 0 0 0 1px var(--c-edge);
+  animation: cv-pop-in 0.22s var(--ease) both;
+  transition: transform 0.18s var(--ease);
+}
+.cv-latest:hover { transform: translateY(-2px); }
+.cv-latest:active { transform: scale(0.95); }
+.cv-badge {
+  animation: cv-badge 0.3s var(--ease) both;
+  background: var(--c-accent-ink);
+  color: var(--accent);
+}
+
+.cv-typing { animation: cv-in-l 0.25s var(--ease) backwards; }
+
+/* empty state */
+.cv-empty { animation: cv-pop-in 0.5s var(--ease) both; }
+.cv-empty-art { animation: cv-float 4.5s ease-in-out infinite; }
+.cv-spark { animation: cv-twinkle 2.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+.cv-spark:nth-of-type(2) { animation-delay: 0.8s; }
+.cv-spark:nth-of-type(3) { animation-delay: 1.6s; }
+.cv-starter {
+  background: var(--c-glass);
+  border: 1px solid var(--c-edge);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 0.18s var(--ease), box-shadow 0.18s, border-color 0.18s;
+}
+.cv-starter:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 8px 22px -10px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.cv-starter:active { transform: scale(0.96); }
+
+/* ---------- composer ---------- */
+.cv-composer {
+  background: var(--c-glass);
+  border-top: 1px solid var(--c-edge);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+.cv-field {
+  background: color-mix(in srgb, var(--c-app) 70%, transparent);
+  border: 1px solid var(--c-edge);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.cv-field:focus {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), 0 6px 22px -10px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.cv-send {
+  width: 44px;
+  margin-left: 0;
+  opacity: 1;
+  transform: scale(1);
+  overflow: hidden;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  box-shadow: 0 8px 22px -8px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: width 0.25s var(--ease), margin 0.25s var(--ease), opacity 0.2s, transform 0.2s var(--ease), box-shadow 0.2s;
+}
+.cv-send[data-on='false'] {
+  width: 0;
+  margin-left: -6px;
+  opacity: 0;
+  transform: scale(0.4);
+  pointer-events: none;
+  box-shadow: none;
+}
+.cv-send[data-on='true']:not(:disabled):hover { transform: scale(1.07); }
+.cv-send[data-on='true']:not(:disabled):active { transform: scale(0.88); }
+.cv-send:disabled[data-on='true'] { opacity: 0.55; }
+.cv-send svg { transition: transform 0.25s var(--ease); }
+.cv-send[data-flying='true'] svg { transform: translate(8px, -8px) scale(0.7); opacity: 0.4; }
+.cv-ghost {
+  animation: cv-ghost 0.45s var(--ease) both;
+  pointer-events: none;
+}
+.cv-panel {
+  background: color-mix(in srgb, var(--c-panel) 90%, transparent);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  animation: cv-sheet-up 0.22s var(--ease) both;
+}
+.cv-tabs { position: relative; display: flex; }
+.cv-tabs::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 50%;
+  height: 2px;
+  border-radius: 2px;
+  background-image: linear-gradient(90deg, var(--accent), var(--a2));
+  transition: transform 0.26s var(--ease);
+}
+.cv-tabs[data-tab='stickers']::after { transform: translateX(100%); }
+.cv-tab { transition: color 0.2s; }
+.cv-tab[aria-selected='true'] { color: var(--c-accent-text); }
+.cv-sticker { transition: transform 0.18s var(--ease), background-color 0.18s; }
+.cv-sticker:hover { transform: scale(1.12) rotate(-2deg); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.cv-sticker:active { transform: scale(0.94); }
+.cv-create {
+  position: relative;
+  transition: transform 0.18s var(--ease), background-color 0.18s;
+}
+.cv-create:hover { transform: scale(1.05); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+/* ---------- modal surfaces ---------- */
+.cv-backdrop {
+  background: rgba(3, 6, 14, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: cv-fade 0.18s ease both;
+}
+.cv-surface {
+  background: color-mix(in srgb, var(--c-panel) 90%, transparent);
+  border: 1px solid var(--c-edge);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow: 0 -10px 50px -20px color-mix(in srgb, var(--accent) 40%, transparent), 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+  animation: cv-sheet-up 0.24s var(--ease) both;
+}
+@media (min-width: 640px) {
+  .cv-surface { animation-name: cv-pop-in; }
+}
+.cv-pop { animation: cv-pop-in 0.2s var(--ease) both; }
+.cv-option { transition: border-color 0.18s, background-color 0.18s, transform 0.18s var(--ease); }
+.cv-option:hover { transform: translateY(-1px); }
+.cv-option[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), color-mix(in srgb, var(--a2) 14%, transparent));
+}
+.cv-primary {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: transform 0.18s var(--ease), filter 0.18s, opacity 0.18s;
+}
+.cv-primary:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-1px); }
+.cv-primary:not(:disabled):active { transform: scale(0.97); }
+.cv-bar {
+  background: var(--c-glass);
+  border-bottom: 1px solid var(--c-edge);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: cv-drop 0.22s var(--ease) both;
+}
+.cv-lightbox {
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: cv-fade 0.18s ease both;
+}
+.cv-lightbox img { animation: cv-pop-in 0.25s var(--ease) both; }
+.cv-glassbtn {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 0.18s var(--ease), background-color 0.18s, box-shadow 0.18s;
+}
+.cv-glassbtn:hover { background: rgba(255, 255, 255, 0.24); transform: translateY(-1px); }
+.cv-glassbtn:active { transform: scale(0.92); }
+
+/* snap countdown ring */
+.cv-snap-ring { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 70%, transparent)); }
+.cv-snap-ring[data-low='true'] { animation: cv-tick-pulse 0.7s ease-in-out infinite; }
+
+/* call overlay */
+.cv-call {
+  color: #fff;
+  background:
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(1px 1px at 74% 12%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 40% 34%, rgba(255, 255, 255, 0.6) 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 46%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(1px 1px at 22% 62%, rgba(255, 255, 255, 0.6) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 60% 72%, rgba(255, 255, 255, 0.5) 50%, transparent 51%),
+    radial-gradient(900px 600px at 20% 0%, color-mix(in srgb, var(--a2) 32%, #070b14) 0, transparent 60%),
+    radial-gradient(800px 600px at 90% 100%, color-mix(in srgb, var(--accent) 24%, #070b14) 0, transparent 55%),
+    #070b14;
+  animation: cv-fade 0.25s ease both;
+}
+.cv-call-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--accent);
+  animation: cv-ring 2.2s ease-out infinite;
+}
+.cv-call-ring:nth-child(2) { animation-delay: 0.7s; border-color: var(--a2); }
+.cv-call-ring:nth-child(3) { animation-delay: 1.4s; }
+
+/* skeleton bubbles */
+.cv-skel { border-radius: 18px; }
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .cv-in-mine, .cv-in-theirs, .cv-emoji-in, .cv-pill, .cv-menu, .cv-toast, .cv-latest, .cv-badge, .cv-typing, .cv-empty,
+  .cv-panel, .cv-backdrop, .cv-surface, .cv-pop, .cv-bar, .cv-lightbox, .cv-lightbox img, .cv-call, .cv-ghost, .cv-img-in {
+    animation-duration: 0.001s !important;
+  }
+  .cv-empty-art, .cv-spark, .cv-online-dot, .cv-call-ring, .cv-media-ph, .cv-snap-ring { animation: none !important; }
+  .cv-send, .cv-field, .cv-iconbtn, .cv-pill-btn, .cv-opt-btn, .cv-sticker, .cv-create, .cv-starter, .cv-latest, .cv-tabs::after,
+  .cv-option, .cv-primary, .cv-glassbtn, .cv-chip-react, .cv-send svg {
+    transition-duration: 0.001s !important;
+  }
+  .cv-pill-btn:hover, .cv-sticker:hover, .cv-iconbtn:hover, .cv-starter:hover, .cv-opt-btn:hover { transform: none !important; }
+}
