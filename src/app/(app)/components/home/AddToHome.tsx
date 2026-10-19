@@ -43,7 +43,7 @@ export default function AddToHome() {
       </p>
       <button
         type="button"
-        className="ui-icon-btn ui-icon-btn-sm shrink-0"
+        className="ui-icon-btn ui-icon-btn-sm shrink-0 !h-11 !w-11"
         aria-label="Dismiss"
         onClick={() => {
           setShow(false);

@@ -29,7 +29,7 @@ type Row = {
 
 export function prefsFromRow(r: Row | null | undefined): Prefs {
   return {
-    theme: isTheme(r?.theme) ? r.theme : 'dark',
+    theme: isTheme(r?.theme) ? r.theme : 'light',
     accent: isHex(r?.accent) ? r.accent : DEFAULT_ACCENT,
     wallpaperKind: r?.wallpaper_kind === 'none' || r?.wallpaper_kind === 'custom' ? r.wallpaper_kind : 'preset',
     wallpaperPreset: r?.wallpaper_preset || DEFAULT_WALLPAPER,

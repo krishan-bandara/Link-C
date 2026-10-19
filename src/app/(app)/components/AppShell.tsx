@@ -18,7 +18,7 @@ import '../home.css';
 export type { Me };
 
 const item =
-  'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-main outline-none transition-colors hover:bg-panel-2 focus-visible:bg-panel-2';
+  'flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-main outline-none transition-colors hover:bg-panel-2 focus-visible:bg-panel-2';
 
 type NavDef = { key: string; href: string; label: string; icon: typeof Home; match: (p: string) => boolean };
 
@@ -37,7 +37,7 @@ function UserMenu({ me, side, children }: { me: Me; side: 'below' | 'right'; chi
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const [dark, setDark] = useState(true);
+  const [dark, setDark] = useState(false);
 
   // Light <-> dark in one tap (Settings still has Automatic). Remembered on this device and on the account.
   function flipTheme() {
@@ -52,7 +52,7 @@ function UserMenu({ me, side, children }: { me: Me; side: 'below' | 'right'; chi
   useEffect(() => {
     if (!open) return;
     const t = document.documentElement.getAttribute('data-theme');
-    setDark(resolveDark(isTheme(t) ? t : 'dark'));
+    setDark(resolveDark(isTheme(t) ? t : 'light'));
     const close = (e: Event) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -114,7 +114,7 @@ function Shell({ collapsedInit, children }: { collapsedInit?: boolean; children:
   const badge = unread > 99 ? '99+' : String(unread);
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden text-main">
+    <div className="flex h-dvh w-full max-w-full flex-col overflow-hidden text-main">
       <LocationGuard me={me.id} />
       <div className="flex min-h-0 w-full flex-1">
         {/* desktop rail */}
@@ -199,10 +199,10 @@ function Shell({ collapsedInit, children }: { collapsedInit?: boolean; children:
 
       {/* phone bottom tab bar: hidden inside a conversation */}
       {!inChat && (
-        <nav className="hm-tabbar" aria-label="Main" style={{ ['--n' as string]: nav.length, ['--i' as string]: Math.max(active, 0) }}>
-          <span className="hm-tab-ind" data-none={active < 0} aria-hidden />
+        <nav className="hm-tabbar !px-2 !pb-[calc(0.5rem+env(safe-area-inset-bottom))] !pt-1.5" aria-label="Main" style={{ ['--n' as string]: nav.length, ['--i' as string]: Math.max(active, 0) }}>
+          <span className="hm-tab-ind !bottom-[calc(0.5rem+env(safe-area-inset-bottom))] !top-1.5" data-none={active < 0} aria-hidden />
           {nav.map((n) => (
-            <Link key={n.key} href={n.href} aria-current={n.match(pathname) ? 'page' : undefined} className="hm-tab">
+            <Link key={n.key} href={n.href} aria-current={n.match(pathname) ? 'page' : undefined} className="hm-tab min-h-[3.25rem] !justify-center !text-xs">
               <n.icon className="h-5 w-5" aria-hidden />
               {n.key === 'chats' && unread > 0 && <span className="hm-tab-badge">{badge}</span>}
               {n.label}

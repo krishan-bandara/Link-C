@@ -55,7 +55,7 @@ export default function StickerTray({ onPick, onCreate }: { onPick: (id: string)
             <rect x="1" y="1" rx="11" ry="11" fill="none" stroke="url(#cv-dash-grad)" strokeWidth="1.5" strokeDasharray="5 4" style={{ width: 'calc(100% - 2px)', height: 'calc(100% - 2px)' }} />
           </svg>
           <Plus className="h-6 w-6 text-accent" aria-hidden />
-          <span className="text-[11px]">Create sticker</span>
+          <span className="text-xs">Create sticker</span>
         </button>
         {list?.mine.map((s) => <Tile key={s.id} s={s} onPick={onPick} />)}
       </div>

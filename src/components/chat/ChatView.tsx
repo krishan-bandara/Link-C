@@ -561,7 +561,7 @@ export default function ChatView({
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-app">
       <header className="glass cv-header safe-top flex items-center gap-2 px-2 py-2">
-        <Link href="/" className={`cv-iconbtn flex h-10 w-10 items-center justify-center rounded-full text-muted md:hidden ${FOCUS}`} aria-label="Back to chats">
+        <Link href="/" className={`cv-iconbtn flex h-11 w-11 items-center justify-center rounded-full text-muted md:hidden ${FOCUS}`} aria-label="Back to chats">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="relative shrink-0">

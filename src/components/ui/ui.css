@@ -418,10 +418,17 @@
   }
 }
 .ui-gtext {
-  background-image: linear-gradient(135deg, var(--ui-g1), var(--ui-g2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* solid readable fallback first; gradient only where clipping to text is supported */
+  color: var(--c-text);
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ui-gtext:not(.ui-stat-value) {
+    background-image: linear-gradient(135deg, var(--ui-g1), var(--ui-g2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--c-text);
+  }
 }
 
 /* aurora: three blurred drifting blobs behind a hero. Parent needs position:relative; overflow:hidden; isolation:isolate. */
@@ -518,6 +525,7 @@
   min-width: 0;
 }
 .ui-stat-value {
+  color: var(--c-text);
   font-size: 1.5rem;
   line-height: 1.1;
   font-weight: 700;
@@ -526,6 +534,20 @@
 .ui-stat-label {
   font-size: 0.75rem;
   color: var(--c-muted);
+}
+
+@media (max-width: 767px) {
+  .ui-stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 0.6rem 0.55rem;
+    border-radius: 0.9rem;
+  }
+  .ui-stat > .ui-icon-chip { height: 1.75rem !important; width: 1.75rem !important; border-radius: 0.6rem !important; }
+  .ui-stat > .ui-icon-chip svg { height: 0.95rem; width: 0.95rem; }
+  .ui-stat-value { font-size: 1.5rem; }
+  .ui-stat-label { font-size: 0.68rem; line-height: 1.2; white-space: normal; overflow: visible; text-overflow: clip; }
 }
 
 /* Badge */

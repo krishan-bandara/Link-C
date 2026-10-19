@@ -32,26 +32,8 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* dark is the default */
+/* light is the default (no saved choice); dark applies for data-theme dark, or system when the device prefers dark */
 :root,
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  --c-app: #070b14;
-  --c-panel: #0f1626;
-  --c-panel-2: #182139;
-  --c-line: #26324f;
-  --c-text: #eef2fb;
-  --c-muted: #9aa6bf;
-  --c-bubble-out: color-mix(in srgb, var(--accent) 24%, #0f1626);
-  --c-bubble-in: #141d33;
-  --c-chat: #070b14;
-  --c-accent-text: var(--accent);
-  --c-tick: #6ee7f9;
-  --c-danger: #ff7a8a;
-  --c-glass: rgba(16, 22, 38, 0.62);
-  --c-edge: rgba(255, 255, 255, 0.12);
-}
-
 :root[data-theme='light'] {
   color-scheme: light;
   --c-app: #f3f6fd;
@@ -70,23 +52,41 @@
   --c-edge: rgba(11, 18, 32, 0.12);
 }
 
-@media (prefers-color-scheme: light) {
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --c-app: #070b14;
+  --c-panel: #0f1626;
+  --c-panel-2: #182139;
+  --c-line: #26324f;
+  --c-text: #eef2fb;
+  --c-muted: #9aa6bf;
+  --c-bubble-out: color-mix(in srgb, var(--accent) 24%, #0f1626);
+  --c-bubble-in: #141d33;
+  --c-chat: #070b14;
+  --c-accent-text: var(--accent);
+  --c-tick: #6ee7f9;
+  --c-danger: #ff7a8a;
+  --c-glass: rgba(16, 22, 38, 0.62);
+  --c-edge: rgba(255, 255, 255, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
   :root[data-theme='system'] {
-    color-scheme: light;
-    --c-app: #f3f6fd;
-    --c-panel: #ffffff;
-    --c-panel-2: #e8edf8;
-    --c-line: #d3dbee;
-    --c-text: #0b1220;
-    --c-muted: #55627d;
-    --c-bubble-out: color-mix(in srgb, var(--accent) 22%, #ffffff);
-    --c-bubble-in: #ffffff;
-    --c-chat: #eaf0fb;
-    --c-accent-text: color-mix(in srgb, var(--accent) 55%, #000000);
-    --c-tick: #0b7fa3;
-    --c-danger: #d6123a;
-    --c-glass: rgba(255, 255, 255, 0.7);
-    --c-edge: rgba(11, 18, 32, 0.12);
+    color-scheme: dark;
+    --c-app: #070b14;
+    --c-panel: #0f1626;
+    --c-panel-2: #182139;
+    --c-line: #26324f;
+    --c-text: #eef2fb;
+    --c-muted: #9aa6bf;
+    --c-bubble-out: color-mix(in srgb, var(--accent) 24%, #0f1626);
+    --c-bubble-in: #141d33;
+    --c-chat: #070b14;
+    --c-accent-text: var(--accent);
+    --c-tick: #6ee7f9;
+    --c-danger: #ff7a8a;
+    --c-glass: rgba(16, 22, 38, 0.62);
+    --c-edge: rgba(255, 255, 255, 0.12);
   }
 }
 
