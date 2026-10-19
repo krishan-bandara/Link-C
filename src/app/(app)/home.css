@@ -1,0 +1,391 @@
+/* Home dashboard, shell rail, phone tab bar and conversation list extras. Prefix hm-. Uses tokens from globals.css and ui.css. */
+
+/* ---------- shell: desktop rail ---------- */
+.hm-rail {
+  position: relative;
+  z-index: 30;
+  display: none;
+  width: 4.25rem;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 0;
+  border-right: 1px solid var(--c-edge);
+  background: color-mix(in srgb, var(--c-panel) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+@media (min-width: 768px) {
+  .hm-rail { display: flex; }
+}
+.hm-logo {
+  display: grid;
+  place-items: center;
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 0.9rem;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+  font: 800 1.1rem/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  box-shadow: 0 8px 22px -8px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+.hm-nav {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.hm-nav-ind {
+  position: absolute;
+  left: -0.75rem;
+  top: 0.625rem;
+  height: 1.5rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background-image: linear-gradient(180deg, var(--accent), var(--a2));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent);
+  transform: translateY(calc(var(--i, 0) * 3.5rem));
+  transition: transform 0.4s var(--ease), opacity 0.2s;
+}
+.hm-nav-ind[data-none='true'] { opacity: 0; }
+.hm-nav-item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 2.75rem;
+  width: 2.75rem;
+  border-radius: 1rem;
+  color: var(--c-muted);
+  outline: none;
+  transition: background-color 0.2s, color 0.2s, transform 0.15s var(--ease);
+}
+.hm-nav-item:hover { background: var(--c-panel-2); color: var(--c-text); }
+.hm-nav-item:active { transform: scale(0.93); }
+.hm-nav-item:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.hm-nav-item[aria-current='page'] {
+  color: var(--c-accent-text);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.hm-nav-item::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 0.65rem);
+  top: 50%;
+  transform: translate(-4px, -50%);
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--c-text);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-edge);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.2s var(--ease);
+}
+.hm-nav-item:hover::after,
+.hm-nav-item:focus-visible::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+.hm-nav-badge {
+  position: absolute;
+  right: 0.1rem;
+  top: 0.1rem;
+  display: grid;
+  place-items: center;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+}
+.hm-rail-menu {
+  transform-origin: bottom left;
+  animation: lc-rise 0.2s var(--ease) both;
+}
+
+/* ---------- shell: phone bottom tab bar ---------- */
+.hm-tabbar {
+  position: relative;
+  z-index: 30;
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
+  padding: 0.25rem 0.5rem calc(0.25rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--c-edge);
+  background: var(--c-glass);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+}
+@media (min-width: 768px) {
+  .hm-tabbar { display: none; }
+}
+.hm-tab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.45rem 0 0.35rem;
+  border-radius: 0.9rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--c-muted);
+  outline: none;
+  transition: color 0.2s;
+}
+.hm-tab svg { transition: transform 0.35s var(--ease); }
+.hm-tab[aria-current='page'] { color: var(--c-accent-text); }
+.hm-tab[aria-current='page'] svg { transform: translateY(-2px) scale(1.12); }
+.hm-tab:active svg { transform: scale(0.88); }
+.hm-tab:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.hm-tab-ind {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.25rem;
+  bottom: calc(0.25rem + env(safe-area-inset-bottom));
+  width: calc((100% - 1rem) / var(--n, 3));
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform 0.4s var(--ease), opacity 0.2s;
+}
+.hm-tab-ind[data-none='true'] { opacity: 0; }
+.hm-tab-ind::before {
+  content: '';
+  position: absolute;
+  left: 28%;
+  right: 28%;
+  top: 0;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background-image: linear-gradient(90deg, var(--accent), var(--a2));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.hm-tab-badge {
+  position: absolute;
+  top: 0.15rem;
+  left: calc(50% + 0.45rem);
+  display: grid;
+  place-items: center;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  color: var(--c-accent-ink);
+}
+
+/* page-to-page feel */
+@keyframes hm-page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.hm-page { animation: hm-page-in 0.2s var(--ease) backwards; }
+
+/* ---------- conversation list ---------- */
+.hm-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0.5rem 0.15rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid var(--c-edge);
+  background: color-mix(in srgb, var(--c-panel) 70%, transparent);
+  min-height: 2.5rem;
+  transition: border-color 0.2s, box-shadow 0.25s var(--ease);
+}
+.hm-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.hm-li { animation: lc-rise 0.45s var(--ease) backwards; }
+.hm-row:hover {
+  background: color-mix(in srgb, var(--accent) 7%, var(--c-panel));
+  box-shadow: inset 0 0 28px -16px var(--accent);
+}
+.hm-av-sm {
+  position: relative;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 9999px;
+  background: transparent;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.hm-av-sm[data-online='true'] {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  box-shadow: 0 0 16px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.hm-typing {
+  background-image: linear-gradient(90deg, var(--ui-g1), var(--ui-g2), var(--ui-g1));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 600;
+  animation: hm-flow 1.6s linear infinite;
+}
+@keyframes hm-flow {
+  from { background-position: 0 0; }
+  to { background-position: -200% 0; }
+}
+
+/* online dot with pulse */
+.hm-dot {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  height: 0.95rem;
+  width: 0.95rem;
+  border-radius: 9999px;
+  background: #34d399;
+  border: 3px solid var(--c-panel);
+}
+.hm-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid #34d399;
+  animation: hm-pulse 2s ease-out infinite;
+}
+.hm-dot-sm {
+  right: 0;
+  bottom: 0;
+  height: 0.8rem;
+  width: 0.8rem;
+  border-width: 2px;
+}
+@keyframes hm-pulse {
+  0% { transform: scale(0.8); opacity: 0.9; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+/* ---------- home ---------- */
+.hm-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 24px 60px -34px color-mix(in srgb, var(--accent) 60%, #000);
+}
+@media (min-width: 640px) {
+  .hm-hero { padding: 2rem; }
+}
+.hm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 9999px;
+  border: 1px solid var(--c-edge);
+  background: color-mix(in srgb, var(--c-panel) 65%, transparent);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--c-text);
+  outline: none;
+  transition: transform 0.18s var(--ease), border-color 0.2s, background 0.2s, box-shadow 0.25s;
+}
+.hm-chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+.hm-chip:focus-visible { box-shadow: 0 0 0 2px var(--c-app), 0 0 0 4px var(--accent); }
+.hm-a2hs {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 1.1rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--c-edge));
+}
+
+.hm-grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+}
+.hm-card {
+  --ty: 0px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  height: 100%;
+  padding: 1rem;
+  border-radius: 1.4rem;
+  overflow: hidden;
+  outline: none;
+  box-shadow: 0 12px 34px -24px color-mix(in srgb, var(--accent) 45%, #000);
+  transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--ty));
+  transition: transform 0.25s var(--ease), box-shadow 0.3s var(--ease), border-color 0.2s;
+  animation: lc-rise 0.5s var(--ease) backwards;
+}
+.hm-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--accent) 20%, transparent), transparent 62%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.hm-card:hover,
+.hm-card:focus-visible {
+  --ty: -4px;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--c-edge));
+  box-shadow: 0 22px 44px -20px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.hm-card:hover::after,
+.hm-card:focus-visible::after { opacity: 1; }
+.hm-card:focus-visible { box-shadow: 0 0 0 2px var(--c-app), 0 0 0 4px var(--accent); }
+.hm-card:active { --ty: 0px; transform: scale(0.98); }
+.hm-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--c-edge);
+}
+.hm-av {
+  position: relative;
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 9999px;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  transition: box-shadow 0.3s;
+}
+.hm-av[data-online='false'] {
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 38%, var(--c-line)), color-mix(in srgb, var(--a2) 38%, var(--c-line)));
+}
+.hm-av[data-online='true'] {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent), 0 0 30px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* ---------- settings ---------- */
+.hm-set-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-page, .hm-li, .hm-card, .hm-rail-menu { animation-duration: 0.001s !important; animation-delay: 0s !important; }
+  .hm-card, .hm-chip, .hm-nav-ind, .hm-tab-ind, .hm-tab svg, .hm-card::after { transition-duration: 0.001s !important; }
+  .hm-card { transform: none !important; }
+  .hm-dot::after, .hm-typing { animation: none !important; }
+}

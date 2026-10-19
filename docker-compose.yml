@@ -1,0 +1,54 @@
+# Link-C. Own project and network, completely separate from n8n.
+# The app is published ONLY on the VM's loopback (127.0.0.1:3005). The VM's existing Cloudflare Tunnel
+# forwards https://link-c.innoforge.dpdns.org to http://127.0.0.1:3005, so no port is reachable from outside.
+name: linkc
+
+x-hardening: &hardening
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp
+    - /app/.next/cache
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  networks:
+    - linkc_net
+
+services:
+  app:
+    <<: *hardening
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+    image: linkc-app:local
+    env_file: .env
+    ports:
+      - "127.0.0.1:3005:3000"
+    volumes:
+      - ./data:/data
+    mem_limit: 1g
+    pids_limit: 256
+    cpus: 1.5
+
+  worker:
+    <<: *hardening
+    image: linkc-app:local
+    command: ["node", "dist/worker.mjs"]
+    env_file: .env
+    volumes:
+      - ./data:/data
+    mem_limit: 512m
+    pids_limit: 128
+    cpus: 1.0
+    depends_on:
+      - app
+    healthcheck:
+      disable: true
+
+networks:
+  linkc_net:
+    name: linkc_net
