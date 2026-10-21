@@ -38,11 +38,15 @@ export const POST = handle(async (req: Request) => {
 
   const { data: active } = await db
     .from('upload_sessions')
-    .select('user_id,total_size')
+    .select('user_id,total_size,status,created_at,last_chunk_at')
     .in('status', ['uploading', 'processing'])
     .gt('expires_at', new Date().toISOString());
   const rows = active ?? [];
-  if (rows.filter((r) => r.user_id === user.id).length >= st.max_inflight_uploads) {
+  // An upload nobody has sent a piece to for 5 minutes was abandoned (app closed, phone slept): it must not block new ones.
+  const staleBefore = Date.now() - 5 * 60_000;
+  const live = (r: { status: string; created_at: string; last_chunk_at: string | null }) =>
+    r.status === 'processing' || new Date(r.last_chunk_at ?? r.created_at).getTime() > staleBefore;
+  if (rows.filter((r) => r.user_id === user.id && live(r)).length >= st.max_inflight_uploads) {
     throw new HttpError(429, 'Too many uploads in progress, please wait');
   }
   const used = rows.reduce((n, r) => n + Number(r.total_size), 0);

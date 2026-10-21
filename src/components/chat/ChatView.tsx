@@ -7,7 +7,8 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { wallpaperStyle } from '@/lib/wallpapers';
 import Avatar from '@/components/ui/Avatar';
 import { MEDIA_COLS, MSG_COLS, SHARE_COLS, type LocationShare, type Media, type Msg } from '@/lib/chat/types';
-import { uploadFile, UploadError } from '@/lib/chat/uploader';
+import { cancelUploadOnServer, uploadFile, UploadError, type UploadOpts } from '@/lib/chat/uploader';
+import { listPending } from '@/lib/chat/pending-uploads';
 import { useConvChannel, type ChannelEvent } from '@/lib/chat/useConvChannel';
 import { useCall } from '@/lib/chat/useCall';
 import { useIsDark } from '@/lib/chat/useIsDark';
@@ -431,13 +432,21 @@ export default function ChatView({
 
   function startUpload(file: File, c: AttachChoice) {
     setSheetFile(null);
+    const o: UploadOpts = { conversationId, mode: c.mode, timerSeconds: c.timerSeconds, replyTo: replyTo?.id ?? null };
     setReplyTo(null);
+    launchUpload(file, file.name, o);
+  }
+
+  function launchUpload(file: Blob, name: string, o: UploadOpts, resumeId?: string) {
     const key = crypto.randomUUID();
     const ctl = new AbortController();
     controllers.current.set(key, ctl);
     const patch = (p: Partial<UploadItem>) => setUploads((cur) => cur.map((u) => (u.key === key ? { ...u, ...p } : u)));
-    setUploads((cur) => [...cur, { key, name: file.name, phase: 'uploading', sent: 0, total: file.size }]);
-    uploadFile(file, { conversationId, mode: c.mode, timerSeconds: c.timerSeconds, replyTo: replyTo?.id ?? null }, (p) => patch(p), ctl.signal)
+    setUploads((cur) => [...cur, { key, name, phase: 'uploading', sent: 0, total: file.size }]);
+    uploadFile(file, o, (p) => patch(p), ctl.signal, {
+      resume: resumeId ? { uploadId: resumeId } : undefined,
+      onCreated: (id) => patch({ serverId: id }),
+    })
       .then(({ uploadId }) => {
         patch({ phase: 'done', uploadId });
         setTimeout(() => setUploads((cur) => cur.filter((u) => u.key !== key)), 8000);
@@ -449,8 +458,29 @@ export default function ChatView({
       .finally(() => controllers.current.delete(key));
   }
 
+  // Uploads that were interrupted (app closed, phone switched away) continue when the chat is opened again.
+  const resumedIds = useRef(new Set<string>());
+  useEffect(() => {
+    let live = true;
+    const seen = resumedIds.current;
+    void listPending(conversationId).then((items) => {
+      if (!live) return;
+      for (const p of items) {
+        if (seen.has(p.uploadId)) continue;
+        seen.add(p.uploadId);
+        launchUpload(p.file, p.name, { conversationId, mode: p.mode, timerSeconds: p.timerSeconds, replyTo: p.replyTo }, p.uploadId);
+      }
+    });
+    return () => {
+      live = false;
+      seen.clear();
+    };
+  }, [conversationId]);
+
   function cancelUpload(key: string) {
     controllers.current.get(key)?.abort();
+    const sid = uploads.find((u) => u.key === key)?.serverId;
+    if (sid) void cancelUploadOnServer(sid);
     setUploads((cur) => cur.filter((u) => u.key !== key));
   }
 
@@ -718,7 +748,7 @@ export default function ChatView({
               key={u.key}
               item={u}
               onCancel={() => cancelUpload(u.key)}
-              onDismiss={() => setUploads((cur) => cur.filter((x) => x.key !== u.key))}
+              onDismiss={() => cancelUpload(u.key)}
             />
           ))}
         </div>
