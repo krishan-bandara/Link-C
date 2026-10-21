@@ -11,6 +11,7 @@ export type UploadItem = {
   total: number;
   error?: string;
   uploadId?: string;
+  serverId?: string; // the server's id as soon as the upload exists (used to cancel it)
 };
 
 export default function UploadBubble({
