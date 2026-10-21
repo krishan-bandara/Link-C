@@ -12,6 +12,7 @@ const Body = z.object({
   size: z.number().int().positive(),
   mode: z.enum(['normal', 'once', 'timed']),
   timerSeconds: z.number().int().min(1).max(10).nullable().optional(),
+  replyTo: z.string().uuid().nullable().optional(),
 });
 
 export const POST = handle(async (req: Request) => {
@@ -20,6 +21,11 @@ export const POST = handle(async (req: Request) => {
   const b = Body.parse(await req.json().catch(() => ({})));
   if (b.mode === 'timed' && !b.timerSeconds) throw new HttpError(400, 'A timer is required for timed snaps');
   await requireConversation(supabase, user.id, b.conversationId);
+
+  if (b.replyTo) {
+    const { data: target } = await supabase.from('messages').select('id').eq('id', b.replyTo).eq('conversation_id', b.conversationId).maybeSingle();
+    if (!target) throw new HttpError(400, 'The message you are replying to was not found');
+  }
 
   if (!(ALLOWED_MIMES as readonly string[]).includes(b.mime)) {
     throw new HttpError(415, 'Only JPEG, PNG, WebP, GIF, MP4, MOV and WebM files are allowed');
@@ -56,6 +62,7 @@ export const POST = handle(async (req: Request) => {
       total_chunks: totalChunks,
       mode: b.mode,
       timer_seconds: b.mode === 'timed' ? (b.timerSeconds ?? null) : null,
+      reply_to: b.replyTo ?? null,
       temp_key_wrapped: wrapKey(newFileKey()),
       expires_at: new Date(Date.now() + st.upload_ttl_minutes * 60_000).toISOString(),
     })

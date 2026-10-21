@@ -49,6 +49,7 @@ export type UploadSession = {
   mode: 'normal' | 'once' | 'timed';
   timer_seconds: number | null;
   temp_key_wrapped: string;
+  reply_to: string | null;
   status: 'uploading' | 'processing' | 'done' | 'failed';
   expires_at: string;
 };

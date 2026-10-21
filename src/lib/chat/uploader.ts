@@ -1,5 +1,7 @@
+import { shrinkImage } from './shrink';
+
 export type UploadMode = 'normal' | 'once' | 'timed';
-export type UploadOpts = { conversationId: string; mode: UploadMode; timerSeconds: number | null };
+export type UploadOpts = { conversationId: string; mode: UploadMode; timerSeconds: number | null; replyTo?: string | null };
 export type UploadProgress = { phase: 'uploading' | 'processing'; sent: number; total: number };
 
 export class UploadError extends Error {}
@@ -42,11 +44,12 @@ async function json<T>(res: Response): Promise<T> {
 
 /** Chunked, resumable upload. Resolves with the id of the created upload (== media id). */
 export async function uploadFile(
-  file: File,
+  original: File,
   opts: UploadOpts,
   onProgress: (p: UploadProgress) => void,
   signal: AbortSignal,
 ): Promise<{ uploadId: string }> {
+  const file = await shrinkImage(original);
   const created = await json<{ uploadId: string; chunkSize: number; totalChunks: number }>(
     await fetch('/api/uploads', {
       method: 'POST',
@@ -56,6 +59,7 @@ export async function uploadFile(
         mime: file.type,
         size: file.size,
         mode: opts.mode,
+        replyTo: opts.replyTo ?? null,
         timerSeconds: opts.mode === 'timed' ? opts.timerSeconds : null,
       }),
       signal,

@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, CheckCheck, Download, EyeOff, Plus, StickerIcon, Trash2, Timer } from 'lucide-react';
+import { Camera, Check, CornerUpLeft, CheckCheck, Download, EyeOff, Plus, StickerIcon, Trash2, Timer } from 'lucide-react';
 import type { Media, Msg } from '@/lib/chat/types';
 import { isBigEmoji, QUICK_REACTIONS } from '@/lib/chat/emoji';
 import { stickerSrc } from '@/lib/chat/stickers';
 import Linkify from './Linkify';
+import { QuoteInBubble, type Quote } from './ReplyQuote';
 import { buzz } from '@/lib/chat/haptics';
 import { BUBBLE_SHADOW, FOCUS } from './ui';
 
@@ -57,7 +58,7 @@ function MediaBody({
         {media.kind === 'image' ? (
           <button type="button" onClick={() => onZoom(media)} className={`relative block w-64 max-w-full overflow-hidden rounded-xl ${loaded ? '' : 'cv-media-ph min-h-48'} ${FOCUS}`} aria-label="View image">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" loading="lazy" onLoad={() => { setLoaded(true); onMediaLoad(); }} onError={() => setLoaded(true)} className={`max-h-72 w-full rounded-xl object-cover ${loaded ? 'cv-img-in' : 'opacity-0'}`} />
+            <img src={src} alt="" draggable={false} loading="lazy" onLoad={() => { setLoaded(true); onMediaLoad(); }} onError={() => setLoaded(true)} className={`pointer-events-none max-h-72 w-full select-none rounded-xl object-cover ${loaded ? 'cv-img-in' : 'opacity-0'}`} />
           </button>
         ) : (
           <video
@@ -138,6 +139,9 @@ export default function MessageBubble({
   onMoreReactions,
   onStickerSave,
   onMediaLoad,
+  quote,
+  onReply,
+  onJump,
 }: {
   msg: Msg;
   media: Media | undefined;
@@ -156,6 +160,9 @@ export default function MessageBubble({
   onMoreReactions: (messageId: string) => void;
   onStickerSave: (stickerId: string, save: boolean) => void;
   onMediaLoad: () => void;
+  quote: Quote | null;
+  onReply: (id: string) => void;
+  onJump: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [armed, setArmed] = useState(false); // reaction chips added after mount bounce in; the ones loaded with the history do not
@@ -168,6 +175,8 @@ export default function MessageBubble({
   };
   const press = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const longPressed = useRef(false);
+  const swipe = useRef<{ x: number; y: number; dx: number; on: boolean } | null>(null);
+  const slideRef = useRef<HTMLDivElement>(null);
   const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
@@ -223,6 +232,38 @@ export default function MessageBubble({
   };
   const cancelPress = () => clearTimeout(press.current);
 
+  // Swipe right on a message to reply (touch screens).
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    swipe.current = { x: t.clientX, y: t.clientY, dx: 0, on: false };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const s = swipe.current;
+    if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (!s.on && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+      swipe.current = null; // it is a scroll
+      return;
+    }
+    if (dx > 12 && Math.abs(dx) > Math.abs(dy)) {
+      s.on = true;
+      s.dx = Math.min(dx, 72);
+      if (slideRef.current) slideRef.current.style.transform = `translateX(${s.dx}px)`;
+    }
+  };
+  const onTouchEnd = () => {
+    const s = swipe.current;
+    swipe.current = null;
+    if (slideRef.current) slideRef.current.style.transform = '';
+    if (s?.on && s.dx >= 56) {
+      clearTimeout(press.current);
+      buzz(10);
+      onReply(msg.id);
+    }
+  };
+
 
   const meta = (
     <span className={`flex items-center gap-1 text-xs leading-none text-muted ${bare ? 'cv-meta-chip rounded-full px-2 py-1' : ''}`}>
@@ -267,7 +308,18 @@ export default function MessageBubble({
 
   return (
     <div data-mid={msg.id} className={`group flex ${mine ? 'justify-end' : 'justify-start'} ${firstOfRun ? 'mt-2.5' : 'mt-0.5'} ${fresh ? (mine ? 'cv-in-mine' : 'cv-in-theirs') : ''}`}>
-      <div ref={wrapRef} onMouseEnter={checkRoom} className={`relative flex min-w-0 max-w-[85%] flex-col ${mine ? 'items-end' : 'items-start'} ${open ? 'z-20' : ''}`}>
+      <div
+        ref={(el) => {
+          wrapRef.current = el;
+          slideRef.current = el;
+        }}
+        onMouseEnter={checkRoom}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+        className={`relative flex min-w-0 max-w-[85%] flex-col transition-transform ${mine ? 'items-end' : 'items-start'} ${open ? 'z-20' : ''}`}
+      >
         {open && <button type="button" tabIndex={-1} aria-label="Close menu" className="fixed inset-0 -z-10 cursor-default" onClick={() => setOpen(false)} />}
         {open && <div className={`absolute bottom-full z-10 mb-1 ${mine ? 'right-0' : 'left-0'}`}>{pill}</div>}
         {!open && (
@@ -294,6 +346,7 @@ export default function MessageBubble({
             }
           }}
         >
+          <QuoteInBubble q={quote} mine={mine} onJump={onJump} />
           {msg.type === 'media' ? (
             <>
               <MediaBody media={media} mine={mine} opening={opening} onOpenSnap={onOpenSnap} onZoom={onZoom} onSaveMedia={onSaveMedia} onMediaLoad={onMediaLoad} />
@@ -334,6 +387,17 @@ export default function MessageBubble({
         </div>
         {open && (
           <div ref={menuRef} className={`cv-menu absolute top-full z-10 mt-1 overflow-hidden rounded-xl py-1 shadow-xl ${mine ? 'right-0' : 'left-0'}`} role="menu" onKeyDown={onMenuKey}>
+            <button
+              type="button"
+              role="menuitem"
+              className={menuItem}
+              onClick={() => {
+                setOpen(false);
+                onReply(msg.id);
+              }}
+            >
+              <CornerUpLeft className="h-4 w-4" /> Reply
+            </button>
             <button
               type="button"
               role="menuitem"

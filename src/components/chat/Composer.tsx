@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Paperclip, Send, Smile } from 'lucide-react';
+import { Camera, ImageIcon, Paperclip, Send, Smile } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import StickerTray from './StickerTray';
 import CreateStickerDialog from './CreateStickerDialog';
 import { buzz } from '@/lib/chat/haptics';
 import { FOCUS } from './ui';
+import { ReplyBar, type Quote } from './ReplyQuote';
 import './chat.css';
 
 const EmojiPicker = dynamic(() => import('./EmojiPicker'), { ssr: false });
@@ -16,6 +17,8 @@ const MAX = 4000;
 export type ComposerHandle = {
   /** Put text into the box (used by the conversation starters) and focus it. */
   fill: (text: string) => void;
+  /** Focus the box (used when a reply is started). */
+  focusBox: () => void;
 };
 
 export default function Composer({
@@ -24,6 +27,9 @@ export default function Composer({
   onTyping,
   onStopTyping,
   onSticker,
+  onFocusInput,
+  reply,
+  onCancelReply,
   handleRef,
 }: {
   onSend: (body: string) => Promise<string | null>;
@@ -31,6 +37,9 @@ export default function Composer({
   onTyping: () => void;
   onStopTyping: () => void;
   onSticker: (stickerId: string) => Promise<string | null>;
+  onFocusInput?: () => void;
+  reply?: Quote | null;
+  onCancelReply?: () => void;
   handleRef?: React.Ref<ComposerHandle>;
 }) {
   const [text, setText] = useState('');
@@ -44,6 +53,8 @@ export default function Composer({
   const caretRef = useRef<number | null>(null); // the textarea loses focus while the emoji picker is used
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
+  const [attachMenu, setAttachMenu] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const ghostKey = useRef(0);
@@ -61,6 +72,9 @@ export default function Composer({
   useImperativeHandle(
     handleRef,
     () => ({
+      focusBox() {
+        area.current?.focus();
+      },
       fill(t: string) {
         setText(t.slice(0, MAX));
         onTyping();
@@ -174,6 +188,7 @@ export default function Composer({
           </div>
         </div>
       )}
+      {reply && onCancelReply && <ReplyBar q={reply} onCancel={onCancelReply} />}
       {error && (
         <p className="px-2 pb-1 text-xs text-danger" role="alert">
           {error}
@@ -201,6 +216,19 @@ export default function Composer({
             if (f) onFile(f);
           }}
         />
+        <input
+          ref={camRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          aria-label="Take a photo"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) onFile(f);
+          }}
+        />
         <button
           ref={toggleRef}
           type="button"
@@ -211,9 +239,40 @@ export default function Composer({
         >
           <Smile className="h-6 w-6" />
         </button>
-        <button type="button" onClick={() => fileRef.current?.click()} className={iconBtn} aria-label="Attach photo or video">
-          <Paperclip className="h-5 w-5" />
-        </button>
+        <div className="relative">
+          <button type="button" onClick={() => setAttachMenu((v) => !v)} className={iconBtn} aria-label="Attach photo or video" aria-expanded={attachMenu}>
+            <Paperclip className="h-5 w-5" />
+          </button>
+          {attachMenu && (
+            <>
+              <button type="button" tabIndex={-1} aria-label="Close menu" className="fixed inset-0 z-20 cursor-default" onClick={() => setAttachMenu(false)} />
+              <div className="cv-surface absolute bottom-full left-0 z-30 mb-2 w-44 overflow-hidden rounded-2xl border border-line py-1 shadow-xl" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent/10 ${FOCUS}`}
+                  onClick={() => {
+                    setAttachMenu(false);
+                    camRef.current?.click();
+                  }}
+                >
+                  <Camera className="h-5 w-5 text-accent" aria-hidden /> Camera
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent/10 ${FOCUS}`}
+                  onClick={() => {
+                    setAttachMenu(false);
+                    fileRef.current?.click();
+                  }}
+                >
+                  <ImageIcon className="h-5 w-5 text-accent" aria-hidden /> Gallery
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         <textarea
           ref={area}
           value={text}
@@ -222,6 +281,7 @@ export default function Composer({
           placeholder="Message"
           aria-label="Message"
           enterKeyHint="send"
+          onFocus={() => onFocusInput?.()}
           onSelect={(e) => {
             caretRef.current = e.currentTarget.selectionStart;
           }}

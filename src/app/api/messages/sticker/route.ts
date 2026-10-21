@@ -5,7 +5,7 @@ import { canViewSticker } from '@/lib/assets';
 import { rateLimit } from '@/lib/rate-limit';
 import { adminClient } from '@/lib/supabase/admin';
 
-const body = z.object({ conversationId: z.string().uuid(), stickerId: z.string().uuid() });
+const body = z.object({ conversationId: z.string().uuid(), stickerId: z.string().uuid(), replyTo: z.string().uuid().nullable().optional() });
 
 export const POST = handle(async (req: Request) => {
   const { user, supabase } = await requireUser();
@@ -15,7 +15,7 @@ export const POST = handle(async (req: Request) => {
   if (!(await canViewSticker(user.id, b.stickerId, true))) throw new HttpError(404, 'Sticker not found');
   const { data, error } = await adminClient()
     .from('messages')
-    .insert({ conversation_id: b.conversationId, sender_id: user.id, type: 'sticker', body: '', sticker_id: b.stickerId })
+    .insert({ conversation_id: b.conversationId, sender_id: user.id, type: 'sticker', body: '', sticker_id: b.stickerId, reply_to: b.replyTo ?? null })
     .select('id')
     .single();
   if (error || !data) throw new Error('message insert failed');

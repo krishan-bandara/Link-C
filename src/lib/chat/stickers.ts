@@ -41,11 +41,11 @@ export async function saveSticker(id: string, save: boolean): Promise<string | n
   return res.ok ? null : errText(res, save ? 'Could not add the sticker.' : 'Could not remove the sticker.');
 }
 
-export async function sendSticker(conversationId: string, stickerId: string): Promise<string | null> {
+export async function sendSticker(conversationId: string, stickerId: string, replyTo: string | null = null): Promise<string | null> {
   const res = await fetch('/api/messages/sticker', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ conversationId, stickerId }),
+    body: JSON.stringify({ conversationId, stickerId, replyTo }),
   }).catch(() => null);
   if (!res) return 'Could not reach the server.';
   return res.ok ? null : errText(res, 'Sticker not sent.');
