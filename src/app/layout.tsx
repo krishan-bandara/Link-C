@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import SwRegister from '@/components/SwRegister';
 import IdleGuard from '@/components/IdleGuard';
+import PrivacyShield from '@/components/PrivacyShield';
 import { ACCENT_COOKIE, DEFAULT_ACCENT, THEME_COOKIE, accentStyle, isHex, isTheme } from '@/lib/theme';
 import './globals.css';
 import '@/components/ui/ui.css';
@@ -41,6 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {children}
         <SwRegister />
         <IdleGuard />
+        <PrivacyShield />
       </body>
     </html>
   );

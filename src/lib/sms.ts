@@ -4,7 +4,7 @@ import { safeRequest } from '@/lib/ssrf';
 
 // No next/* imports here: this file is shared with the worker process.
 
-export type SmsKind = 'alert' | 'test' | 'verify';
+export type SmsKind = 'alert' | 'test' | 'verify' | 'invite';
 
 const E164 = /^\+[1-9]\d{7,14}$/;
 

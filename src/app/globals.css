@@ -199,3 +199,21 @@ body {
   }
   .ui-switch span { background: ButtonText; }
 }
+
+/* Privacy shield: while the app is in the background or being re-checked, nothing of the chat is visible. */
+html[data-shield] body > * {
+  visibility: hidden !important;
+}
+html[data-shield]::after {
+  content: 'Link-C';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-app);
+  color: var(--c-text);
+  font: 600 1.25rem system-ui, sans-serif;
+  letter-spacing: 0.05em;
+}
