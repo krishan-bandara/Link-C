@@ -1,11 +1,11 @@
 'use client';
 /*
  * AuthShell({ children; smallSubtle?: boolean })
- *   Page wrapper: MatrixRain plus a centred <main> (safe areas, dvh). With smallSubtle the background switches
+ *   Page wrapper: SkyBackground plus a centred <main> (safe areas, dvh). With smallSubtle the background switches
  *   to the 'subtle' intensity on screens up to 640px wide.
  */
 import { useEffect, useState, type ReactNode } from 'react';
-import MatrixRain from './MatrixRain';
+import SkyBackground from './SkyBackground';
 import './auth.css';
 
 export default function AuthShell({ children, smallSubtle = false }: { children: ReactNode; smallSubtle?: boolean }) {
@@ -20,7 +20,7 @@ export default function AuthShell({ children, smallSubtle = false }: { children:
   }, [smallSubtle]);
   return (
     <>
-      <MatrixRain intensity={subtle ? 'subtle' : 'full'} />
+      <SkyBackground intensity={subtle ? 'subtle' : 'full'} />
       <main className="lc-main">{children}</main>
     </>
   );

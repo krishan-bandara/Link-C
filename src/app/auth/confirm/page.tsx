@@ -87,7 +87,7 @@ function Confirm() {
 
 export default function ConfirmPage() {
   return (
-    <AuthShell smallSubtle>
+    <AuthShell>
       <Suspense>
         <Confirm />
       </Suspense>

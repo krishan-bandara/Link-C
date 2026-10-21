@@ -11,7 +11,7 @@ import Avatar from '@/components/ui/Avatar';
 import ThemePicker from '@/components/ui/ThemePicker';
 import AccentPicker from '@/components/ui/AccentPicker';
 import WallpaperPicker from '@/components/ui/WallpaperPicker';
-import MatrixRain from '@/components/auth/MatrixRain';
+import SkyBackground from '@/components/auth/SkyBackground';
 import TerminalCard, { StepLabel } from '@/components/auth/TerminalCard';
 import Preview from './Preview';
 import '@/components/ui/ui.css';
@@ -357,7 +357,7 @@ export default function Wizard({
 
   return (
     <div className="relative min-h-dvh">
-      <MatrixRain intensity="subtle" />
+      <SkyBackground intensity="subtle" />
       <main className="safe-top safe-bottom relative z-10 mx-auto flex min-h-dvh w-full max-w-5xl flex-col items-stretch justify-center gap-5 px-4 py-6 lg:flex-row lg:items-center lg:gap-10">
         {/* live preview: on top on phones, on the side on desktop */}
         <aside className="shrink-0 lg:w-80" aria-label="Live preview">
