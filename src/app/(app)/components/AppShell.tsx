@@ -113,8 +113,27 @@ function Shell({ collapsedInit, children }: { collapsedInit?: boolean; children:
   const unread = items.reduce((n, c) => n + c.unread, 0);
   const badge = unread > 99 ? '99+' : String(unread);
 
+  // On phones the keyboard covers the page without resizing it. Track the visible area so the chat box stays above the keyboard.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const root = document.documentElement;
+    const apply = () => {
+      root.style.setProperty('--app-h', `${Math.round(vv.height)}px`);
+      if (vv.offsetTop > 0) window.scrollTo(0, 0); // iOS pushes the page up when the keyboard opens
+    };
+    apply();
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    return () => {
+      vv.removeEventListener('resize', apply);
+      vv.removeEventListener('scroll', apply);
+      root.style.removeProperty('--app-h');
+    };
+  }, []);
+
   return (
-    <div className="flex h-dvh w-full max-w-full flex-col overflow-hidden text-main">
+    <div className="flex h-[var(--app-h,100dvh)] w-full max-w-full flex-col overflow-hidden text-main">
       <LocationGuard me={me.id} />
       <div className="flex min-h-0 w-full flex-1">
         {/* desktop rail */}

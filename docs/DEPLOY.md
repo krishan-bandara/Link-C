@@ -89,10 +89,11 @@ Link-C uses Supabase **Cloud** (free plan) for the database and login, so there 
    chmod 600 .env
    ```
    Fill in every value. Set `DATA_DIR=/data`, `TZ=Asia/Colombo`.
-5. **Data folder** (the container runs as user 1000):
+5. **Data folder** (the container runs as user 1000). **Do not skip this**, and run it BEFORE the first `docker compose up`:
    ```
-   mkdir -p data && sudo chown 1000:1000 data
+   mkdir -p data && sudo chown -R 1000:1000 data
    ```
+   If you skip it, Docker creates `data` owned by root, login still works, but every photo upload fails with "upload error" and the logs show `EACCES: permission denied, mkdir '/data/cache'`. Fix: run the `chown` above, then `sudo docker compose restart app worker`. Check with `ls -ld data` (owner must be uid 1000, e.g. `threedkn`). Repeat the `chown` if you ever delete and recreate `data`.
 6. **Build and start**:
    ```
    docker compose build

@@ -17,6 +17,8 @@ import { loadStickers, saveSticker, sendSticker } from '@/lib/chat/stickers';
 import MessageBubble from './MessageBubble';
 import { FOCUS } from './ui';
 import Composer from './Composer';
+import { quoteLabel } from '@/lib/chat/reply';
+import type { Quote } from './ReplyQuote';
 import AttachSheet, { type AttachChoice } from './AttachSheet';
 import UploadBubble, { type UploadItem } from './UploadBubble';
 import SnapViewer, { type OpenedSnap } from './SnapViewer';
@@ -73,6 +75,7 @@ export default function ChatView({
   const [loadingMore, setLoadingMore] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [sheetFile, setSheetFile] = useState<File | null>(null);
+  const [replyTo, setReplyTo] = useState<Msg | null>(null);
   const [confirmId, setConfirmId] = useState<{ id: string; scope: 'me' | 'all'; mine: boolean } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -149,7 +152,8 @@ export default function ChatView({
   }
 
   async function sendStickerMsg(id: string) {
-    const err = await sendSticker(conversationId, id);
+    const err = await sendSticker(conversationId, id, replyTo?.id ?? null);
+    if (!err) setReplyTo(null);
     stopTyping();
     return err;
   }
@@ -336,6 +340,40 @@ export default function ChatView({
     if (near) setUnread((n) => (n ? 0 : n));
   }
 
+  // The on-screen keyboard takes a moment to open: keep the newest message in view while it does.
+  function keyboardScroll() {
+    stick.current = true;
+    [50, 250, 500].forEach((ms) =>
+      setTimeout(() => {
+        const el = listRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      }, ms),
+    );
+  }
+
+  const quoteOf = (id: string | null | undefined): Quote | null => {
+    if (!id) return null;
+    const m = messages.find((x) => x.id === id);
+    if (!m) return { id, name: '', label: 'Earlier message' };
+    return { id, name: m.sender_id === me ? 'You' : other.name, label: quoteLabel(m, media[m.id]) };
+  };
+
+  function startReply(id: string) {
+    const m = messages.find((x) => x.id === id);
+    if (!m || m.type === 'system') return;
+    setReplyTo(m);
+    composerRef.current?.focusBox();
+  }
+
+  function jumpTo(id: string) {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-mid="${id}"]`);
+    if (!el) return flash('That message is further back in the chat.');
+    stick.current = false;
+    el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    el.classList.add('cv-flash');
+    setTimeout(() => el.classList.remove('cv-flash'), 1400);
+  }
+
   function scrollToLatest() {
     const el = listRef.current;
     if (!el) return;
@@ -372,7 +410,7 @@ export default function ChatView({
   async function sendText(body: string): Promise<string | null> {
     const { data, error } = await supabase
       .from('messages')
-      .insert({ conversation_id: conversationId, sender_id: me, body })
+      .insert({ conversation_id: conversationId, sender_id: me, body, ...(replyTo ? { reply_to: replyTo.id } : {}) })
       .select(MSG_COLS)
       .single();
     if (error) {
@@ -381,6 +419,7 @@ export default function ChatView({
         : 'Message not sent. Please try again.';
     }
     upsertMsg(data as Msg);
+    setReplyTo(null);
     playSent();
     return null;
   }
@@ -392,12 +431,13 @@ export default function ChatView({
 
   function startUpload(file: File, c: AttachChoice) {
     setSheetFile(null);
+    setReplyTo(null);
     const key = crypto.randomUUID();
     const ctl = new AbortController();
     controllers.current.set(key, ctl);
     const patch = (p: Partial<UploadItem>) => setUploads((cur) => cur.map((u) => (u.key === key ? { ...u, ...p } : u)));
     setUploads((cur) => [...cur, { key, name: file.name, phase: 'uploading', sent: 0, total: file.size }]);
-    uploadFile(file, { conversationId, mode: c.mode, timerSeconds: c.timerSeconds }, (p) => patch(p), ctl.signal)
+    uploadFile(file, { conversationId, mode: c.mode, timerSeconds: c.timerSeconds, replyTo: replyTo?.id ?? null }, (p) => patch(p), ctl.signal)
       .then(({ uploadId }) => {
         patch({ phase: 'done', uploadId });
         setTimeout(() => setUploads((cur) => cur.filter((u) => u.key !== key)), 8000);
@@ -552,6 +592,9 @@ export default function ChatView({
         onMoreReactions={setReactTarget}
         onStickerSave={(id, save) => void toggleSticker(id, save)}
         onMediaLoad={keepAtBottom}
+        quote={quoteOf(m.reply_to)}
+        onReply={startReply}
+        onJump={jumpTo}
       />,
     );
   }
@@ -702,7 +745,7 @@ export default function ChatView({
         )}
       </div>
 
-      <Composer handleRef={composerRef} onSend={sendText} onFile={onFile} onTyping={sendTyping} onStopTyping={stopTyping} onSticker={sendStickerMsg} />
+      <Composer handleRef={composerRef} onSend={sendText} onFile={onFile} onTyping={sendTyping} onStopTyping={stopTyping} onSticker={sendStickerMsg} onFocusInput={keyboardScroll} reply={replyTo ? quoteOf(replyTo.id) : null} onCancelReply={() => setReplyTo(null)} />
 
       {sheetFile && <AttachSheet file={sheetFile} onSend={(c) => startUpload(sheetFile, c)} onCancel={() => setSheetFile(null)} />}
       {zoom && <Lightbox src={`/api/media/${zoom.id}/stream`} onSave={() => void saveMedia(zoom.id, zoom.mime, flash)} onClose={() => setZoom(null)} />}

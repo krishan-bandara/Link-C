@@ -391,3 +391,10 @@
   }
   .cv-pill-btn:hover, .cv-sticker:hover, .cv-iconbtn:hover, .cv-starter:hover, .cv-opt-btn:hover { transform: none !important; }
 }
+
+/* Jump-to-original highlight for replies */
+@keyframes cv-flash-kf {
+  0%, 60% { background-color: color-mix(in srgb, var(--accent, #6aa5ff) 28%, transparent); }
+  100% { background-color: transparent; }
+}
+.cv-flash { animation: cv-flash-kf 1.4s ease-out; border-radius: 12px; }

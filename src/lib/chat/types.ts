@@ -5,6 +5,7 @@ export type Msg = {
   body: string;
   type: 'text' | 'media' | 'system' | 'sticker';
   sticker_id: string | null;
+  reply_to: string | null;
   created_at: string;
   delivered_at: string | null;
   read_at: string | null;
@@ -41,7 +42,7 @@ export type LocationShare = {
   created_at: string;
 };
 
-export const MSG_COLS = 'id,conversation_id,sender_id,body,type,sticker_id,created_at,delivered_at,read_at';
+export const MSG_COLS = 'id,conversation_id,sender_id,body,type,sticker_id,reply_to,created_at,delivered_at,read_at';
 export const MEDIA_COLS =
   'id,message_id,conversation_id,sender_id,kind,mime,size_bytes,mode,timer_seconds,viewed_at,deleted_at,expires_at,created_at';
 export const SHARE_COLS =

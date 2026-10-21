@@ -128,7 +128,7 @@ export async function processUpload(sessionId: string): Promise<void> {
     // 5. database rows (upload session id doubles as media id)
     const { data: msg, error: mErr } = await db
       .from('messages')
-      .insert({ conversation_id: s.conversation_id, sender_id: s.user_id, type: 'media', body: '' })
+      .insert({ conversation_id: s.conversation_id, sender_id: s.user_id, type: 'media', body: '', reply_to: s.reply_to ?? null })
       .select('id')
       .single();
     if (mErr || !msg) throw new Error('message insert failed');
