@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Bell, ChevronRight, Heart, KeyRound, LogOut, Palette, Plus, Smile, Trash2, User, Lock, type LucideIcon } from 'lucide-react';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { applyTheme, type Theme } from '@/lib/theme';
+import { applyTheme, packInfo, type PackId, type Theme } from '@/lib/theme';
 import { DEFAULT_ABOUT, deleteAsset, resolveDark, savePrefs, uploadAsset, type Prefs, type WallpaperKind } from '@/lib/prefs';
 import PhotoPicker from '@/components/ui/PhotoPicker';
 import ThemePicker from '@/components/ui/ThemePicker';
+import PackPicker from '@/components/ui/PackPicker';
 import AccentPicker from '@/components/ui/AccentPicker';
 import WallpaperPicker from '@/components/ui/WallpaperPicker';
 import { useToast } from '@/components/ui/Toast';
@@ -16,7 +17,6 @@ import PasswordField from '@/components/auth/PasswordField';
 import StrengthMeter from '@/components/auth/StrengthMeter';
 import Card, { CardTitle } from '@/components/ui/Card';
 import PageHeader from '@/components/ui/PageHeader';
-import PushToggle from '@/components/PushToggle';
 import SoundToggle from '@/components/SoundToggle';
 import '@/components/ui/ui.css';
 import '../home.css';
@@ -53,6 +53,7 @@ export default function SettingsClient({
   const [sms, setSms] = useState(initial.sms);
   const [theme, setTheme] = useState<Theme>(prefs.theme);
   const [accent, setAccent] = useState(prefs.accent);
+  const [pack, setPack] = useState<PackId | null>(prefs.pack);
   const [wKind, setWKind] = useState<WallpaperKind>(prefs.wallpaperKind);
   const [wPreset, setWPreset] = useState(prefs.wallpaperPreset);
   const [wAsset, setWAsset] = useState(prefs.wallpaperAssetId);
@@ -241,8 +242,30 @@ export default function SettingsClient({
               value={theme}
               onChange={(t) => {
                 setTheme(t);
-                applyTheme(t, accent);
-                void savePref({ theme: t });
+                setPack(null);
+                applyTheme(t, accent, null);
+                void savePref({ theme: t, pack: null });
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm text-muted">Theme packs</h3>
+            <PackPicker
+              value={pack}
+              onChange={(id) => {
+                setPack(id);
+                if (id) {
+                  const p = packInfo(id)!;
+                  setTheme(p.mode);
+                  setAccent(p.accent);
+                  setWPreset(p.wallpaper);
+                  setWKind('preset');
+                  applyTheme(p.mode, p.accent, id);
+                  void savePref({ theme: p.mode, pack: id, accent: p.accent, wallpaper_kind: 'preset', wallpaper_preset: p.wallpaper });
+                } else {
+                  applyTheme(theme, accent, null);
+                  void savePref({ pack: null });
+                }
               }}
             />
           </div>
@@ -285,7 +308,6 @@ export default function SettingsClient({
         </Section>
 
         <Section title="Notifications" icon={Bell} index={2}>
-          <PushToggle />
           <SoundToggle />
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">

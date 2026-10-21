@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers';
 import SwRegister from '@/components/SwRegister';
 import IdleGuard from '@/components/IdleGuard';
 import PrivacyShield from '@/components/PrivacyShield';
-import { ACCENT_COOKIE, DEFAULT_ACCENT, THEME_COOKIE, accentStyle, isHex, isTheme } from '@/lib/theme';
+import { ACCENT_COOKIE, DEFAULT_ACCENT, PACK_COOKIE, THEME_COOKIE, accentStyle, isHex, isPack, isTheme } from '@/lib/theme';
 import './globals.css';
 import '@/components/ui/ui.css';
 
@@ -35,9 +35,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const t = jar.get(THEME_COOKIE)?.value;
   const a = decodeURIComponent(jar.get(ACCENT_COOKIE)?.value ?? '');
   const theme = isTheme(t) ? t : 'light';
+  const pk = jar.get(PACK_COOKIE)?.value;
+  const pack = isPack(pk) ? pk : undefined;
   const accent = isHex(a) ? a : DEFAULT_ACCENT;
   return (
-    <html lang="en" data-theme={theme} style={accentStyle(accent)} suppressHydrationWarning>
+    <html lang="en" data-theme={theme} data-pack={pack} style={accentStyle(accent, pack)} suppressHydrationWarning>
       <body className="text-main antialiased">
         {children}
         <SwRegister />

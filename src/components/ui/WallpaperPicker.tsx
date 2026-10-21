@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { Ban, ImagePlus, Trash2 } from 'lucide-react';
+import { Ban, ImagePlus, RotateCcw, Trash2 } from 'lucide-react';
 import { WALLPAPER_PRESETS, wallpaperStyle } from '@/lib/wallpapers';
 import type { WallpaperKind } from '@/lib/prefs';
 
@@ -20,6 +20,8 @@ export default function WallpaperPicker({
   onUpload,
   onRemoveCustom,
   onCustom,
+  conversationId,
+  onUseDefault,
 }: {
   kind: WallpaperKind;
   preset: string;
@@ -32,6 +34,10 @@ export default function WallpaperPicker({
   onRemoveCustom?: () => void;
   /** Select the already uploaded picture (otherwise tapping it opens the file chooser). */
   onCustom?: () => void;
+  /** Per-chat use: the picture is that chat's own one. */
+  conversationId?: string;
+  /** Per-chat use: shows a "Use default" button that removes the chat's override. */
+  onUseDefault?: () => void;
 }) {
   const file = useRef<HTMLInputElement>(null);
   return (
@@ -58,7 +64,7 @@ export default function WallpaperPicker({
             className={`${tile} rise`}
             aria-label={kind === 'custom' ? 'Your picture, tap to replace' : 'Your picture'}
           >
-            <span className="ui-wp-img" style={wallpaperStyle('custom', null, dark, assetId)} aria-hidden />
+            <span className="ui-wp-img" style={wallpaperStyle('custom', null, dark, assetId, conversationId)} aria-hidden />
             <span className="relative mb-1 rounded bg-black/55 px-1.5 text-[11px] text-white">Yours</span>
           </button>
         )}
@@ -76,6 +82,11 @@ export default function WallpaperPicker({
         <button type="button" disabled={busy} onClick={() => file.current?.click()} className="ui-btn-outline">
           <ImagePlus className="h-4 w-4" aria-hidden /> {busy ? 'Uploading…' : 'Choose from gallery'}
         </button>
+        {onUseDefault && (
+          <button type="button" disabled={busy} onClick={onUseDefault} className="ui-btn-outline">
+            <RotateCcw className="h-4 w-4" aria-hidden /> Use default
+          </button>
+        )}
         {assetId && onRemoveCustom && (
           <button type="button" disabled={busy} onClick={onRemoveCustom} className="ui-btn-ghost !px-4 !py-2.5 text-sm !text-danger">
             <Trash2 className="h-4 w-4" aria-hidden /> Remove my picture

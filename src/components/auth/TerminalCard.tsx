@@ -1,12 +1,12 @@
 /*
  * TerminalCard({ title: string; label?: string; children; className?: string })
- *   The frosted-glass card with a terminal title bar (three dots plus `title`, e.g. "~/auth/session - zsh") and a light
+ *   The dark neon-glass card with a terminal title bar (three dots plus `title`, e.g. "~/auth/session - zsh") and a light
  *   sweeping around its border. `label` is the accessible name (defaults to "Account"). Add className "lc-wide" for 460px.
  * StepLabel({ children })
  *   The "// step" code-comment label with a blinking cursor, e.g. <StepLabel><b>authenticate</b>(user)</StepLabel>.
  * BrandMark()
  *   The small ring-and-dot mark with the word "Link-C".
- * Place inside <AuthShell> (or any element with class lc-main) so the card sits above SkyBackground.
+ * Place inside <AuthShell> (or any element with class lc-main) so the card sits above the MatrixRain background.
  */
 import type { ReactNode } from 'react';
 import './auth.css';
@@ -42,15 +42,15 @@ export function BrandMark() {
       <svg viewBox="0 0 32 32">
         <defs>
           <linearGradient id="lc-mark-g" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#6ee7f9" />
-            <stop offset="1" stopColor="#a78bfa" />
+            <stop offset="0" style={{ stopColor: 'var(--accent)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--a2)' }} />
           </linearGradient>
         </defs>
         <circle cx="16" cy="16" r="12" fill="none" stroke="url(#lc-mark-g)" strokeWidth="2" />
         <circle cx="16" cy="16" r="4" fill="url(#lc-mark-g)" />
         <circle cx="26" cy="12" r="2.4" fill="currentColor" />
       </svg>
-      <span>Link-C</span>
+      <span data-text="Link-C">Link-C</span>
     </div>
   );
 }

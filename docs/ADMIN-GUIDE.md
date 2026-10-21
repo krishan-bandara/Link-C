@@ -41,6 +41,8 @@ Admin > Stickers shows the official packs (open-licensed Fluent Emoji, with cred
 
 Admin > SMS holds the gateway, monthly cap and quiet hours for the disguised offline alerts. See the "Known limits" part of `docs/DEPLOY.md` for the honest limits (carriers may filter messages). Always test with a real phone.
 
+A person who is offline with unread messages gets up to three texts, then nothing more until they open the app again. SMS 1 goes out once they have been offline for "Offline after (s)" (recommended 45). SMS 2 goes out "SMS 2 after (minutes)" after SMS 1 (default 10) and SMS 3 "SMS 3 after (minutes)" after SMS 1 (default 30, must be later than SMS 2), only if they still have not opened the app. Each step has its own text (max 160 characters); a blank SMS 2 or SMS 3 text reuses the SMS 1 text, and a text set on a member overrides all three. Keep the texts looking like an ordinary system message, with no app name. The old Push tab is gone: push alerts are replaced by SMS.
+
 ## Locked out?
 
 Five wrong passwords in a row lock that email for **15 minutes**. Wait, or send a reset link.

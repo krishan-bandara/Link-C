@@ -33,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       <Heartbeat />
       <RefreshGuard />
-      <PrefsSync theme={prefs.theme} accent={prefs.accent} />
+      <PrefsSync theme={prefs.theme} accent={prefs.accent} pack={prefs.pack} />
       <AppShell
         me={{
           id: profile.id,

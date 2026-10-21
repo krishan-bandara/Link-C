@@ -7,6 +7,7 @@ import '@/components/ui/ui.css';
 import '../home.css';
 import type { ConversationItem } from '@/lib/chat/types';
 import Avatar from '@/components/ui/Avatar';
+import AvatarViewer from '@/components/ui/AvatarViewer';
 import Skeleton from '@/components/ui/Skeleton';
 import { useMounted } from '@/components/ui/useMounted';
 import { preview, useConversations } from './ConversationsContext';
@@ -40,7 +41,7 @@ function Skeletons() {
   );
 }
 
-function Row({ c, idx, active, typing, online, mounted }: { c: ConversationItem; idx: number; active: boolean; typing: boolean; online: boolean; mounted: boolean }) {
+function Row({ c, idx, active, typing, online, mounted, onAvatar }: { c: ConversationItem; idx: number; active: boolean; typing: boolean; online: boolean; mounted: boolean; onAvatar: (c: ConversationItem) => void }) {
   return (
     <li data-id={c.id} className="hm-li" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
       <Link
@@ -48,7 +49,15 @@ function Row({ c, idx, active, typing, online, mounted }: { c: ConversationItem;
         aria-current={active ? 'page' : undefined}
         className="ui-row hm-row flex items-center gap-3 px-3 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
       >
-        <span className="hm-av-sm" data-online={online}>
+        <span
+          className="hm-av-sm cursor-zoom-in"
+          data-online={online}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onAvatar(c);
+          }}
+        >
           <Avatar key={c.otherAvatar ?? 'none'} userId={c.otherId} name={c.otherName} assetId={c.otherAvatar} size={46} className="border-2 border-app" />
           {online && <span className="hm-dot hm-dot-sm" role="img" aria-label="Online" />}
         </span>
@@ -88,6 +97,7 @@ export default function ConversationList({ activePath }: { activePath: string })
   const { items, typing, online, loaded } = useConversations();
   const mounted = useMounted();
   const [q, setQ] = useState('');
+  const [viewing, setViewing] = useState<ConversationItem | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const prevTops = useRef<Map<string, number>>(new Map());
 
@@ -164,10 +174,11 @@ export default function ConversationList({ activePath }: { activePath: string })
       ) : (
         <ul ref={listRef} className="relative">
           {shown.map((c, idx) => (
-            <Row key={c.id} c={c} idx={idx} active={activePath === `/c/${c.id}`} typing={!!typing[c.id]} online={!!online[c.id]} mounted={mounted} />
+            <Row key={c.id} c={c} idx={idx} active={activePath === `/c/${c.id}`} typing={!!typing[c.id]} online={!!online[c.id]} mounted={mounted} onAvatar={setViewing} />
           ))}
         </ul>
       )}
+      {viewing && <AvatarViewer userId={viewing.otherId} name={viewing.otherName} assetId={viewing.otherAvatar} onClose={() => setViewing(null)} />}
     </div>
   );
 }

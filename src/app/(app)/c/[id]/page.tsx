@@ -22,7 +22,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   if (!conv) notFound();
   const otherId = (conv.user_a === user.id ? conv.user_b : conv.user_a) as string;
 
-  const [{ data: profs }, { data: msgs }, { data: shares }, { data: prefs }] = await Promise.all([
+  const [{ data: profs }, { data: msgs }, { data: shares }, { data: prefs }, { data: chatWp }] = await Promise.all([
     supabase.from('profiles').select('id,display_name,role,avatar_asset_id,about').in('id', [user.id, otherId]),
     supabase.from('messages').select(MSG_COLS).eq('conversation_id', id).order('created_at', { ascending: false }).limit(50),
     supabase
@@ -32,6 +32,12 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
       .order('created_at', { ascending: false })
       .limit(1),
     supabase.from('user_prefs').select('wallpaper_kind,wallpaper_preset,wallpaper_asset_id').eq('user_id', user.id).maybeSingle(),
+    supabase
+      .from('chat_wallpapers')
+      .select('kind,preset,asset_id,updated_at')
+      .eq('user_id', user.id)
+      .eq('conversation_id', id)
+      .maybeSingle(),
   ]);
   const messages = ((msgs ?? []) as Msg[]).reverse();
   const ids = messages.filter((m) => m.type === 'media').map((m) => m.id);
@@ -59,6 +65,15 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
         preset: (prefs?.wallpaper_preset as string | null) ?? null,
         assetId: (prefs?.wallpaper_asset_id as string | null) ?? null,
       }}
+      chatWallpaper={
+        chatWp
+          ? {
+              kind: chatWp.kind as string,
+              preset: (chatWp.preset as string | null) ?? null,
+              assetId: (chatWp.asset_id as string | null) ?? null,
+            }
+          : null
+      }
       initialMessages={messages}
       initialMedia={(media ?? []) as Media[]}
       initialShare={((shares ?? [])[0] as LocationShare | undefined) ?? null}

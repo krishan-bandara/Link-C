@@ -8,8 +8,8 @@ import { HttpError } from '@/lib/errors';
 import { dataDir, mediaStore, storeFor } from '@/lib/storage';
 import { adminClient } from '@/lib/supabase/admin';
 
-export type AssetKind = 'avatar' | 'wallpaper' | 'sticker';
-export const MAX_BYTES: Record<AssetKind, number> = { avatar: 8 << 20, wallpaper: 8 << 20, sticker: 4 << 20 };
+export type AssetKind = 'avatar' | 'wallpaper' | 'sticker' | 'chat_wallpaper';
+export const MAX_BYTES: Record<AssetKind, number> = { avatar: 8 << 20, wallpaper: 8 << 20, sticker: 4 << 20, chat_wallpaper: 8 << 20 };
 export const MAX_OWN_STICKERS = 100;
 const INPUT_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
@@ -60,6 +60,27 @@ export function parseEmoji(v: string | null | undefined): string | null {
   return s;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Optional `conversation` query parameter: null when absent, 400 when present but not a uuid. */
+export function parseConversationParam(url: string): string | null {
+  const v = new URL(url).searchParams.get('conversation');
+  if (v === null || v === '') return null;
+  if (!UUID_RE.test(v)) throw new HttpError(400, 'Invalid conversation');
+  return v.toLowerCase();
+}
+
+/** 404 unless the person takes part in the conversation (checked server side, not from the client's word). */
+export async function requireParticipant(userId: string, conversationId: string): Promise<void> {
+  const { data } = await adminClient()
+    .from('conversations')
+    .select('id')
+    .eq('id', conversationId)
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`)
+    .maybeSingle();
+  if (!data) throw new HttpError(404, 'Not found');
+}
+
 // ---------------------------------------------------------------- storing and reading
 
 async function normalise(kind: AssetKind, input: Buffer): Promise<{ data: Buffer; mime: string }> {
@@ -71,7 +92,7 @@ async function normalise(kind: AssetKind, input: Buffer): Promise<{ data: Buffer
     if (kind === 'avatar') {
       return { data: await img.resize(384, 384, { fit: 'cover' }).webp({ quality: 85 }).toBuffer(), mime: 'image/webp' };
     }
-    if (kind === 'wallpaper') {
+    if (kind === 'wallpaper' || kind === 'chat_wallpaper') {
       const data = await img
         .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
         .flatten({ background: '#ffffff' })
@@ -172,6 +193,13 @@ export async function deleteAsset(assetId: string): Promise<void> {
 
 /** Removes every stored blob of a user (call before deleting the member; rows go with the profile cascade). */
 export async function deleteUserAssets(userId: string): Promise<void> {
+  // Other people's per-chat pictures for conversations that are about to go away with this member.
+  const { data: convs } = await adminClient().from('conversations').select('id').or(`user_a.eq.${userId},user_b.eq.${userId}`);
+  const convIds = (convs ?? []).map((c) => c.id as string);
+  if (convIds.length) {
+    const { data: cw } = await adminClient().from('chat_wallpapers').select('asset_id').in('conversation_id', convIds).not('asset_id', 'is', null);
+    for (const r of cw ?? []) await deleteAsset(r.asset_id as string).catch((e) => console.error('chat wallpaper cleanup failed', e instanceof Error ? e.message : e));
+  }
   const { data } = await adminClient().from('user_assets').select('id,storage,object_key').eq('owner_id', userId);
   for (const r of data ?? []) {
     await deleteBlobOf(r);

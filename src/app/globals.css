@@ -217,3 +217,96 @@ html[data-shield]::after {
   font: 600 1.25rem system-ui, sans-serif;
   letter-spacing: 0.05em;
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Theme packs (data-pack on <html>, set together with data-theme light or dark). Declared after the plain light and
+   dark palettes so they win, whatever the device colour scheme is.
+   --------------------------------------------------------------------------------------------------------------- */
+:root[data-pack='love'] {
+  --c-app: #fff0f4;
+  --c-panel: #ffffff;
+  --c-panel-2: #ffe1e9;
+  --c-line: #f6c3d0;
+  --c-text: #3a0b1c;
+  --c-muted: #7d3f53;
+  --c-bubble-out: color-mix(in srgb, #ff4d79 24%, #ffffff);
+  --c-bubble-in: #ffffff;
+  --c-chat: #ffe6ed;
+  --c-accent-text: #c2185b;
+  --c-tick: #d6336c;
+  --c-danger: #c0143c;
+  --c-glass: rgba(255, 244, 247, 0.74);
+  --c-edge: rgba(122, 20, 60, 0.14);
+}
+:root[data-pack='cyber'] {
+  --c-app: #04050c;
+  --c-panel: #0a0e1c;
+  --c-panel-2: #121935;
+  --c-line: #1d2a52;
+  --c-text: #e4f9ff;
+  --c-muted: #7ea6bd;
+  --c-bubble-out: color-mix(in srgb, #00f0ff 20%, #0a0e1c);
+  --c-bubble-in: #0d1328;
+  --c-chat: #03040a;
+  --c-accent-text: #00f0ff;
+  --c-tick: #00f0ff;
+  --c-danger: #ff5c7a;
+  --c-glass: rgba(10, 14, 28, 0.66);
+  --c-edge: rgba(0, 240, 255, 0.22);
+}
+:root[data-pack='aurora'] {
+  --c-app: #051019;
+  --c-panel: #0b1c29;
+  --c-panel-2: #11303f;
+  --c-line: #1a4757;
+  --c-text: #e8fff7;
+  --c-muted: #8db7b0;
+  --c-bubble-out: color-mix(in srgb, #5eead4 22%, #0b1c29);
+  --c-bubble-in: #102635;
+  --c-chat: #06141d;
+  --c-accent-text: #5eead4;
+  --c-tick: #5eead4;
+  --c-danger: #ff8a8a;
+  --c-glass: rgba(11, 28, 41, 0.64);
+  --c-edge: rgba(94, 234, 212, 0.2);
+}
+:root[data-pack='sakura'] {
+  --c-app: #fff8f6;
+  --c-panel: #ffffff;
+  --c-panel-2: #ffeaf0;
+  --c-line: #f2d0da;
+  --c-text: #3a1a25;
+  --c-muted: #7a4f5d;
+  --c-bubble-out: color-mix(in srgb, #e8588a 20%, #ffffff);
+  --c-bubble-in: #ffffff;
+  --c-chat: #fdeef1;
+  --c-accent-text: #b83b69;
+  --c-tick: #c2406f;
+  --c-danger: #c0143c;
+  --c-glass: rgba(255, 249, 247, 0.74);
+  --c-edge: rgba(110, 40, 70, 0.12);
+}
+:root[data-pack='amoled'] {
+  --c-app: #000000;
+  --c-panel: #0a0a0a;
+  --c-panel-2: #141414;
+  --c-line: #262626;
+  --c-text: #f4f4f4;
+  --c-muted: #9b9b9b;
+  --c-bubble-out: color-mix(in srgb, #39ff88 20%, #0a0a0a);
+  --c-bubble-in: #151515;
+  --c-chat: #000000;
+  --c-accent-text: #39ff88;
+  --c-tick: #39ff88;
+  --c-danger: #ff6b6b;
+  --c-glass: rgba(10, 10, 10, 0.7);
+  --c-edge: rgba(255, 255, 255, 0.1);
+}
+/* a little extra character */
+:root[data-pack='cyber'] .cv-out,
+:root[data-pack='cyber'] .cv-in {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 14px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+:root[data-pack='love'] .cv-out {
+  background-image: linear-gradient(135deg, color-mix(in srgb, #ff4d79 30%, #ffffff), color-mix(in srgb, #ff9a8b 30%, #ffffff));
+}

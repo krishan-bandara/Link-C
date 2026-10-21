@@ -14,6 +14,10 @@ export type SmsFormValues = {
   sender_id: string;
   template_text: string;
   offline_after_seconds: number;
+  step2_after_minutes: number;
+  step3_after_minutes: number;
+  template_step2: string;
+  template_step3: string;
   daily_cap: number;
   monthly_cap: number;
   quiet_start: string;
@@ -91,13 +95,31 @@ export function SmsSettingsForm({ v }: { v: SmsFormValues }) {
             </h2>
             <p className="ad-card-sub">What people receive, and how often.</p>
           </div>
+          <p className="ad-card-sub">
+            Texts should look like an ordinary system message and not mention the app. Leave the SMS 2 or SMS 3 text blank to
+            reuse the first text. A text set on a member overrides all three.
+          </p>
           <div className="space-y-1">
-            <span className="ad-label">Alert text (max 160)</span>
+            <span className="ad-label">SMS 1 text (max 160)</span>
             <SmsTemplateField initial={v.template_text} />
           </div>
+          <div className="space-y-1">
+            <span className="ad-label">SMS 2 text (max 160, optional)</span>
+            <SmsTemplateField initial={v.template_step2} name="template_step2" />
+          </div>
+          <div className="space-y-1">
+            <span className="ad-label">SMS 3 text (max 160, optional)</span>
+            <SmsTemplateField initial={v.template_step3} name="template_step3" />
+          </div>
           <div className="ad-fields ad-fields-2">
-            <Field label="Offline after (s)" hint="min 30">
+            <Field label="Offline after (s)" hint={`Wait before the first SMS: ${v.offline_after_seconds} seconds. Minimum 30, recommended 45.`}>
               <input name="offline_after_seconds" type="number" min={30} defaultValue={v.offline_after_seconds} className={inputCls} />
+            </Field>
+            <Field label="SMS 2 after (minutes)" hint={`Sent ${v.step2_after_minutes} minutes after the first SMS if they still have not opened the app.`}>
+              <input name="step2_after_minutes" type="number" min={1} max={1440} defaultValue={v.step2_after_minutes} className={inputCls} />
+            </Field>
+            <Field label="SMS 3 after (minutes)" hint={`Sent ${v.step3_after_minutes} minutes after the first SMS if they still have not opened the app. Must be later than SMS 2.`}>
+              <input name="step3_after_minutes" type="number" min={1} max={1440} defaultValue={v.step3_after_minutes} className={inputCls} />
             </Field>
             <Field label="Daily cap">
               <input name="daily_cap" type="number" min={0} defaultValue={v.daily_cap} className={inputCls} />

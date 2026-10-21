@@ -36,57 +36,6 @@
   height: 100%;
   display: block;
 }
-.lc-rain {
-  opacity: 0.9;
-  -webkit-mask-image: radial-gradient(ellipse 60% 62% at 50% 50%, rgba(0, 0, 0, 0.22), #000 78%);
-  mask-image: radial-gradient(ellipse 60% 62% at 50% 50%, rgba(0, 0, 0, 0.22), #000 78%);
-}
-.lc-sky[data-intensity='subtle'] canvas {
-  opacity: 0.55;
-}
-.lc-glyph {
-  position: absolute;
-  bottom: -50px;
-  font-family: var(--lc-mono);
-  color: var(--accent);
-  opacity: 0;
-  animation: lc-floaty linear infinite;
-  text-shadow: 0 0 12px currentColor;
-}
-:root[data-theme='light'] .lc-glyph {
-  color: color-mix(in srgb, var(--accent) 45%, #000);
-  text-shadow: none;
-}
-.lc-glyph.v {
-  color: var(--a2);
-}
-@keyframes lc-floaty {
-  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-  10% { opacity: 0.4; }
-  90% { opacity: 0.4; }
-  100% { transform: translateY(-118vh) rotate(38deg); opacity: 0; }
-}
-.lc-tick {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(10px + env(safe-area-inset-top));
-  overflow: hidden;
-  white-space: nowrap;
-  font-family: var(--lc-mono);
-  font-size: 11px;
-  color: var(--lc-faint);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-}
-.lc-tick > div {
-  display: inline-block;
-  animation: lc-marq 130s linear infinite;
-}
-.lc-tick b { color: var(--c-muted); font-weight: 400; }
-.lc-tick i { color: var(--a2); font-style: normal; }
-@keyframes lc-marq { to { transform: translateX(-50%); } }
-
 /* ---------- page shell ---------- */
 .lc-main {
   position: relative;
@@ -132,7 +81,7 @@
   from { opacity: 0; transform: translateY(24px) scale(0.97); }
   to { opacity: 1; transform: none; }
 }
-.lc-card.lc-shake { animation: lc-shake 0.45s; }
+.lc-card.lc-shake { animation: lc-card-in 0.8s var(--ease) both, lc-shake 0.45s; } /* keeps card-in in the list so it never restarts */
 @keyframes lc-shake {
   20% { transform: translateX(-8px); }
   40% { transform: translateX(7px); }
@@ -143,8 +92,11 @@
 @media (max-width: 420px) {
   .lc-card { padding: 20px 20px 22px; }
 }
-@media (max-width: 640px), (pointer: coarse) {
+@media (min-width: 641px) and (pointer: fine) {
   .lc-card { -webkit-backdrop-filter: blur(12px) saturate(1.2); backdrop-filter: blur(12px) saturate(1.2); }
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .lc-card { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 .lc-tb {
@@ -368,3 +320,98 @@
 @media (max-height: 660px) {
   .lc-main { align-items: start; }
 }
+
+/* ================= cyber / matrix theme (always dark, whatever the app theme) ================= */
+:root[data-theme] .lc-sky, :root[data-theme] .lc-main, :root[data-theme] .lc-card,
+:root:not([data-theme]) .lc-sky, :root:not([data-theme]) .lc-main, :root:not([data-theme]) .lc-card {
+  --c-text: #e8fff4;
+  --c-muted: #a3cdb9;
+  --c-edge: rgba(0, 255, 160, 0.26);
+  --c-glass: rgba(3, 11, 9, 0.84);
+  --c-panel: #04100c;
+  --c-panel-2: #0b1f18;
+  --c-line: rgba(0, 255, 160, 0.22);
+  --c-app: #020a08;
+  --c-accent-ink: #02150d;
+  --c-accent-text: #5dffb8;
+  --c-danger: #ff8591;
+  --c-tick: #00e89a;
+  --accent: #00ff9c;
+  --a2: #22d3ee;
+  --lc-faint: #7fae98;
+  --lc-ok: #5dffb8;
+  --lc-ink: #02150d;
+  color-scheme: dark;
+}
+.lc-sky {
+  background: radial-gradient(ellipse 80% 70% at 50% 40%, #04170f 0%, #020a08 60%, #010504 100%);
+}
+.lc-rain {
+  opacity: 0.8;
+  -webkit-mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, rgba(0, 0, 0, 0.3), #000 80%);
+  mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, rgba(0, 0, 0, 0.3), #000 80%);
+}
+.lc-sky[data-intensity='subtle'] canvas { opacity: 0.4; }
+.lc-card {
+  background: var(--c-glass);
+  border-color: var(--c-edge);
+  box-shadow: 0 0 0 1px rgba(0, 255, 160, 0.06), 0 0 38px -8px rgba(0, 255, 160, 0.28), 0 30px 80px -24px rgba(0, 0, 0, 0.7);
+  border-radius: 18px;
+}
+.lc-card::before { background: conic-gradient(from var(--lc-ang), transparent 0 65%, var(--accent), var(--a2), transparent); opacity: 0.9; }
+.lc-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(0, 255, 160, 0.09) 50%, transparent) 0 -90px / 100% 90px no-repeat;
+  animation: lc-scan 6s linear infinite;
+}
+@keyframes lc-scan { to { background-position: 0 calc(100% + 90px); } }
+.lc-input { background: rgba(0, 255, 160, 0.05); border-radius: 10px; }
+.lc-input:focus-visible { box-shadow: 0 0 0 3px rgba(0, 255, 160, 0.2), 0 0 18px -2px rgba(0, 255, 160, 0.5); }
+.lc-btn { border-radius: 10px; font-family: var(--lc-mono); letter-spacing: 0.02em; box-shadow: 0 0 22px -6px rgba(0, 255, 160, 0.7); }
+.lc-btn:hover:not(:disabled) { box-shadow: 0 0 30px -4px rgba(34, 211, 238, 0.8); }
+.lc-btn.busy::before { border-color: rgba(2, 21, 13, 0.3); border-top-color: var(--lc-ink); }
+.lc-h1 { text-shadow: 0 0 18px rgba(0, 255, 160, 0.25); }
+.lc-eye, .lc-link, .lc-btn { min-height: 44px; }
+.lc-eye { height: 44px; top: 4px; }
+
+/* boot lines (decorative) */
+.lc-boot {
+  margin: -4px 0 16px;
+  min-height: 4.95em;
+  font-family: var(--lc-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--lc-faint);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.lc-boot div { overflow: hidden; text-overflow: clip; }
+.lc-boot-last { color: var(--accent); }
+.lc-boot .cur { display: inline-block; width: 7px; height: 13px; margin-left: 2px; vertical-align: -2px; background: var(--accent); animation: lc-blink 1s steps(2) infinite; }
+@media (max-height: 700px) { .lc-boot { display: none; } }
+
+/* glitch hover on the brand mark */
+.lc-mark span { position: relative; color: var(--accent); }
+.lc-mark span::before, .lc-mark span::after { content: attr(data-text); position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.lc-mark:hover span::before { color: #22d3ee; opacity: 0.9; animation: lc-glitch 0.35s steps(2) 2; }
+.lc-mark:hover span::after { color: #ff5c8a; opacity: 0.8; animation: lc-glitch 0.35s steps(2) 2 reverse; }
+@keyframes lc-glitch {
+  0% { transform: translate(0, 0); clip-path: inset(0 0 60% 0); }
+  50% { transform: translate(-2px, 1px); clip-path: inset(40% 0 20% 0); }
+  100% { transform: translate(2px, -1px); clip-path: inset(70% 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lc-card::after, .lc-boot .cur, .lc-mark span::before, .lc-mark span::after { animation: none !important; }
+  .lc-card::after { display: none; }
+}
+
+/* battery: no scan sweep on touch screens; pause continuous animations while the page is hidden */
+@media (pointer: coarse) {
+  .lc-card::after { animation: none; display: none; }
+}
+:root.lc-paused .lc-card::before, :root.lc-paused .lc-card::after, :root.lc-paused .lc-cm::after, :root.lc-paused .lc-boot .cur,
+:root.lc-paused .lc-term .cur { animation-play-state: paused; }

@@ -29,6 +29,10 @@ export interface SmsSettingsPublic {
   sender_id: string | null;
   template_text: string;
   offline_after_seconds: number;
+  step2_after_minutes: number;
+  step3_after_minutes: number;
+  template_step2: string | null;
+  template_step3: string | null;
   daily_cap: number;
   monthly_cap: number;
   quiet_start: string | null;

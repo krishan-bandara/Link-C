@@ -11,7 +11,7 @@ import Avatar from '@/components/ui/Avatar';
 import ThemePicker from '@/components/ui/ThemePicker';
 import AccentPicker from '@/components/ui/AccentPicker';
 import WallpaperPicker from '@/components/ui/WallpaperPicker';
-import SkyBackground from '@/components/auth/SkyBackground';
+import MatrixRain from '@/components/auth/MatrixRain';
 import TerminalCard, { StepLabel } from '@/components/auth/TerminalCard';
 import Preview from './Preview';
 import '@/components/ui/ui.css';
@@ -118,11 +118,11 @@ export default function Wizard({
 
   function pickTheme(t: Theme) {
     setTheme(t);
-    applyTheme(t, accent);
+    applyTheme(t, accent, null); // the wizard never has a pack: clear any left over from a previous person on this browser
   }
   function pickAccent(a: string) {
     setAccent(a);
-    applyTheme(theme, a);
+    applyTheme(theme, a, null);
   }
   async function uploadWallpaper(f: File) {
     setWBusy(true);
@@ -162,6 +162,7 @@ export default function Wizard({
       !pe &&
       (await savePrefs(supabase, userId, {
         theme,
+        pack: null,
         accent,
         wallpaper_kind: wKind === 'custom' && !wAsset ? 'preset' : wKind,
         wallpaper_preset: wPreset,
@@ -172,7 +173,7 @@ export default function Wizard({
       setBusy(false);
       return;
     }
-    applyTheme(theme, accent);
+    applyTheme(theme, accent, null);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     setConfetti(makeConfetti());
     await new Promise((r) => setTimeout(r, reduce ? 600 : 1700));
@@ -356,11 +357,11 @@ export default function Wizard({
 
   return (
     <div className="relative min-h-dvh">
-      <SkyBackground intensity="subtle" />
+      <MatrixRain intensity="subtle" />
       <main className="safe-top safe-bottom relative z-10 mx-auto flex min-h-dvh w-full max-w-5xl flex-col items-stretch justify-center gap-5 px-4 py-6 lg:flex-row lg:items-center lg:gap-10">
         {/* live preview: on top on phones, on the side on desktop */}
         <aside className="shrink-0 lg:w-80" aria-label="Live preview">
-          <p className="ui-step mb-2 hidden text-center lg:block">{'// live_preview'}</p>
+          <p className="ui-step mb-2 hidden text-center lg:block" style={{ color: '#8fe9c4' }}>{'// live_preview'}</p>
           <div className="lg:hidden">
             <Preview userId={userId} name={shownName} about={about} assetId={avatar} localUrl={localUrl} theme={theme} wKind={wKind} wPreset={wPreset} wAsset={wAsset} dark={dark} compact />
           </div>
