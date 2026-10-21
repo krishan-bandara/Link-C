@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BadgeCheck, Database, Lock, MapPin, MessageSquareText, ShieldCheck, Timer, Flame } from 'lucide-react';
-import SkyBackground from '@/components/auth/SkyBackground';
+import MatrixRain from '@/components/auth/MatrixRain';
 import TerminalCard, { StepLabel } from '@/components/auth/TerminalCard';
 import '@/components/ui/ui.css';
 
@@ -88,7 +88,7 @@ export default function OnboardingForm({
 
   return (
     <div className="relative min-h-dvh">
-      <SkyBackground intensity="subtle" />
+      <MatrixRain intensity="subtle" />
       <main className="safe-top safe-bottom relative z-10 mx-auto flex min-h-dvh w-full max-w-xl items-center px-4 py-8">
         <div className="w-full">
           <TerminalCard title="~/onboarding/notice - read me">

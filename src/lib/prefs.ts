@@ -1,12 +1,13 @@
 // Client-side helpers for the member's own profile and appearance preferences (RLS limits everything to own rows).
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DEFAULT_ACCENT, isHex, isTheme, type Theme } from '@/lib/theme';
+import { DEFAULT_ACCENT, isHex, isPack, isTheme, type PackId, type Theme } from '@/lib/theme';
 import { DEFAULT_WALLPAPER } from '@/lib/wallpapers';
 
 export type WallpaperKind = 'none' | 'preset' | 'custom';
 
 export type Prefs = {
   theme: Theme;
+  pack: PackId | null;
   accent: string;
   wallpaperKind: WallpaperKind;
   wallpaperPreset: string;
@@ -16,10 +17,11 @@ export type Prefs = {
 
 export const DEFAULT_ABOUT = 'Hey there! I am using Link-C';
 
-export const PREF_COLS = 'theme,accent,wallpaper_kind,wallpaper_preset,wallpaper_asset_id,wizard_done_at';
+export const PREF_COLS = 'theme,pack,accent,wallpaper_kind,wallpaper_preset,wallpaper_asset_id,wizard_done_at';
 
 type Row = {
   theme?: string | null;
+  pack?: string | null;
   accent?: string | null;
   wallpaper_kind?: string | null;
   wallpaper_preset?: string | null;
@@ -30,6 +32,7 @@ type Row = {
 export function prefsFromRow(r: Row | null | undefined): Prefs {
   return {
     theme: isTheme(r?.theme) ? r.theme : 'light',
+    pack: isPack(r?.pack) ? r.pack : null,
     accent: isHex(r?.accent) ? r.accent : DEFAULT_ACCENT,
     wallpaperKind: r?.wallpaper_kind === 'none' || r?.wallpaper_kind === 'custom' ? r.wallpaper_kind : 'preset',
     wallpaperPreset: r?.wallpaper_preset || DEFAULT_WALLPAPER,
@@ -50,6 +53,7 @@ export async function savePrefs(
   userId: string,
   patch: Partial<{
     theme: Theme;
+    pack: PackId | null;
     accent: string;
     wallpaper_kind: WallpaperKind;
     wallpaper_preset: string;

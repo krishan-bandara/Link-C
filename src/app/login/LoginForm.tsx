@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AuthShell from '@/components/auth/AuthShell';
 import PasswordField from '@/components/auth/PasswordField';
+import BootLines from '@/components/auth/BootLines';
 import TerminalLog, { type LogLine } from '@/components/auth/TerminalLog';
 import { BrandMark, StepLabel, TerminalCard } from '@/components/auth/TerminalCard';
 
@@ -143,9 +144,10 @@ export default function LoginForm({ notice }: { notice: string }) {
 
   const locked = lockLeft > 0;
   return (
-    <AuthShell>
+    <AuthShell smallSubtle>
       <TerminalCard title={'~/auth/session — zsh'} label="Sign in" className={shake ? 'lc-shake' : ''}>
         <BrandMark />
+        <BootLines />
         {notice && (
           <p className="lc-notice" role="status">
             {notice}
@@ -231,7 +233,7 @@ export default function LoginForm({ notice }: { notice: string }) {
               {locked ? `Too many attempts. Try again in ${fmt(lockLeft)}.` : error}
             </p>
             <button className={`lc-btn${busy ? ' busy' : ''}`} type="submit" disabled={busy || locked} aria-busy={busy}>
-              <span>{busy ? 'Signing in' : locked ? `Wait ${fmt(lockLeft)}` : 'Sign in'}</span>
+              <span>{busy ? 'Authenticating...' : locked ? `Wait ${fmt(lockLeft)}` : 'Sign in'}</span>
             </button>
             <div className="lc-foot">
               <button

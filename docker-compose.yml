@@ -32,7 +32,7 @@ services:
       - ./data:/data
     mem_limit: 1g
     pids_limit: 256
-    cpus: 1.5
+    cpus: ${APP_CPUS:-1.5}
 
   worker:
     <<: *hardening
@@ -43,7 +43,7 @@ services:
       - ./data:/data
     mem_limit: 512m
     pids_limit: 128
-    cpus: 1.0
+    cpus: ${WORKER_CPUS:-1.0}
     depends_on:
       - app
     healthcheck:

@@ -8,7 +8,6 @@ import { createInviteToken } from '@/lib/invites';
 import { createStickerPack, deletePack, deleteUserAssets, removePackSticker } from '@/lib/assets';
 import { deleteMediaBlobs } from '@/lib/media';
 import { sendSms, validateE164 } from '@/lib/sms';
-import { pushConfigured, sendPush, type PushSub } from '@/lib/push';
 import { assertPublicHttpsUrl } from '@/lib/ssrf';
 import { adminClient } from '@/lib/supabase/admin';
 
@@ -300,11 +299,19 @@ const smsSchema = z.object({
   sender_id: z.string().trim().max(40),
   template_text: z.string().trim().min(1, 'SMS text is required').max(160, 'SMS text max 160 characters'),
   offline_after_seconds: z.coerce.number().int().min(30, 'Offline delay must be at least 30 seconds').max(86400),
+  step2_after_minutes: z.coerce.number().int().min(1, 'SMS 2 delay: 1 to 1440 minutes').max(1440, 'SMS 2 delay: 1 to 1440 minutes'),
+  step3_after_minutes: z.coerce.number().int().min(1, 'SMS 3 delay: 1 to 1440 minutes').max(1440, 'SMS 3 delay: 1 to 1440 minutes'),
+  template_step2: z.string().trim().max(160, 'SMS 2 text max 160 characters'),
+  template_step3: z.string().trim().max(160, 'SMS 3 text max 160 characters'),
   daily_cap: z.coerce.number().int().min(0).max(1000),
   monthly_cap: z.coerce.number().int().min(0).max(100000),
   quiet_start: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, 'Quiet hours: use HH:MM (00:00 to 23:59)'),
   quiet_end: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, 'Quiet hours: use HH:MM (00:00 to 23:59)'),
-});
+})
+  .refine((v) => v.step3_after_minutes > v.step2_after_minutes, {
+    message: 'SMS 3 must come later than SMS 2',
+    path: ['step3_after_minutes'],
+  });
 
 const stubPlaceholders = (t: string) => t.replace(/\{(to|text|sender|apiKey|apiSecret|basicAuth|toDigits)\}/g, 'x');
 
@@ -321,6 +328,10 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
       sender_id: g('sender_id'),
       template_text: g('template_text'),
       offline_after_seconds: g('offline_after_seconds'),
+      step2_after_minutes: g('step2_after_minutes'),
+      step3_after_minutes: g('step3_after_minutes'),
+      template_step2: g('template_step2'),
+      template_step3: g('template_step3'),
       daily_cap: g('daily_cap'),
       monthly_cap: g('monthly_cap'),
       quiet_start: g('quiet_start'),
@@ -362,6 +373,8 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
       i.body_template !== cur.body_template ||
       i.headers_template !== cur.headers_template ||
       i.template_text !== cur.template_text ||
+      (i.template_step2 || null) !== (cur.template_step2 ?? null) ||
+      (i.template_step3 || null) !== (cur.template_step3 ?? null) ||
       i.http_method !== cur.http_method ||
       i.request_format !== cur.request_format;
     if (sensitive) {
@@ -383,6 +396,10 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
       sender_id: i.sender_id || null,
       template_text: i.template_text,
       offline_after_seconds: i.offline_after_seconds,
+      step2_after_minutes: i.step2_after_minutes,
+      step3_after_minutes: i.step3_after_minutes,
+      template_step2: i.template_step2 || null,
+      template_step3: i.template_step3 || null,
       daily_cap: i.daily_cap,
       monthly_cap: i.monthly_cap,
       quiet_start: i.quiet_start || null,
@@ -453,51 +470,5 @@ export async function saveLimits(_prev: State, fd: FormData): Promise<State> {
     revalidatePath('/admin/settings');
     revalidatePath('/admin');
     return ok('Limits saved.');
-  });
-}
-
-// ------------------------------------------------------------------ push notifications
-const pushSchema = z.object({
-  title: z.string().trim().min(1, 'Title is required').max(60, 'Title: 60 characters at most'),
-  body: z.string().trim().min(1, 'Message is required').max(140, 'Message: 140 characters at most'),
-  offline_after_seconds: z.coerce.number().int().min(60).max(3600),
-});
-
-export async function savePushSettings(_prev: State, fd: FormData): Promise<State> {
-  return owned(async (ownerId) => {
-    const parsed = pushSchema.safeParse({
-      title: fd.get('title'),
-      body: fd.get('body'),
-      offline_after_seconds: fd.get('offline_after_seconds'),
-    });
-    if (!parsed.success) throw new UserError(parsed.error.issues[0]?.message ?? 'Invalid input');
-    const { error } = await adminClient()
-      .from('push_settings')
-      .update({ ...parsed.data, enabled: fd.get('enabled') === 'on', updated_at: new Date().toISOString() })
-      .eq('id', 1);
-    if (error) throw new UserError('Could not save notification settings');
-    await audit(ownerId, 'push_settings_changed');
-    revalidatePath('/admin/push');
-    return ok('Notification settings saved.');
-  });
-}
-
-/** Sends the current title and message to the owner's own phones, so the text can be checked. */
-export async function sendTestPush(_prev: State, _fd: FormData): Promise<State> {
-  void _fd;
-  return owned(async (ownerId) => {
-    const db = adminClient();
-    const { data: st } = await db.from('push_settings').select('title,body').eq('id', 1).single();
-    const { data: subs } = await db.from('push_subscriptions').select('id,endpoint,p256dh,auth').eq('user_id', ownerId);
-    if (!pushConfigured()) throw new UserError('Push keys are not set on the server (VAPID keys in .env).');
-    if (!subs?.length) throw new UserError('Turn notifications on in Settings on your own phone first.');
-    let sent = 0;
-    for (const s of subs) {
-      const r = await sendPush(s as PushSub, { title: st?.title ?? 'Notification', body: st?.body ?? 'You have a new message.' });
-      if (r === 'ok') sent++;
-      if (r === 'gone') await db.from('push_subscriptions').delete().eq('id', s.id);
-    }
-    if (!sent) throw new UserError('The push service did not accept the message. Turn notifications off and on again in Settings.');
-    return ok(`Test sent to ${sent} device${sent === 1 ? '' : 's'}.`);
   });
 }

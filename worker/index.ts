@@ -10,7 +10,8 @@ import { agoIso, capReached, diskUsedRatio, isQuietHours, monthStart } from './h
 
 export { capReached, isQuietHours, monthStart } from './helpers';
 
-const TICK_MS = 20_000;
+const TICK_MS = 5_000; // alerts are checked every 5 s; housekeeping only every 20 s
+const HOUSEKEEPING_MS = 20_000;
 const DAY = 24 * 3600_000;
 const TZ = process.env.TZ || 'Asia/Colombo';
 
@@ -148,22 +149,43 @@ async function smsAlerts() {
     .gte('sent_at', monthStart(new Date(), TZ));
   let sentThisMonth = monthCount ?? 0;
 
-  for (const c of cands as { user_id: string; first_unread: string }[]) {
+  for (const c of cands as { user_id: string; first_unread: string; step: number }[]) {
     const { count: dayCount } = await db
       .from('sms_log')
       .select('id', { count: 'exact', head: true })
       .eq('kind', 'alert')
       .eq('user_id', c.user_id)
       .gte('sent_at', agoIso(DAY));
-    if (capReached({ sentToday: dayCount ?? 0, sentThisMonth, dailyCap: st.daily_cap, monthlyCap: st.monthly_cap })) continue;
+    if (capReached({ sentToday: dayCount ?? 0, sentThisMonth, dailyCap: st.daily_cap, monthlyCap: st.monthly_cap })) {
+      // Capped: look again in a minute, not every tick.
+      await db.from('presence_state').upsert({ user_id: c.user_id, last_sms_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      continue;
+    }
 
     const { data: prof } = await db.from('profiles').select('phone_enc, sms_template').eq('id', c.user_id).maybeSingle();
     if (!prof?.phone_enc) continue;
+
+    // Claim before sending: only one worker pass can take this step, and a crash after the send cannot repeat it every tick.
+    // The claim only succeeds while the person is still offline and still on the same step.
+    await db.from('presence_state').upsert({ user_id: c.user_id }, { onConflict: 'user_id', ignoreDuplicates: true });
+    const claimAt = new Date().toISOString();
+    const { data: claimed } = await db
+      .from('presence_state')
+      .update({ last_sms_at: claimAt })
+      .eq('user_id', c.user_id)
+      .eq('sms_step', c.step ?? 0)
+      .lt('last_seen_at', new Date(Date.now() - Number(st.offline_after_seconds) * 1000).toISOString())
+      .select('user_id');
+    if (!claimed?.length) continue;
+
     let res: { ok: boolean; status: string };
     try {
       res = await sendSms({
         to: decryptText(prof.phone_enc as string),
-        text: (prof.sms_template as string | null) || st.template_text,
+        text:
+          (prof.sms_template as string | null) ||
+          (c.step === 1 ? (st.template_step2 as string | null) : c.step === 2 ? (st.template_step3 as string | null) : null) ||
+          st.template_text,
         userId: c.user_id,
         kind: 'alert',
         periodStartedAt: c.first_unread,
@@ -172,16 +194,19 @@ async function smsAlerts() {
       logErr('send sms', e);
       res = { ok: false, status: 'error' };
     }
-    const nowIso = new Date().toISOString();
+    if (!res.ok) continue; // last_sms_at was already set by the claim: the next try is in a minute
+    sentThisMonth++;
+    // Advance the sequence only if the person has not shown up (heartbeat) since the claim; otherwise their reset wins.
     await db
       .from('presence_state')
-      .upsert(
-        res.ok
-          ? { user_id: c.user_id, last_sms_at: nowIso, sms_sent_this_period: true }
-          : { user_id: c.user_id, last_sms_at: nowIso },
-        { onConflict: 'user_id' },
-      );
-    if (res.ok) sentThisMonth++;
+      .update({
+        sms_sent_this_period: true,
+        sms_step: (c.step ?? 0) + 1,
+        ...((c.step ?? 0) === 0 ? { sms_first_at: claimAt } : {}),
+      })
+      .eq('user_id', c.user_id)
+      .eq('sms_step', c.step ?? 0)
+      .lt('last_seen_at', claimAt);
   }
 }
 
@@ -217,13 +242,18 @@ let stopping = false;
 let timer: NodeJS.Timeout | undefined;
 let running: Promise<void> = Promise.resolve();
 
+let lastHousekeeping = 0;
 async function tick() {
-  await step('snap cleanup', snapCleanup);
-  await step('upload cleanup', uploadCleanup);
-  await step('location cleanup', locationCleanup);
-  await step('disk check', diskCheck);
+  if (Date.now() - lastHousekeeping >= HOUSEKEEPING_MS) {
+    lastHousekeeping = Date.now();
+    await step('snap cleanup', snapCleanup);
+    await step('upload cleanup', uploadCleanup);
+    await step('location cleanup', locationCleanup);
+    await step('disk check', diskCheck);
+  }
   await step('sms alerts', smsAlerts);
-  await step('push alerts', pushAlerts);
+  // Push alerts are off (SMS is the alert channel). Set PUSH_ALERTS=1 in the env file to turn them back on.
+  if (process.env.PUSH_ALERTS === '1') await step('push alerts', pushAlerts);
 }
 
 function schedule() {

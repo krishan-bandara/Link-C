@@ -13,7 +13,6 @@ const items: Item[] = [
   { href: '/admin/members', label: 'Members', icon: 'users' },
   { href: '/admin/stickers', label: 'Stickers', icon: 'smile' },
   { href: '/admin/sms', label: 'SMS', icon: 'message' },
-  { href: '/admin/push', label: 'Push', icon: 'bell' },
   { href: '/admin/settings', label: 'Limits', icon: 'sliders' },
   { href: '/admin/audit', label: 'Audit', icon: 'shield' },
 ];

@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowDown, ArrowLeft, Eraser, MapPin, MoreVertical, Phone, Video } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Eraser, ImageIcon, MapPin, MoreVertical, Phone, Video } from 'lucide-react';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { wallpaperStyle } from '@/lib/wallpapers';
+import { effectiveWallpaper, wallpaperStyle } from '@/lib/wallpapers';
+import ChatWallpaperSheet, { type ChatWallpaper } from './ChatWallpaperSheet';
 import Avatar from '@/components/ui/Avatar';
+import AvatarViewer from '@/components/ui/AvatarViewer';
 import { MEDIA_COLS, MSG_COLS, SHARE_COLS, type LocationShare, type Media, type Msg } from '@/lib/chat/types';
 import { cancelUploadOnServer, uploadFile, UploadError, type UploadOpts } from '@/lib/chat/uploader';
 import { listPending } from '@/lib/chat/pending-uploads';
@@ -56,6 +58,7 @@ export default function ChatView({
   isOwner,
   other,
   wallpaper,
+  chatWallpaper,
   initialMessages,
   initialMedia,
   initialShare,
@@ -65,6 +68,7 @@ export default function ChatView({
   isOwner: boolean;
   other: { id: string; name: string; avatarAssetId: string | null; about: string | null };
   wallpaper: { kind: string | null; preset: string | null; assetId: string | null };
+  chatWallpaper: ChatWallpaper;
   initialMessages: Msg[];
   initialMedia: Media[];
   initialShare: LocationShare | null;
@@ -77,11 +81,14 @@ export default function ChatView({
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [sheetFile, setSheetFile] = useState<File | null>(null);
   const [replyTo, setReplyTo] = useState<Msg | null>(null);
+  const [viewAvatar, setViewAvatar] = useState(false);
   const [confirmId, setConfirmId] = useState<{ id: string; scope: 'me' | 'all'; mine: boolean } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [offline, setOffline] = useState(false);
   const [clearAsk, setClearAsk] = useState(false);
+  const [wpOpen, setWpOpen] = useState(false);
+  const [chatWp, setChatWp] = useState<ChatWallpaper>(chatWallpaper);
   const [clearing, setClearing] = useState(false);
   const [zoom, setZoom] = useState<Media | null>(null);
   const [reactTarget, setReactTarget] = useState<string | null>(null);
@@ -129,6 +136,7 @@ export default function ChatView({
   }, [call, flash]);
 
   const dark = useIsDark();
+  const wp = effectiveWallpaper(chatWp, wallpaper);
   const { reactions, react } = useReactions(supabase, me, messages.map((m) => m.id));
 
   // which stickers are in my collection (decides between 'Add' and 'Remove')
@@ -637,10 +645,10 @@ export default function ChatView({
         <Link href="/" className={`cv-iconbtn flex h-11 w-11 items-center justify-center rounded-full text-muted md:hidden ${FOCUS}`} aria-label="Back to chats">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div className="relative shrink-0">
+        <button type="button" onClick={() => setViewAvatar(true)} className={`relative shrink-0 rounded-full ${FOCUS}`} aria-label={`View ${other.name}'s profile picture`}>
           <Avatar userId={other.id} name={other.name} assetId={other.avatarAssetId} size={40} className={online ? 'ring-2 ring-accent/60' : ''} />
           {online && <span className="cv-online-dot absolute -bottom-0.5 -right-0.5 border-2 border-panel" aria-hidden />}
-        </div>
+        </button>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold leading-tight">{other.name}</p>
           <p className="flex items-center gap-1.5 truncate text-xs leading-tight text-muted" aria-live="polite">
@@ -687,6 +695,17 @@ export default function ChatView({
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
+                    setWpOpen(true);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-main outline-none hover:bg-panel-2 focus-visible:bg-panel-2"
+                >
+                  <ImageIcon className="h-4 w-4 text-accent" /> Wallpaper
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
                     setClearAsk(true);
                   }}
                   className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-main outline-none hover:bg-panel-2 focus-visible:bg-panel-2"
@@ -717,7 +736,7 @@ export default function ChatView({
           ref={listRef}
           data-chat-list
           onScroll={(e) => onListScroll(e.currentTarget)}
-          style={wallpaperStyle(wallpaper.kind, wallpaper.preset, dark, wallpaper.assetId)}
+          style={wallpaperStyle(wp.kind, wp.preset, dark, wp.assetId, wp.own ? conversationId : null)}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3"
         >
           {hasMore && (
@@ -789,6 +808,18 @@ export default function ChatView({
         />
       )}
       {snap && <SnapViewer snap={snap} onClose={closeSnap} />}
+      {wpOpen && (
+        <ChatWallpaperSheet
+          supabase={supabase}
+          me={me}
+          conversationId={conversationId}
+          current={chatWp}
+          dark={dark}
+          onChange={setChatWp}
+          onClose={() => setWpOpen(false)}
+          onError={flash}
+        />
+      )}
       {clearAsk && (
         <ConfirmDialog
           title="Clear this chat?"
@@ -814,6 +845,7 @@ export default function ChatView({
           }}
         />
       )}
+      {viewAvatar && <AvatarViewer userId={other.id} name={other.name} assetId={other.avatarAssetId} onClose={() => setViewAvatar(false)} />}
       <CallOverlay call={call} name={other.name} userId={other.id} avatarAssetId={other.avatarAssetId} />
     </div>
   );

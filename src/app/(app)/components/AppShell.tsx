@@ -44,9 +44,9 @@ function UserMenu({ me, side, children }: { me: Me; side: 'below' | 'right'; chi
     const root = document.documentElement;
     const next = dark ? 'light' : 'dark';
     const accent = root.style.getPropertyValue('--accent').trim();
-    applyTheme(next, isHex(accent) ? accent : DEFAULT_ACCENT);
+    applyTheme(next, isHex(accent) ? accent : DEFAULT_ACCENT, null);
     setDark(!dark);
-    void savePrefs(supabaseBrowser(), me.id, { theme: next });
+    void savePrefs(supabaseBrowser(), me.id, { theme: next, pack: null });
   }
 
   useEffect(() => {

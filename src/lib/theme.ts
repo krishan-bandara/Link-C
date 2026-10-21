@@ -17,6 +17,23 @@ export const ACCENTS: { name: string; hex: string }[] = [
   { name: 'Lime', hex: '#a3e635' },
 ];
 
+/**
+ * Theme packs: a full palette (plus a matching wallpaper and accent) laid over the light or dark mode.
+ * The mode stays in data-theme so every existing light/dark rule keeps working; the pack is data-pack on <html>.
+ */
+export const PACK_COOKIE = 'lc-pack';
+export type PackId = 'love' | 'cyber' | 'aurora' | 'sakura' | 'amoled';
+export type PackInfo = { id: PackId; name: string; blurb: string; mode: 'light' | 'dark'; accent: string; second: string; wallpaper: string };
+export const PACKS: PackInfo[] = [
+  { id: 'love', name: 'Love', blurb: 'Rose and hearts', mode: 'light', accent: '#ff4d79', second: '#ff9a8b', wallpaper: 'hearts' },
+  { id: 'cyber', name: 'Cyber Neon', blurb: 'Neon on black', mode: 'dark', accent: '#00f0ff', second: '#ff2bd6', wallpaper: 'circuit' },
+  { id: 'aurora', name: 'Aurora', blurb: 'Northern lights', mode: 'dark', accent: '#5eead4', second: '#7c8cff', wallpaper: 'aurora' },
+  { id: 'sakura', name: 'Sakura', blurb: 'Cherry blossom', mode: 'light', accent: '#e8588a', second: '#f4a6c0', wallpaper: 'sakura' },
+  { id: 'amoled', name: 'Midnight', blurb: 'True black', mode: 'dark', accent: '#39ff88', second: '#2dd4bf', wallpaper: 'amoled' },
+];
+export const isPack = (v: unknown): v is PackId => PACKS.some((p) => p.id === v);
+export const packInfo = (id: PackId | null | undefined) => PACKS.find((p) => p.id === id);
+
 export const isTheme = (v: unknown): v is Theme => v === 'light' || v === 'dark' || v === 'system';
 export const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v);
 
@@ -35,8 +52,10 @@ export function inkFor(hex: string): string {
 }
 
 /** The violet end of the gradient is fixed for the default cyan, otherwise it is a rotated shade of the accent. */
-export function secondFor(hex: string): string {
+export function secondFor(hex: string, pack?: PackId | null): string {
   if (hex === '#6ee7f9') return '#a78bfa';
+  const info = packInfo(pack);
+  if (info && info.accent === hex) return info.second;
   const n = parseInt(hex.slice(1), 16);
   const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   const mix = (a: number, b2: number) => Math.round(a * 0.45 + b2 * 0.55);
@@ -44,19 +63,26 @@ export function secondFor(hex: string): string {
 }
 
 /** Inline style for <html> carrying the accent colour. */
-export function accentStyle(hex: string): Record<string, string> {
+export function accentStyle(hex: string, pack?: PackId | null): Record<string, string> {
   const h = isHex(hex) ? hex : DEFAULT_ACCENT;
-  return { '--accent': h, '--c-accent-ink': inkFor(h), '--a2': secondFor(h) };
+  return { '--accent': h, '--c-accent-ink': inkFor(h), '--a2': secondFor(h, pack) };
 }
 
 /** Browser only: apply immediately and remember in cookies so the server renders the same theme next time. */
-export function applyTheme(theme: Theme, accent: string) {
+export function applyTheme(theme: Theme, accent: string, pack?: PackId | null) {
   const root = document.documentElement;
   const hex = isHex(accent) ? accent : DEFAULT_ACCENT;
   root.setAttribute('data-theme', theme);
+  if (pack !== undefined) {
+    // undefined leaves the pack alone; null removes it
+    if (pack) root.setAttribute('data-pack', pack);
+    else root.removeAttribute('data-pack');
+    document.cookie = `${PACK_COOKIE}=${pack ?? ''}; path=/; max-age=31536000; samesite=lax`;
+  }
   root.style.setProperty('--accent', hex);
   root.style.setProperty('--c-accent-ink', inkFor(hex));
-  root.style.setProperty('--a2', secondFor(hex));
+  const activePack = pack === undefined ? root.getAttribute('data-pack') : pack;
+  root.style.setProperty('--a2', secondFor(hex, isPack(activePack) ? activePack : null));
   const opts = '; path=/; max-age=31536000; samesite=lax';
   document.cookie = `${THEME_COOKIE}=${theme}${opts}`;
   document.cookie = `${ACCENT_COOKIE}=${encodeURIComponent(hex)}${opts}`;
