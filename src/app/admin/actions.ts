@@ -81,6 +81,21 @@ const emailSchema = z.string().trim().toLowerCase().email().max(254);
 
 const LINK_NOTE = 'Works once, for 24 hours.';
 
+/** Texts a sign-up or reset link to the person's phone. Returns a short sentence to add to the on-screen message. */
+async function textLink(phone: string | null, link: string, userId: string | null, reset: boolean): Promise<string> {
+  if (!phone) return ' No phone number on file, so no text was sent.';
+  const text = reset
+    ? `Link-C: open this link to set a new password: ${link} (works once, 24 hours)`
+    : `You are invited to Link-C. Open this link to set up your account: ${link} (works once, 24 hours)`;
+  try {
+    const r = await sendSms({ to: phone, text, userId, kind: 'invite' });
+    if (r.ok) return ' Link sent by text message.';
+    return r.status === 'sms disabled' ? ' Text messages are turned off in Admin > SMS, so no text was sent.' : ' The text message could not be sent. Copy the link below instead.';
+  } catch {
+    return ' The text message could not be sent. Copy the link below instead.';
+  }
+}
+
 export async function createInvite(_prev: State, fd: FormData): Promise<State> {
   return owned(async (ownerId) => {
     const input = inviteSchema.parse({
@@ -115,19 +130,21 @@ export async function createInvite(_prev: State, fd: FormData): Promise<State> {
     await audit(ownerId, 'member_invited', inv.id as string);
     revalidatePath('/admin/members');
     revalidatePath('/admin');
-    return ok(`Invitation ready. ${LINK_NOTE}`, { link: t.link, expiresAt: t.expiresAt });
+    const sms = await textLink(input.phone || null, t.link, null, false);
+    return ok(`Invitation ready. ${LINK_NOTE}${sms}`, { link: t.link, expiresAt: t.expiresAt });
   });
 }
 
 export async function regenerateInvite(_prev: State, fd: FormData): Promise<State> {
   return owned(async (ownerId) => {
     const email = emailSchema.parse(blank(fd.get('email')));
-    const { data: inv } = await adminClient().from('invites').select('id,accepted_at').eq('email', email).maybeSingle();
+    const { data: inv } = await adminClient().from('invites').select('id,accepted_at,phone_enc').eq('email', email).maybeSingle();
     if (!inv || inv.accepted_at) throw new UserError('No pending invitation for that email');
     const t = await createInviteToken({ email, purpose: 'invite', createdBy: ownerId });
     await audit(ownerId, 'invite_regenerated', inv.id as string);
     revalidatePath('/admin/members');
-    return ok(`New link ready. The old one no longer works. ${LINK_NOTE}`, { link: t.link, expiresAt: t.expiresAt });
+    const sms = await textLink(inv.phone_enc ? decryptText(inv.phone_enc as string) : null, t.link, null, false);
+    return ok(`New link ready. The old one no longer works. ${LINK_NOTE}${sms}`, { link: t.link, expiresAt: t.expiresAt });
   });
 }
 
@@ -153,7 +170,9 @@ export async function resetPasswordLink(_prev: State, fd: FormData): Promise<Sta
     if (!email) throw new UserError('Member not found');
     const t = await createInviteToken({ email, purpose: 'reset', createdBy: ownerId });
     await audit(ownerId, 'password_reset_link_created', memberId);
-    return ok(`Reset link ready. ${LINK_NOTE}`, { link: t.link, expiresAt: t.expiresAt });
+    const { data: prof } = await adminClient().from('profiles').select('phone_enc').eq('id', memberId).maybeSingle();
+    const sms = await textLink(prof?.phone_enc ? decryptText(prof.phone_enc as string) : null, t.link, memberId, true);
+    return ok(`Reset link ready. ${LINK_NOTE}${sms}`, { link: t.link, expiresAt: t.expiresAt });
   });
 }
 

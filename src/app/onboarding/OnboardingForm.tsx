@@ -135,7 +135,7 @@ export default function OnboardingForm({
                       </p>
                     ) : (
                       <>
-                        <p className="text-muted">Verifying is optional, but without it no alerts are sent.</p>
+                        <p className="text-muted">Verifying is optional. Alerts are sent to this number either way.</p>
                         <button type="button" onClick={sendCode} className="ui-btn-outline w-full">
                           {codeSent ? 'Send a new code' : 'Send me a code'}
                         </button>
