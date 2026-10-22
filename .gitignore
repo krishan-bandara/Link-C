@@ -9,3 +9,6 @@ data
 *.tsbuildinfo
 next-env.d.ts
 qa/
+
+# stray QA screenshots
+shots-*.png

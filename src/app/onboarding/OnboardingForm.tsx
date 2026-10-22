@@ -29,7 +29,7 @@ const POINTS: { icon: typeof Lock; text: string }[] = [
   { icon: Timer, text: 'Messages are kept until someone deletes them.' },
   {
     icon: Database,
-    text: 'We store your email, display name, your messages and files (encrypted), and, if you gave one, your phone number (encrypted).',
+    text: 'We store your email, display name, your messages and files (encrypted), and, if you gave one, your phone number, if you gave one (stored as plain text in the database and used only to text you alerts).',
   },
 ];
 

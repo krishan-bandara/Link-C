@@ -8,7 +8,7 @@ export const POST = handle(async () => {
   if (!rateLimit(`presence:${user.id}`, 20, 60_000)) throw new HttpError(429, 'Too many requests');
   const { error } = await adminClient()
     .from('presence_state')
-    .upsert({ user_id: user.id, last_seen_at: new Date().toISOString(), sms_sent_this_period: false, push_sent_this_period: false, sms_step: 0, sms_first_at: null });
+    .upsert({ user_id: user.id, last_seen_at: new Date().toISOString(), sms_sent_this_period: false, push_sent_this_period: false, sms_step: 0, sms_first_at: null, sms_last_sent_at: null, last_sms_at: null });
   if (error) throw error;
   return NextResponse.json({ ok: true });
 });

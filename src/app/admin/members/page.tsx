@@ -1,4 +1,4 @@
-import { decryptText } from '@/lib/crypto';
+import { isUnreadablePhone, readPhone } from '@/lib/phone';
 import { maskPhone } from '@/lib/sms';
 import { adminClient } from '@/lib/supabase/admin';
 import { ensureConversationsForOwner } from '../conversations';
@@ -13,11 +13,9 @@ const fmtDay = (iso: string | null | undefined) =>
 
 function masked(enc: string | null) {
   if (!enc) return 'none';
-  try {
-    return maskPhone(decryptText(enc));
-  } catch {
-    return 'unreadable';
-  }
+  if (isUnreadablePhone(enc)) return 'unreadable (re-enter it)';
+  const plain = readPhone(enc);
+  return plain ? maskPhone(plain) : 'none';
 }
 
 export default async function MembersPage({ searchParams }: { searchParams: Promise<{ invite?: string }> }) {

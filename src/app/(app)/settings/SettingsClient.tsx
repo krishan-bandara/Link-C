@@ -315,7 +315,7 @@ export default function SettingsClient({
                 Text message alerts
               </p>
               <p id="sms-desc" className="text-sm text-muted">
-                When you are offline with unread messages, we send at most 3 texts a day that look like an ordinary system message and never mention the app.
+                When you are offline with unread messages, we send a few texts a day that look like an ordinary system message and never mention the app.
               </p>
             </div>
             <button
