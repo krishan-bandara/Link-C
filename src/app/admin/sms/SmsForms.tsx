@@ -15,7 +15,7 @@ export type SmsFormValues = {
   template_text: string;
   offline_after_seconds: number;
   step2_after_minutes: number;
-  step3_after_minutes: number;
+  repeat_every_minutes: number;
   template_step2: string;
   template_step3: string;
   daily_cap: number;
@@ -96,35 +96,35 @@ export function SmsSettingsForm({ v }: { v: SmsFormValues }) {
             <p className="ad-card-sub">What people receive, and how often.</p>
           </div>
           <p className="ad-card-sub">
-            Texts should look like an ordinary system message and not mention the app. Leave the SMS 2 or SMS 3 text blank to
-            reuse the first text. A text set on a member overrides all three.
+            Texts should look like an ordinary system message and not mention the app. Leave the SMS 2 or SMS 3 and later text
+            blank to reuse the first text. A text set on a member overrides all three.
           </p>
           <div className="space-y-1">
             <span className="ad-label">SMS 1 text (max 160)</span>
-            <SmsTemplateField initial={v.template_text} />
+            <SmsTemplateField initial={v.template_text} label="SMS 1 text" />
           </div>
           <div className="space-y-1">
             <span className="ad-label">SMS 2 text (max 160, optional)</span>
-            <SmsTemplateField initial={v.template_step2} name="template_step2" />
+            <SmsTemplateField initial={v.template_step2} name="template_step2" label="SMS 2 text" />
           </div>
           <div className="space-y-1">
-            <span className="ad-label">SMS 3 text (max 160, optional)</span>
-            <SmsTemplateField initial={v.template_step3} name="template_step3" />
+            <span className="ad-label">SMS 3 and later (max 160, optional)</span>
+            <SmsTemplateField initial={v.template_step3} name="template_step3" label="SMS 3 and later text" />
           </div>
           <div className="ad-fields ad-fields-2">
-            <Field label="Offline after (s)" hint={`Wait before the first SMS: ${v.offline_after_seconds} seconds. Minimum 30, recommended 45.`}>
+            <Field label="SMS 1: offline after (s)" hint={`SMS 1 goes out as soon as they are offline with an unread message: after ${v.offline_after_seconds} seconds without the app open. Minimum 30, recommended 45.`}>
               <input name="offline_after_seconds" type="number" min={30} defaultValue={v.offline_after_seconds} className={inputCls} />
             </Field>
-            <Field label="SMS 2 after (minutes)" hint={`Sent ${v.step2_after_minutes} minutes after the first SMS if they still have not opened the app.`}>
+            <Field label="SMS 2 after (minutes)" hint={`SMS 2 goes out ${v.step2_after_minutes} minutes after SMS 1 if they still have not opened the app.`}>
               <input name="step2_after_minutes" type="number" min={1} max={1440} defaultValue={v.step2_after_minutes} className={inputCls} />
             </Field>
-            <Field label="SMS 3 after (minutes)" hint={`Sent ${v.step3_after_minutes} minutes after the first SMS if they still have not opened the app. Must be later than SMS 2.`}>
-              <input name="step3_after_minutes" type="number" min={1} max={1440} defaultValue={v.step3_after_minutes} className={inputCls} />
+            <Field label="Repeat every (minutes) after the previous SMS" hint={`SMS 3 and later go out every ${v.repeat_every_minutes} minutes after the previous one, until they open the app.`}>
+              <input name="repeat_every_minutes" type="number" min={1} max={1440} defaultValue={v.repeat_every_minutes} className={inputCls} />
             </Field>
-            <Field label="Daily cap">
+            <Field label="Daily cap (per person)" hint="Counts only SMS that were sent successfully.">
               <input name="daily_cap" type="number" min={0} defaultValue={v.daily_cap} className={inputCls} />
             </Field>
-            <Field label="Monthly cap">
+            <Field label="Monthly cap (overall)" hint="Counts only SMS that were sent successfully.">
               <input name="monthly_cap" type="number" min={0} defaultValue={v.monthly_cap} className={inputCls} />
             </Field>
             <div className="grid grid-cols-2 gap-3">

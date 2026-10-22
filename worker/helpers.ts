@@ -55,3 +55,55 @@ export function diskUsedRatio(blocks: number, bavail: number): number {
 }
 
 export const agoIso = (ms: number, now = Date.now()) => new Date(now - ms).toISOString();
+
+const toMs = (v: string | number | Date | null | undefined): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = v instanceof Date ? v.getTime() : typeof v === 'number' ? v : Date.parse(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Is the next SMS due? step 0: now. step 1: step2Minutes after the first SMS.
+ * step >= 2: repeatMinutes after the previous successful SMS.
+ * Never within retrySpacingMs of the last attempt (a future lastAttemptAt = deferred). Missing/invalid dates fail closed.
+ */
+export function smsDue(o: {
+  step: number | null | undefined;
+  firstSentAt: string | number | Date | null | undefined;
+  lastSentAt: string | number | Date | null | undefined;
+  lastAttemptAt: string | number | Date | null | undefined;
+  nowMs: number;
+  step2Minutes: number;
+  repeatMinutes: number;
+  retrySpacingMs?: number;
+}): boolean {
+  const { nowMs } = o;
+  if (!Number.isFinite(nowMs)) return false;
+  const step = o.step ?? 0;
+  if (!Number.isInteger(step) || step < 0) return false;
+  const spacing = o.retrySpacingMs ?? 60_000;
+  if (o.lastAttemptAt !== null && o.lastAttemptAt !== undefined && o.lastAttemptAt !== '') {
+    const att = toMs(o.lastAttemptAt);
+    if (att === null) return false;
+    if (nowMs - att < spacing) return false;
+  }
+  if (step === 0) return true;
+  if (step === 1) {
+    const first = toMs(o.firstSentAt);
+    if (first === null || !(o.step2Minutes > 0)) return false;
+    return nowMs >= first + o.step2Minutes * 60_000;
+  }
+  const last = toMs(o.lastSentAt);
+  if (last === null || !(o.repeatMinutes > 0)) return false;
+  return nowMs >= last + o.repeatMinutes * 60_000;
+}
+
+/** Text for this SMS: member override > step text > default text. */
+export function smsTextFor(
+  step: number,
+  member: { sms_template?: string | null } | null | undefined,
+  settings: { template_text: string; template_step2?: string | null; template_step3?: string | null },
+): string {
+  const stepText = step <= 0 ? null : step === 1 ? settings.template_step2 : settings.template_step3;
+  return member?.sms_template || stepText || settings.template_text;
+}

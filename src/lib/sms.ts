@@ -1,6 +1,7 @@
 import { decryptText } from '@/lib/crypto';
 import { adminClient } from '@/lib/supabase/admin';
 import { safeRequest } from '@/lib/ssrf';
+import { gatewayRejected } from '@/lib/sms-response';
 
 // No next/* imports here: this file is shared with the worker process.
 
@@ -30,7 +31,9 @@ export interface SmsSettingsPublic {
   template_text: string;
   offline_after_seconds: number;
   step2_after_minutes: number;
-  step3_after_minutes: number;
+  /** Legacy, unused since the repeat schedule. */
+  step3_after_minutes?: number;
+  repeat_every_minutes: number;
   template_step2: string | null;
   template_step3: string | null;
   daily_cap: number;
@@ -46,7 +49,14 @@ export async function getSmsSettingsPublic(): Promise<SmsSettingsPublic> {
   if (error || !data) throw new Error('sms settings unavailable');
   const { credentials_enc, id: _id, ...rest } = data as Record<string, unknown> & { credentials_enc: string | null };
   void _id;
-  return { ...(rest as Omit<SmsSettingsPublic, 'hasCredentials'>), hasCredentials: !!credentials_enc };
+  const base = rest as Omit<SmsSettingsPublic, 'hasCredentials'>;
+  return {
+    ...base,
+    // Older databases may lack the newer columns until the latest migration is applied.
+    repeat_every_minutes: base.repeat_every_minutes ?? 19,
+    step2_after_minutes: base.step2_after_minutes ?? 10,
+    hasCredentials: !!credentials_enc,
+  };
 }
 
 const PLACEHOLDER = /\{(to|text|sender|apiKey|apiSecret|basicAuth|toDigits)\}/g;
@@ -64,16 +74,18 @@ function shortError(e: unknown): string {
   const code = (e as { code?: string } | null)?.code;
   if (msg === 'timeout') return 'error timeout';
   if (code === 'EBLOCKED') return 'error blocked address';
-  if (code === 'ENOTFOUND') return 'error dns';
-  if (code === 'ECONNREFUSED' || code === 'ECONNRESET') return 'error connection';
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return 'error dns';
+  if (code === 'ETIMEDOUT') return 'error timeout';
+  if (code === 'EHOSTUNREACH' || code === 'ENETUNREACH' || code === 'ECONNREFUSED' || code === 'ECONNRESET') return 'error connection';
   if (/certificate|SSL|TLS/i.test(msg) || /CERT|SSL/.test(code ?? '')) return 'error tls';
   return 'error request failed';
 }
 
 async function logSms(userId: string | null, kind: SmsKind, status: string, periodStartedAt?: string) {
-  await adminClient()
+  const { error } = await adminClient()
     .from('sms_log')
     .insert({ user_id: userId, kind, provider_status: status, period_started_at: periodStartedAt ?? null });
+  if (error) console.error('sms_log insert failed');
 }
 
 export async function sendSms(opts: {
@@ -83,8 +95,12 @@ export async function sendSms(opts: {
   kind: SmsKind;
   periodStartedAt?: string;
 }): Promise<{ ok: boolean; status: string }> {
-  const { data: s } = await adminClient().from('sms_settings').select('*').eq('id', 1).single();
-  if (!s || !s.enabled || !s.api_url) return { ok: false, status: 'sms disabled' };
+  const { data: s, error: settingsErr } = await adminClient().from('sms_settings').select('*').eq('id', 1).single();
+  if (settingsErr || !s) {
+    await logSms(opts.userId, opts.kind, 'error settings unavailable', opts.periodStartedAt);
+    return { ok: false, status: 'error settings unavailable' };
+  }
+  if (!s.enabled || !s.api_url) return { ok: false, status: 'sms disabled' };
 
   const fail = async (status: string) => {
     await logSms(opts.userId, opts.kind, status, opts.periodStartedAt);
@@ -149,6 +165,7 @@ export async function sendSms(opts: {
 
   try {
     const res = await safeRequest(url, { method, headers, body, timeoutMs: 10_000 });
+    if (res.status >= 200 && res.status < 300 && gatewayRejected(res.bodyText)) return fail('error gateway rejected');
     const status = `http ${res.status}`;
     await logSms(opts.userId, opts.kind, status, opts.periodStartedAt);
     return { ok: res.status >= 200 && res.status < 300, status };

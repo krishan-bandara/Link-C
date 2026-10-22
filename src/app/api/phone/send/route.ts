@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { randomInt } from 'node:crypto';
 import { HttpError, handle, requireUser } from '@/lib/auth';
-import { decryptText, sha256 } from '@/lib/crypto';
+import { sha256 } from '@/lib/crypto';
+import { readPhone } from '@/lib/phone';
 import { rateLimit } from '@/lib/rate-limit';
 import { sendSms } from '@/lib/sms';
 import { adminClient } from '@/lib/supabase/admin';
@@ -13,7 +14,8 @@ export const POST = handle(async () => {
   const db = adminClient();
   const { data: profile } = await db.from('profiles').select('phone_enc').eq('id', user.id).maybeSingle();
   if (!profile?.phone_enc) throw new HttpError(400, 'No phone number on file');
-  const to = decryptText(profile.phone_enc);
+  const to = readPhone(profile.phone_enc);
+  if (!to) throw new HttpError(400, 'No phone number on file');
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
   const { error } = await db.from('phone_verifications').upsert({

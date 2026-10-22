@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { audit, HttpError, requireOwner } from '@/lib/auth';
 import { decryptText, encryptText } from '@/lib/crypto';
+import { isUnreadablePhone, readPhone } from '@/lib/phone';
 import { createInviteToken } from '@/lib/invites';
 import { createStickerPack, deletePack, deleteUserAssets, removePackSticker } from '@/lib/assets';
 import { deleteMediaBlobs } from '@/lib/media';
@@ -81,8 +82,13 @@ const emailSchema = z.string().trim().toLowerCase().email().max(254);
 const LINK_NOTE = 'Works once, for 24 hours.';
 
 /** Texts a sign-up or reset link to the person's phone. Returns a short sentence to add to the on-screen message. */
-async function textLink(phone: string | null, link: string, userId: string | null, reset: boolean): Promise<string> {
-  if (!phone) return ' No phone number on file, so no text was sent.';
+async function textLink(raw: string | null | undefined, link: string, userId: string | null, reset: boolean): Promise<string> {
+  const phone = readPhone(raw);
+  if (!phone) {
+    return isUnreadablePhone(raw)
+      ? ' The saved number is unreadable. Re-enter it in the member menu under Phone number.'
+      : ' No phone number on file, so no text was sent.';
+  }
   const text = reset
     ? `Link-C: open this link to set a new password: ${link} (works once, 24 hours)`
     : `You are invited to Link-C. Open this link to set up your account: ${link} (works once, 24 hours)`;
@@ -111,7 +117,7 @@ export async function createInvite(_prev: State, fd: FormData): Promise<State> {
       email: input.email,
       display_name: input.display_name,
       role: 'member',
-      phone_enc: input.phone ? encryptText(input.phone) : null,
+      phone_enc: input.phone || null, // plain E.164 text (see src/lib/phone.ts)
       invited_by: ownerId,
       accepted_at: null,
     };
@@ -142,7 +148,7 @@ export async function regenerateInvite(_prev: State, fd: FormData): Promise<Stat
     const t = await createInviteToken({ email, purpose: 'invite', createdBy: ownerId });
     await audit(ownerId, 'invite_regenerated', inv.id as string);
     revalidatePath('/admin/members');
-    const sms = await textLink(inv.phone_enc ? decryptText(inv.phone_enc as string) : null, t.link, null, false);
+    const sms = await textLink(inv.phone_enc as string | null, t.link, null, false);
     return ok(`New link ready. The old one no longer works. ${LINK_NOTE}${sms}`, { link: t.link, expiresAt: t.expiresAt });
   });
 }
@@ -170,7 +176,7 @@ export async function resetPasswordLink(_prev: State, fd: FormData): Promise<Sta
     const t = await createInviteToken({ email, purpose: 'reset', createdBy: ownerId });
     await audit(ownerId, 'password_reset_link_created', memberId);
     const { data: prof } = await adminClient().from('profiles').select('phone_enc').eq('id', memberId).maybeSingle();
-    const sms = await textLink(prof?.phone_enc ? decryptText(prof.phone_enc as string) : null, t.link, memberId, true);
+    const sms = await textLink(prof?.phone_enc as string | null | undefined, t.link, memberId, true);
     return ok(`Reset link ready. ${LINK_NOTE}${sms}`, { link: t.link, expiresAt: t.expiresAt });
   });
 }
@@ -209,6 +215,31 @@ export async function toggleMemberSms(_prev: State, fd: FormData): Promise<State
     await audit(ownerId, on ? 'member_sms_enabled' : 'member_sms_disabled', memberId);
     revalidatePath('/admin/members');
     return ok(on ? 'SMS alerts on.' : 'SMS alerts off.');
+  });
+}
+
+/** Owner sets or clears a member's phone number (stored as plain E.164). Also the way to re-enter a number that could not be read. */
+export async function setMemberPhone(_prev: State, fd: FormData): Promise<State> {
+  return owned(async (ownerId) => {
+    const memberId = uuid.parse(fd.get('memberId'));
+    const phone = z
+      .string()
+      .trim()
+      .transform((s) => s.replace(/[\s-]/g, ''))
+      .refine((s) => s === '' || validateE164(s), 'Phone must be in E.164 format, e.g. +94771234567')
+      .parse(blank(fd.get('phone')));
+    const db = adminClient();
+    const { data: before } = await db.from('profiles').select('phone_enc').eq('id', memberId).maybeSingle();
+    if (!before) throw new UserError('Member not found');
+    const changed = ((before.phone_enc as string | null) ?? '') !== phone;
+    const patch: Record<string, unknown> = { phone_enc: phone || null };
+    if (changed) patch.phone_verified_at = null;
+    const { data: hit, error } = await db.from('profiles').update(patch).eq('id', memberId).select('id').maybeSingle();
+    if (error) throw new UserError('Update failed');
+    if (!hit) throw new UserError('Member not found');
+    await audit(ownerId, 'member_phone_changed', memberId);
+    revalidatePath('/admin/members');
+    return ok(phone ? 'Phone number saved.' : 'Phone number removed.');
   });
 }
 
@@ -300,18 +331,23 @@ const smsSchema = z.object({
   template_text: z.string().trim().min(1, 'SMS text is required').max(160, 'SMS text max 160 characters'),
   offline_after_seconds: z.coerce.number().int().min(30, 'Offline delay must be at least 30 seconds').max(86400),
   step2_after_minutes: z.coerce.number().int().min(1, 'SMS 2 delay: 1 to 1440 minutes').max(1440, 'SMS 2 delay: 1 to 1440 minutes'),
-  step3_after_minutes: z.coerce.number().int().min(1, 'SMS 3 delay: 1 to 1440 minutes').max(1440, 'SMS 3 delay: 1 to 1440 minutes'),
+  repeat_every_minutes: z.coerce.number().int().min(1, 'Repeat delay: 1 to 1440 minutes').max(1440, 'Repeat delay: 1 to 1440 minutes'),
   template_step2: z.string().trim().max(160, 'SMS 2 text max 160 characters'),
-  template_step3: z.string().trim().max(160, 'SMS 3 text max 160 characters'),
+  template_step3: z.string().trim().max(160, 'SMS 3 and later text max 160 characters'),
   daily_cap: z.coerce.number().int().min(0).max(1000),
   monthly_cap: z.coerce.number().int().min(0).max(100000),
   quiet_start: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, 'Quiet hours: use HH:MM (00:00 to 23:59)'),
   quiet_end: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, 'Quiet hours: use HH:MM (00:00 to 23:59)'),
-})
-  .refine((v) => v.step3_after_minutes > v.step2_after_minutes, {
-    message: 'SMS 3 must come later than SMS 2',
-    path: ['step3_after_minutes'],
-  });
+});
+
+function requireFreshLogin(user: { last_sign_in_at?: string }, what: string) {
+  const last = user.last_sign_in_at ? Date.parse(user.last_sign_in_at) : 0;
+  if (!last || Date.now() - last > FRESH_LOGIN_MS) {
+    throw new UserError(`${what} needs a fresh login (within the last 15 minutes). Sign out, sign in again, then retry.`);
+  }
+}
+
+const nl = (t: string) => t.split('\r\n').join('\n').split('\r').join('\n');
 
 const stubPlaceholders = (t: string) => t.replace(/\{(to|text|sender|apiKey|apiSecret|basicAuth|toDigits)\}/g, 'x');
 
@@ -323,13 +359,13 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
       api_url: g('api_url'),
       http_method: g('http_method'),
       request_format: g('request_format'),
-      body_template: g('body_template'),
-      headers_template: g('headers_template'),
+      body_template: nl(g('body_template')),
+      headers_template: nl(g('headers_template')),
       sender_id: g('sender_id'),
       template_text: g('template_text'),
       offline_after_seconds: g('offline_after_seconds'),
       step2_after_minutes: g('step2_after_minutes'),
-      step3_after_minutes: g('step3_after_minutes'),
+      repeat_every_minutes: g('repeat_every_minutes'),
       template_step2: g('template_step2'),
       template_step3: g('template_step3'),
       daily_cap: g('daily_cap'),
@@ -370,20 +406,15 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
       (i.api_url || null) !== cur.api_url ||
       !!apiKey ||
       !!apiSecret ||
-      i.body_template !== cur.body_template ||
-      i.headers_template !== cur.headers_template ||
+      i.body_template !== nl(cur.body_template ?? '') ||
+      i.headers_template !== nl(cur.headers_template ?? '') ||
       i.template_text !== cur.template_text ||
       (i.template_step2 || null) !== (cur.template_step2 ?? null) ||
       (i.template_step3 || null) !== (cur.template_step3 ?? null) ||
       i.http_method !== cur.http_method ||
       i.request_format !== cur.request_format;
     if (sensitive) {
-      const last = user.last_sign_in_at ? Date.parse(user.last_sign_in_at) : 0;
-      if (!last || Date.now() - last > FRESH_LOGIN_MS) {
-        throw new UserError(
-          'Changing the URL, credentials, request format or templates needs a fresh login (within the last 15 minutes). Sign out, sign in again, then retry.',
-        );
-      }
+      requireFreshLogin(user, 'Changing the URL, credentials, request format or templates');
     }
 
     const update: Record<string, unknown> = {
@@ -397,7 +428,7 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
       template_text: i.template_text,
       offline_after_seconds: i.offline_after_seconds,
       step2_after_minutes: i.step2_after_minutes,
-      step3_after_minutes: i.step3_after_minutes,
+      repeat_every_minutes: i.repeat_every_minutes,
       template_step2: i.template_step2 || null,
       template_step3: i.template_step3 || null,
       daily_cap: i.daily_cap,
@@ -411,6 +442,9 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
       try {
         if (cur.credentials_enc) existing = JSON.parse(decryptText(cur.credentials_enc));
       } catch {
+        if (!apiKey || !apiSecret) {
+          throw new UserError('The stored credentials cannot be read: enter both the API key and the API secret.');
+        }
         existing = {};
       }
       update.credentials_enc = encryptText(
@@ -418,7 +452,10 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
       );
     }
     const { error } = await db.from('sms_settings').update(update).eq('id', 1);
-    if (error) throw new UserError('Could not save settings');
+    if (error) {
+      console.error('sms_settings update failed:', error.message);
+      throw new UserError('Could not save settings. If you just updated the app, apply the latest database migration.');
+    }
     await audit(ownerId, 'sms_settings_changed');
     if (apiKey || apiSecret) await audit(ownerId, 'sms_credentials_changed');
     revalidatePath('/admin/sms');
@@ -427,9 +464,17 @@ export async function saveSmsSettings(_prev: State, fd: FormData): Promise<State
 }
 
 export async function sendTestSms(_prev: State, fd: FormData): Promise<State> {
-  return owned(async (ownerId) => {
+  return owned(async (ownerId, user) => {
     const to = blank(fd.get('to')).replace(/[\s-]/g, '');
     if (!validateE164(to)) throw new UserError('Enter the number in E.164 format, e.g. +94771234567');
+    requireFreshLogin(user, 'Sending a test SMS');
+    const { count: recentTests, error: cntErr } = await adminClient()
+      .from('sms_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('kind', 'test')
+      .gte('sent_at', new Date(Date.now() - 3_600_000).toISOString());
+    if (cntErr) throw new UserError('Could not check the test limit. Try again.');
+    if ((recentTests ?? 0) >= 5) throw new UserError('Limit reached: at most 5 test SMS per hour. Try again later.');
     const { data: s } = await adminClient().from('sms_settings').select('template_text').eq('id', 1).single();
     const res = await sendSms({ to, text: s?.template_text ?? 'Test', userId: ownerId, kind: 'test' });
     await audit(ownerId, res.ok ? 'sms_test_sent' : 'sms_test_failed');

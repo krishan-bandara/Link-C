@@ -1,14 +1,14 @@
 import { readdir, rm, stat, statfs } from 'node:fs/promises';
 import path from 'node:path';
-import { decryptText } from '@/lib/crypto';
+import { readPhone } from '@/lib/phone';
 import { cleanupUploadSession, deleteMediaBlobs } from '@/lib/media';
 import { sendSms } from '@/lib/sms';
 import { pushConfigured, sendPush, type PushSub } from '@/lib/push';
 import { dataDir, snapStore } from '@/lib/storage';
 import { adminClient } from '@/lib/supabase/admin';
-import { agoIso, capReached, diskUsedRatio, isQuietHours, monthStart } from './helpers';
+import { agoIso, capReached, diskUsedRatio, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
 
-export { capReached, isQuietHours, monthStart } from './helpers';
+export { capReached, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
 
 const TICK_MS = 5_000; // alerts are checked every 5 s; housekeeping only every 20 s
 const HOUSEKEEPING_MS = 20_000;
@@ -131,82 +131,192 @@ async function diskCheck() {
 }
 
 // ---------------------------------------------------------------- (e) SMS alerts
+type SmsCand = {
+  user_id: string;
+  first_unread: string;
+  step: number;
+  sms_first_at: string | null;
+  sms_last_sent_at: string | null;
+  last_sms_at: string | null;
+};
+
+async function traceFailure(userId: string, status: string, periodStartedAt: string) {
+  const { error } = await adminClient()
+    .from('sms_log')
+    .insert({ user_id: userId, kind: 'alert', provider_status: status, period_started_at: periodStartedAt });
+  if (error) logErr('sms_log insert', new Error(error.message));
+}
+
+const EPOCH = '1970-01-01T00:00:00.000Z';
+
+/** A presence row must exist before it can be updated. A new row looks long offline (not "seen just now"). Existing rows are untouched. */
+async function ensurePresenceRow(userId: string) {
+  const { error } = await adminClient()
+    .from('presence_state')
+    .upsert({ user_id: userId, last_seen_at: EPOCH }, { onConflict: 'user_id', ignoreDuplicates: true });
+  if (error) logErr('presence row', new Error(error.message));
+}
+
+/**
+ * Stops this person being a due candidate for `ms` milliseconds. last_sms_at is also the retry-spacing marker: writing it
+ * `ms - 60 s` into the future blocks the next attempt until `ms` from now. A heartbeat clears it again.
+ */
+async function deferPerson(userId: string, ms: number) {
+  await ensurePresenceRow(userId);
+  const { error } = await adminClient()
+    .from('presence_state')
+    .update({ last_sms_at: new Date(Date.now() + Math.max(0, ms - 60_000)).toISOString() })
+    .eq('user_id', userId);
+  if (error) logErr('defer sms', new Error(error.message));
+}
+
+const positive = (v: unknown, fallback: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+const capValue = (v: unknown, fallback: number) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? fallback : Number(v));
+
 async function smsAlerts() {
   const db = adminClient();
   const { data: st, error } = await db.from('sms_settings').select('*').eq('id', 1).maybeSingle();
   if (error) throw new Error(error.message);
   if (!st || !st.enabled || !st.api_url) return;
-  if (isQuietHours(new Date(), st.quiet_start, st.quiet_end, TZ)) return;
+  let quiet = false;
+  try {
+    quiet = isQuietHours(new Date(), st.quiet_start, st.quiet_end, TZ);
+  } catch (e) {
+    logErr('quiet hours (check TZ)', e); // a bad TZ must not stop alerts
+  }
+  if (quiet) return;
 
-  const { data: cands, error: cerr } = await db.rpc('sms_candidates', { p_offline_seconds: st.offline_after_seconds });
+  const step2Minutes = positive(st.step2_after_minutes, 10);
+  const repeatMinutes = positive(st.repeat_every_minutes, 19);
+  const offlineSeconds = Math.max(30, positive(st.offline_after_seconds, 45));
+  const dailyCap = capValue(st.daily_cap, 10);
+  const monthlyCap = capValue(st.monthly_cap, 300);
+
+  const { data: cands, error: cerr } = await db.rpc('sms_candidates_v2', { p_offline_seconds: offlineSeconds });
   if (cerr) throw new Error(cerr.message);
-  if (!cands?.length) return;
+  const due = ((cands ?? []) as SmsCand[]).filter((c) =>
+    smsDue({
+      step: c.step ?? 0,
+      firstSentAt: c.sms_first_at,
+      lastSentAt: c.sms_last_sent_at,
+      lastAttemptAt: c.last_sms_at,
+      nowMs: Date.now(),
+      step2Minutes,
+      repeatMinutes,
+    }),
+  );
+  if (!due.length) return;
 
-  const { count: monthCount } = await db
+  // Only successful sends count toward the caps; failed attempts do not. If a count cannot be read, send nothing (fail closed).
+  const { count: monthCount, error: mErr } = await db
     .from('sms_log')
     .select('id', { count: 'exact', head: true })
     .eq('kind', 'alert')
+    .like('provider_status', 'http 2%')
     .gte('sent_at', monthStart(new Date(), TZ));
+  if (mErr) throw new Error(mErr.message);
   let sentThisMonth = monthCount ?? 0;
 
-  for (const c of cands as { user_id: string; first_unread: string; step: number }[]) {
-    const { count: dayCount } = await db
+  for (const c of due) {
+    const step = c.step ?? 0;
+
+    const { count: dayCount, error: dErr } = await db
       .from('sms_log')
       .select('id', { count: 'exact', head: true })
       .eq('kind', 'alert')
       .eq('user_id', c.user_id)
+      .like('provider_status', 'http 2%')
       .gte('sent_at', agoIso(DAY));
-    if (capReached({ sentToday: dayCount ?? 0, sentThisMonth, dailyCap: st.daily_cap, monthlyCap: st.monthly_cap })) {
-      // Capped: look again in a minute, not every tick.
-      await db.from('presence_state').upsert({ user_id: c.user_id, last_sms_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (dErr) {
+      logErr('sms day count', new Error(dErr.message));
+      continue;
+    }
+    if (capReached({ sentToday: dayCount ?? 0, sentThisMonth, dailyCap, monthlyCap })) {
+      await traceFailure(c.user_id, 'cap reached', c.first_unread); // visible in Admin > SMS, written at most every ~10 minutes
+      await deferPerson(c.user_id, 10 * 60_000);
       continue;
     }
 
+    // Read the number BEFORE claiming so an unreadable number does not look like a send attempt.
     const { data: prof } = await db.from('profiles').select('phone_enc, sms_template').eq('id', c.user_id).maybeSingle();
-    if (!prof?.phone_enc) continue;
+    const phone = readPhone(prof?.phone_enc as string | null | undefined);
+    if (!phone) {
+      const why = prof?.phone_enc ? 'error phone unreadable' : 'error no phone';
+      logErr('send sms', new Error(why));
+      await traceFailure(c.user_id, why, c.first_unread);
+      await deferPerson(c.user_id, 10 * 60_000);
+      continue;
+    }
 
-    // Claim before sending: only one worker pass can take this step, and a crash after the send cannot repeat it every tick.
-    // The claim only succeeds while the person is still offline and still on the same step.
-    await db.from('presence_state').upsert({ user_id: c.user_id }, { onConflict: 'user_id', ignoreDuplicates: true });
+    // CLAIM AND ADVANCE in one atomic update. It only matches if nothing changed since the candidate list was read: same step, same
+    // last attempt time (so a second worker cannot also claim it) and the person is still offline. Advancing before the send means
+    // a crash or a failed follow-up write can never repeat the SMS; a definite send failure rolls the step back below.
+    await ensurePresenceRow(c.user_id);
     const claimAt = new Date().toISOString();
-    const { data: claimed } = await db
+    let claim = db
       .from('presence_state')
-      .update({ last_sms_at: claimAt })
+      .update({
+        last_sms_at: claimAt,
+        sms_sent_this_period: true,
+        sms_step: step + 1,
+        sms_last_sent_at: claimAt,
+        ...(step === 0 ? { sms_first_at: claimAt } : {}),
+      })
       .eq('user_id', c.user_id)
-      .eq('sms_step', c.step ?? 0)
-      .lt('last_seen_at', new Date(Date.now() - Number(st.offline_after_seconds) * 1000).toISOString())
-      .select('user_id');
-    if (!claimed?.length) continue;
+      .eq('sms_step', step)
+      .lt('last_seen_at', new Date(Date.now() - offlineSeconds * 1000).toISOString());
+    claim = c.last_sms_at ? claim.eq('last_sms_at', c.last_sms_at) : claim.is('last_sms_at', null);
+    const { data: claimed, error: claimErr } = await claim.select('user_id');
+    if (claimErr) {
+      logErr('sms claim', new Error(claimErr.message));
+      continue;
+    }
+    if (!claimed?.length) continue; // someone else took it, or the person came back online
 
     let res: { ok: boolean; status: string };
     try {
       res = await sendSms({
-        to: decryptText(prof.phone_enc as string),
-        text:
-          (prof.sms_template as string | null) ||
-          (c.step === 1 ? (st.template_step2 as string | null) : c.step === 2 ? (st.template_step3 as string | null) : null) ||
-          st.template_text,
+        to: phone,
+        text: smsTextFor(step, { sms_template: prof?.sms_template as string | null }, st),
         userId: c.user_id,
         kind: 'alert',
         periodStartedAt: c.first_unread,
       });
     } catch (e) {
       logErr('send sms', e);
-      res = { ok: false, status: 'error' };
+      await traceFailure(c.user_id, 'error send failed', c.first_unread);
+      res = { ok: false, status: 'error send failed' };
     }
-    if (!res.ok) continue; // last_sms_at was already set by the claim: the next try is in a minute
-    sentThisMonth++;
-    // Advance the sequence only if the person has not shown up (heartbeat) since the claim; otherwise their reset wins.
-    await db
+
+    if (res.ok) {
+      sentThisMonth++;
+      continue;
+    }
+
+    // Definite failure: undo the advance (unless the person came back meanwhile: a heartbeat reset wins) and back off.
+    const { error: rbErr } = await db
       .from('presence_state')
       .update({
-        sms_sent_this_period: true,
-        sms_step: (c.step ?? 0) + 1,
-        ...((c.step ?? 0) === 0 ? { sms_first_at: claimAt } : {}),
+        sms_step: step,
+        sms_last_sent_at: c.sms_last_sent_at,
+        sms_first_at: c.sms_first_at,
+        sms_sent_this_period: step > 0,
       })
       .eq('user_id', c.user_id)
-      .eq('sms_step', c.step ?? 0)
-      .lt('last_seen_at', claimAt);
+      .eq('sms_step', step + 1)
+      .eq('sms_last_sent_at', claimAt);
+    if (rbErr) logErr('sms rollback', new Error(rbErr.message));
+    const { count: failCount } = await db
+      .from('sms_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('kind', 'alert')
+      .eq('user_id', c.user_id)
+      .not('provider_status', 'like', 'http 2%')
+      .gte('sent_at', agoIso(3600_000));
+    await deferPerson(c.user_id, (failCount ?? 0) >= 5 ? 30 * 60_000 : 2 * 60_000);
   }
 }
 
@@ -244,6 +354,8 @@ let running: Promise<void> = Promise.resolve();
 
 let lastHousekeeping = 0;
 async function tick() {
+  // SMS first: slow housekeeping (blob deletions, file sweeps) must never delay an alert.
+  await step('sms alerts', smsAlerts);
   if (Date.now() - lastHousekeeping >= HOUSEKEEPING_MS) {
     lastHousekeeping = Date.now();
     await step('snap cleanup', snapCleanup);
@@ -251,7 +363,6 @@ async function tick() {
     await step('location cleanup', locationCleanup);
     await step('disk check', diskCheck);
   }
-  await step('sms alerts', smsAlerts);
   // Push alerts are off (SMS is the alert channel). Set PUSH_ALERTS=1 in the env file to turn them back on.
   if (process.env.PUSH_ALERTS === '1') await step('push alerts', pushAlerts);
 }

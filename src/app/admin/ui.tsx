@@ -247,7 +247,7 @@ export function ActionForm({
   );
 }
 
-export function SmsTemplateField({ initial, name = 'template_text' }: { initial: string; name?: string }) {
+export function SmsTemplateField({ initial, name = 'template_text', label = 'SMS text' }: { initial: string; name?: string; label?: string }) {
   const [v, setV] = useState(initial);
   return (
     <div className="space-y-1">
@@ -258,7 +258,7 @@ export function SmsTemplateField({ initial, name = 'template_text' }: { initial:
         maxLength={160}
         rows={3}
         className={inputCls}
-        aria-label="SMS text"
+        aria-label={label}
       />
       <div className="flex justify-between gap-3 text-xs text-muted">
         <span className="min-w-0 truncate">Preview: {v || '(empty)'}</span>

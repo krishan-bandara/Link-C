@@ -261,7 +261,7 @@
 .ad-pop { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 40; width: min(17.5rem, 80vw); max-height: 70vh; overflow: auto; padding: 14px; text-align: left; border-radius: 16px; background: color-mix(in srgb, var(--c-panel) 97%, transparent); border: 1px solid var(--c-edge); box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.55); animation: lc-pop 0.2s var(--ease) both; transform-origin: bottom right; }
 .ad-pop[hidden] { display: none; }
 .ad-pop-sep { margin: 12px 0; border: 0; border-top: 1px solid var(--c-line); }
-.ad-pop summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; list-style: none; padding: 4px 0; }
+.ad-pop summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; list-style: none; padding: 10px 0; }
 .ad-pop summary::-webkit-details-marker { display: none; }
 
 /* invite card */

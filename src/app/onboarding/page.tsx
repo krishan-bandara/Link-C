@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { adminClient } from '@/lib/supabase/admin';
 import { supabaseServer } from '@/lib/supabase/server';
-import { decryptText } from '@/lib/crypto';
+import { readPhone } from '@/lib/phone';
 import OnboardingForm from './OnboardingForm';
 
 export const dynamic = 'force-dynamic';
@@ -27,13 +27,8 @@ export default async function OnboardingPage() {
   if (profile?.notice_accepted_at) redirect('/');
 
   let maskedPhone: string | null = null;
-  if (profile?.phone_enc) {
-    try {
-      maskedPhone = mask(decryptText(profile.phone_enc));
-    } catch {
-      maskedPhone = null;
-    }
-  }
+  const plainPhone = readPhone(profile?.phone_enc as string | null | undefined);
+  if (plainPhone) maskedPhone = mask(plainPhone);
 
   return (
     <OnboardingForm

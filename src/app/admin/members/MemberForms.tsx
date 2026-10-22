@@ -10,6 +10,7 @@ import {
   resetPasswordLink,
   revokeInvite,
   setLoginDisabled,
+  setMemberPhone,
   setMemberSmsTemplate,
   toggleMemberSms,
 } from '../actions';
@@ -121,7 +122,7 @@ function MemberCard({ m, index, list }: { m: MemberView; index: number; list: bo
       </p>
       <div className="ad-pmeta">
         <Badge tone={m.phoneVerified ? 'ok' : 'neutral'} icon={m.phoneVerified ? 'verified' : 'phone'}>
-          {m.phoneVerified ? 'Phone verified' : 'Phone not verified'}
+          {m.phoneVerified ? 'Phone verified' : 'Phone not verified (optional)'}
         </Badge>
         <Badge tone={m.smsOn ? 'pink' : 'neutral'} icon={m.smsOn ? 'bell' : 'bellOff'}>
           SMS {m.smsOn ? 'on' : 'off'}
@@ -165,6 +166,17 @@ function MemberCard({ m, index, list }: { m: MemberView; index: number; list: bo
           </Submit>
         </ActionForm>
         <Popover label={`More actions for ${m.name}`}>
+          <details>
+            <summary>
+              <Icon name="phone" size={15} /> Phone number
+            </summary>
+            <ActionForm action={setMemberPhone} className="mt-3 space-y-2" reset>
+              {hidden}
+              <input name="phone" type="tel" inputMode="tel" autoComplete="off" placeholder="+94771234567" aria-label={`Phone number for ${m.name}`} className={inputCls} />
+              <p className="text-xs text-muted">Now: {m.phone}. Leave empty to remove it. Alerts are texted to this number.</p>
+              <Submit className={sm}>Save number</Submit>
+            </ActionForm>
+          </details>
           <details>
             <summary>
               <Icon name="edit" size={15} /> Custom SMS text
