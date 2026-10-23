@@ -49,6 +49,16 @@ export function monthStart(now: Date, tz = 'Asia/Colombo'): string {
   return new Date(Date.UTC(g('year'), g('month') - 1, 1) - offset).toISOString();
 }
 
+/** ISO timestamp of the start (local midnight) of the current calendar day in the given time zone. */
+export function dayStart(now: Date, tz = 'Asia/Colombo'): string {
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+    .formatToParts(now);
+  const g = (t: string) => Number(p.find((x) => x.type === t)?.value);
+  const localAsUtc = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second'));
+  const offset = localAsUtc - Math.floor(now.getTime() / 1000) * 1000;
+  return new Date(Date.UTC(g('year'), g('month') - 1, g('day')) - offset).toISOString();
+}
+
 /** Usage ratio 0..1 from statfs numbers. */
 export function diskUsedRatio(blocks: number, bavail: number): number {
   return blocks > 0 ? 1 - bavail / blocks : 0;

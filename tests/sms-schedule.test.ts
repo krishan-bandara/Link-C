@@ -169,3 +169,18 @@ describe('smsTextFor', () => {
     expect(smsTextFor(2, undefined, { template_text: 'T1' })).toBe('T1');
   });
 });
+
+import { dayStart } from '../worker/helpers';
+
+describe('dayStart (local midnight, Asia/Colombo = UTC+5:30)', () => {
+  it('returns the previous 18:30Z for a time late in the UTC day', () => {
+    expect(dayStart(new Date('2026-10-22T05:34:01Z'), 'Asia/Colombo')).toBe('2026-10-21T18:30:00.000Z');
+  });
+  it('rolls over exactly at local midnight', () => {
+    expect(dayStart(new Date('2026-10-22T18:29:59Z'), 'Asia/Colombo')).toBe('2026-10-21T18:30:00.000Z');
+    expect(dayStart(new Date('2026-10-22T18:30:00Z'), 'Asia/Colombo')).toBe('2026-10-22T18:30:00.000Z');
+  });
+  it('works at a month and year boundary', () => {
+    expect(dayStart(new Date('2026-12-31T19:00:00Z'), 'Asia/Colombo')).toBe('2026-12-31T18:30:00.000Z');
+  });
+});

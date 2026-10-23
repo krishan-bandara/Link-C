@@ -6,9 +6,9 @@ import { sendSms } from '@/lib/sms';
 import { pushConfigured, sendPush, type PushSub } from '@/lib/push';
 import { dataDir, snapStore } from '@/lib/storage';
 import { adminClient } from '@/lib/supabase/admin';
-import { agoIso, capReached, diskUsedRatio, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
+import { agoIso, capReached, dayStart, diskUsedRatio, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
 
-export { capReached, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
+export { capReached, dayStart, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
 
 const TICK_MS = 5_000; // alerts are checked every 5 s; housekeeping only every 20 s
 const HOUSEKEEPING_MS = 20_000;
@@ -192,7 +192,7 @@ async function smsAlerts() {
   const step2Minutes = positive(st.step2_after_minutes, 10);
   const repeatMinutes = positive(st.repeat_every_minutes, 19);
   const offlineSeconds = Math.max(30, positive(st.offline_after_seconds, 45));
-  const dailyCap = capValue(st.daily_cap, 10);
+  const dailyCap = capValue(st.daily_cap, 75);
   const monthlyCap = capValue(st.monthly_cap, 300);
 
   const { data: cands, error: cerr } = await db.rpc('sms_candidates_v2', { p_offline_seconds: offlineSeconds });
@@ -220,21 +220,20 @@ async function smsAlerts() {
   if (mErr) throw new Error(mErr.message);
   let sentThisMonth = monthCount ?? 0;
 
+  // The daily count is ONE shared pool for all members together (an umbrella), counted per calendar day in the local time zone.
+  const { count: todayCount, error: tErr } = await db
+    .from('sms_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('kind', 'alert')
+    .like('provider_status', 'http 2%')
+    .gte('sent_at', dayStart(new Date(), TZ));
+  if (tErr) throw new Error(tErr.message);
+  let sentToday = todayCount ?? 0;
+
   for (const c of due) {
     const step = c.step ?? 0;
 
-    const { count: dayCount, error: dErr } = await db
-      .from('sms_log')
-      .select('id', { count: 'exact', head: true })
-      .eq('kind', 'alert')
-      .eq('user_id', c.user_id)
-      .like('provider_status', 'http 2%')
-      .gte('sent_at', agoIso(DAY));
-    if (dErr) {
-      logErr('sms day count', new Error(dErr.message));
-      continue;
-    }
-    if (capReached({ sentToday: dayCount ?? 0, sentThisMonth, dailyCap, monthlyCap })) {
+    if (capReached({ sentToday, sentThisMonth, dailyCap, monthlyCap })) {
       await traceFailure(c.user_id, 'cap reached', c.first_unread); // visible in Admin > SMS, written at most every ~10 minutes
       await deferPerson(c.user_id, 10 * 60_000);
       continue;
@@ -293,6 +292,7 @@ async function smsAlerts() {
 
     if (res.ok) {
       sentThisMonth++;
+      sentToday++;
       continue;
     }
 

@@ -52,10 +52,10 @@ export function SmsSettingsForm({ v }: { v: SmsFormValues }) {
               <input name="repeat_every_minutes" type="number" min={1} max={1440} defaultValue={v.repeat_every_minutes} className={inputCls} />
             </Field>
             <div className="sms-two">
-              <Field label="Daily cap (per person)" hint="Successful SMS only.">
+              <Field label="SMS per day (all members together)" hint="One shared count for everyone, resets at midnight. Default 75.">
                 <input name="daily_cap" type="number" min={0} defaultValue={v.daily_cap} className={inputCls} />
               </Field>
-              <Field label="Monthly cap (overall)" hint="Successful SMS only.">
+              <Field label="SMS per month (all members together)" hint="Keep it above 31 times the daily count.">
                 <input name="monthly_cap" type="number" min={0} defaultValue={v.monthly_cap} className={inputCls} />
               </Field>
             </div>
