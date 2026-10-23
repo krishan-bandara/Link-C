@@ -192,7 +192,7 @@ export default function LocationGuard({ me }: { me: string }) {
                 type="button"
                 disabled={busy}
                 onClick={() => void respond('accept', m)}
-                className="rounded-xl bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-main disabled:opacity-50"
+                className="min-h-11 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-main disabled:opacity-50"
               >
                 Accept {m === 15 ? '15 min' : m === 60 ? '1 hr' : '8 hr'}
               </button>
@@ -201,7 +201,7 @@ export default function LocationGuard({ me }: { me: string }) {
               type="button"
               disabled={busy}
               onClick={() => void respond('decline')}
-              className="rounded-xl border border-line px-3 py-2 text-sm hover:bg-panel-2 outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+              className="min-h-11 rounded-xl border border-line px-4 py-2 text-sm hover:bg-panel-2 outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
             >
               Decline
             </button>
@@ -215,7 +215,7 @@ export default function LocationGuard({ me }: { me: string }) {
             Sharing your location with {nameInline} until{' '}
             {active.expires_at ? new Date(active.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
           </span>
-          <button type="button" onClick={() => void stop(active.id)} className="shrink-0 rounded-lg bg-black/20 px-3 py-1 font-medium hover:bg-black/30">
+          <button type="button" onClick={() => void stop(active.id)} className="min-h-11 shrink-0 rounded-lg bg-black/20 px-3 py-1 font-medium hover:bg-black/30">
             Stop
           </button>
         </div>

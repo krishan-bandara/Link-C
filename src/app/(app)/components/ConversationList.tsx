@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Camera, Check, CheckCheck, Search, Smile, X } from 'lucide-react';
+import { Camera, Check, CheckCheck, Image as ImageIcon, Mic, Search, Smile, Video, X } from 'lucide-react';
 import '@/components/ui/ui.css';
 import '../home.css';
 import type { ConversationItem } from '@/lib/chat/types';
@@ -75,7 +75,7 @@ function Row({ c, idx, active, typing, online, mounted, onAvatar }: { c: Convers
                   {c.lastMine && c.lastType !== 'system' && c.lastAt && (
                     c.lastRead ? <CheckCheck className="h-4 w-4 shrink-0 text-tick" aria-label="Read" /> : <Check className="h-4 w-4 shrink-0 text-muted" aria-label="Sent" />
                   )}
-                  {c.lastType === 'media' && <Camera className="h-4 w-4 shrink-0" aria-hidden />}
+                  {c.lastType === 'media' && (c.lastBody === 'Voice message' ? <Mic className="h-4 w-4 shrink-0" aria-hidden /> : c.lastBody === 'Video' ? <Video className="h-4 w-4 shrink-0" aria-hidden /> : c.lastBody === 'Photo' ? <ImageIcon className="h-4 w-4 shrink-0" aria-hidden /> : <Camera className="h-4 w-4 shrink-0" aria-hidden />)}
                   {c.lastType === 'sticker' && <Smile className="h-4 w-4 shrink-0" aria-hidden />}
                   <span className="truncate">{preview(c)}</span>
                 </>

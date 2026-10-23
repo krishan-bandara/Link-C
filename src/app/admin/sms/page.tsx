@@ -1,14 +1,31 @@
+import Link from 'next/link';
 import { getSmsSettingsPublic } from '@/lib/sms';
 import { adminClient } from '@/lib/supabase/admin';
 import { ownerOrRedirect } from '../guard';
-import { Badge, EmptyState, Icon, PageHeader, Timeline, absUtc, relTime } from '../kit';
+import { Badge, Icon, PageHeader, btnCls } from '../kit';
 import { LocalTime } from './LocalTime';
 import { SmsSettingsForm, TestSmsForm } from './SmsForms';
+import './sms.css';
 
 export const metadata = { title: 'SMS - Admin - Link-C' };
 
+const PAGE_SIZE = 25;
+const MAX_DAYS = 92;
+const DAY_MS = 86_400_000;
+const COLOMBO_MS = 5.5 * 3_600_000; // Asia/Colombo is a fixed +05:30 (no DST)
+
 const hhmm = (t: string | null) => (t ? t.slice(0, 5) : '');
 const isOk = (s: string | null) => !!s && /^http 2\d\d$/.test(s);
+
+/** YYYY-MM-DD to the UTC ms of that day's midnight in Colombo, or null if not a real date. */
+function dayStart(d: string | undefined): number | null {
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  const [y, m, day] = d.split('-').map(Number);
+  const u = Date.UTC(y, m - 1, day);
+  if (new Date(u).toISOString().slice(0, 10) !== d) return null;
+  return u - COLOMBO_MS;
+}
+const ymd = (ms: number) => new Date(ms + COLOMBO_MS).toISOString().slice(0, 10);
 
 function explain(status: string | null): string {
   const t = (status ?? '').trim();
@@ -34,90 +51,153 @@ function explain(status: string | null): string {
   return m[t] ?? t;
 }
 
-export default async function SmsPage() {
+type SP = Record<string, string | string[] | undefined>;
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+export default async function SmsPage({ searchParams }: { searchParams: Promise<SP> }) {
   await ownerOrRedirect();
+  const sp = await searchParams;
+
+  // Date range in Colombo days. Garbage is ignored; a single date means that one day.
+  const todayMs = dayStart(ymd(Date.now())) as number;
+  let fromMs = dayStart(one(sp.from));
+  let toMs = dayStart(one(sp.to));
+  if (fromMs === null && toMs !== null) fromMs = toMs;
+  if (toMs === null && fromMs !== null) toMs = fromMs;
+  let note = '';
+  if (fromMs === null || toMs === null) {
+    fromMs = toMs = todayMs;
+  } else if (fromMs > toMs) {
+    note = 'The start date was after the end date, so showing today instead.';
+    fromMs = toMs = todayMs;
+  } else if ((toMs - fromMs) / DAY_MS + 1 > MAX_DAYS) {
+    note = `Ranges are limited to ${MAX_DAYS} days, so showing today instead.`;
+    fromMs = toMs = todayMs;
+  }
+  const from = ymd(fromMs);
+  const to = ymd(toMs);
+  const startIso = new Date(fromMs).toISOString();
+  const endIso = new Date(toMs + DAY_MS).toISOString();
+  const pageNo = Math.min(200, Math.max(1, Math.floor(Number(one(sp.page))) || 1));
+
   const s = await getSmsSettingsPublic();
   const db = adminClient();
-  const { data: log } = await db
-    .from('sms_log')
-    .select('id,user_id,kind,sent_at,provider_status')
-    .order('sent_at', { ascending: false })
-    .limit(50);
-  const recent = (log ?? []).slice(0, 15);
-  const ids = [...new Set((log ?? []).map((l) => l.user_id).filter(Boolean))] as string[];
+  const inRange = () => db.from('sms_log').select('id', { count: 'exact', head: true }).gte('sent_at', startIso).lt('sent_at', endIso);
+  const [{ data: log }, totalQ, okQ, testQ, aq] = await Promise.all([
+    db
+      .from('sms_log')
+      .select('id,user_id,kind,sent_at,provider_status')
+      .gte('sent_at', startIso)
+      .lt('sent_at', endIso)
+      .order('sent_at', { ascending: false })
+      .range(0, pageNo * PAGE_SIZE), // one extra row tells us whether there is more
+    inRange(),
+    inRange().like('provider_status', 'http 2%'),
+    inRange().eq('kind', 'test'),
+    db.from('profiles').select('id', { count: 'exact', head: true }).not('phone_enc', 'is', null).eq('sms_alerts_enabled', true),
+  ]);
+  const rows = log ?? [];
+  const hasMore = rows.length > pageNo * PAGE_SIZE;
+  const shown = rows.slice(0, pageNo * PAGE_SIZE);
+  const ids = [...new Set(shown.map((l) => l.user_id).filter(Boolean))] as string[];
   const { data: names } = ids.length ? await db.from('profiles').select('id,display_name').in('id', ids) : { data: [] };
   const nameOf = new Map((names ?? []).map((n) => [n.id as string, n.display_name as string]));
-  const last10 = recent.slice(0, 10);
-  const failures = last10.filter((l) => !isOk(l.provider_status)).length;
-  const now = Date.now();
-  const { count: alertable } = await db
-    .from('profiles')
-    .select('id', { count: 'exact', head: true })
-    .not('phone_enc', 'is', null)
-    .eq('sms_alerts_enabled', true);
+  const total = totalQ.count ?? 0;
+  const accepted = okQ.count ?? 0;
+  const tests = testQ.count ?? 0;
+  const alertable = aq.count ?? 0;
+
+  const today = ymd(Date.now());
+  const yesterday = ymd(todayMs - DAY_MS);
+  const week = ymd(todayMs - 6 * DAY_MS);
+  const month = today.slice(0, 8) + '01';
+  const chips: [string, string, string][] = [
+    ['Today', today, today],
+    ['Yesterday', yesterday, yesterday],
+    ['Last 7 days', week, today],
+    ['This month', month, today],
+  ];
+  const qs = (f: string, t: string, p?: number) => `?from=${f}&to=${t}${p ? `&page=${p}` : ''}`;
+  const rangeLabel = from === to ? from : `${from} to ${to}`;
+
+  const gatewayMissing = [!s.api_url && 'URL', !s.hasCredentials && 'credentials'].filter(Boolean).join(' and ');
+  const ready = !gatewayMissing;
 
   return (
-    <>
-      <PageHeader title="SMS alerts" subtitle="Provider, limits and delivery log." />
-      {failures >= 3 && (
-        <p role="alert" className="ad-card rise flex items-center gap-3 border-danger text-sm text-danger">
-          <Icon name="alert" size={18} />
-          {failures} of the last {last10.length} SMS attempts failed. Check the provider URL, credentials and balance.
+    <div className="sms-page">
+      <PageHeader title="SMS alerts" subtitle="Delivery log and settings." />
+      <div className="sms-status" aria-label="SMS status">
+        <Badge tone={s.enabled && ready ? 'ok' : 'warn'} icon={s.enabled && ready ? 'check' : 'alert'}>
+          SMS {s.enabled ? 'on' : 'off'}
+          {ready ? ', gateway ready' : `, gateway ${gatewayMissing} missing`}
+        </Badge>
+        <Badge tone={alertable > 0 ? 'ok' : 'warn'} icon="users">
+          {alertable} {alertable === 1 ? 'member' : 'members'} with alerts on
+        </Badge>
+      </div>
+
+      <section className="ad-card rise sms-card" aria-labelledby="log-h">
+        <h2 id="log-h" className="ad-card-title">
+          <Icon name="list" size={18} /> Delivery log
+        </h2>
+        <form method="get" className="sms-filter">
+          <div className="sms-dates">
+            <label className="ad-field">
+              <span className="ad-label">From</span>
+              <input type="date" name="from" defaultValue={from} max={today} className="ad-input" />
+            </label>
+            <label className="ad-field">
+              <span className="ad-label">To</span>
+              <input type="date" name="to" defaultValue={to} max={today} className="ad-input" />
+            </label>
+          </div>
+          <button type="submit" className={`${btnCls} sms-apply`}>
+            Show
+          </button>
+        </form>
+        <nav className="sms-chips" aria-label="Quick ranges">
+          {chips.map(([label, f, t]) => (
+            <Link key={label} href={qs(f, t)} className="sms-chip" aria-current={f === from && t === to ? 'true' : undefined}>
+              {label}
+            </Link>
+          ))}
+        </nav>
+        {note && (
+          <p role="status" className="text-sm text-muted">
+            {note}
+          </p>
+        )}
+        <p className="sms-summary">
+          {rangeLabel} (Sri Lanka time): {accepted} accepted, {Math.max(0, total - accepted)} failed, {tests} {tests === 1 ? 'test' : 'tests'}.
         </p>
-      )}
-      {!s.enabled && <p className="text-sm text-muted">SMS alerts are currently disabled.</p>}
-      <section className="ad-card rise space-y-3" aria-labelledby="recent-h">
-        <div>
-          <h2 id="recent-h" className="ad-card-title">
-            <Icon name="send" size={18} /> Recent SMS attempts
-          </h2>
-          <p className="ad-card-sub">The last 15 attempts, with the member each one was for. Phone numbers and message text are never shown.</p>
-        </div>
-        <ul className="flex flex-wrap gap-2" aria-label="SMS status">
-          <li>
-            <Badge tone={s.enabled ? 'ok' : 'warn'} icon={s.enabled ? 'check' : 'alert'}>
-              SMS {s.enabled ? 'enabled' : 'disabled'}
-            </Badge>
-          </li>
-          <li>
-            <Badge tone={s.api_url ? 'ok' : 'bad'} icon={s.api_url ? 'check' : 'alert'}>
-              Gateway URL {s.api_url ? 'saved' : 'missing'}
-            </Badge>
-          </li>
-          <li>
-            <Badge tone={s.hasCredentials ? 'ok' : 'bad'} icon={s.hasCredentials ? 'check' : 'alert'}>
-              Credentials {s.hasCredentials ? 'saved' : 'missing'}
-            </Badge>
-          </li>
-          <li>
-            <Badge tone={(alertable ?? 0) > 0 ? 'ok' : 'warn'} icon="users">
-              {alertable ?? 0} {alertable === 1 ? 'member' : 'members'} with a number and alerts on
-            </Badge>
-          </li>
-        </ul>
-        {recent.length ? (
-          <ul className="divide-y divide-line">
-            {recent.map((r) => {
+        {shown.length ? (
+          <ul className="sms-rows">
+            {shown.map((r) => {
               const ok = isOk(r.provider_status);
               return (
-                <li key={r.id as string} className="flex flex-col gap-0.5 py-2 text-sm">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <li key={r.id as string}>
+                  <div className="sms-row-top">
                     <span className="text-muted">
                       <LocalTime iso={r.sent_at as string} />
                     </span>
-                    <span className="font-medium">{r.user_id ? (nameOf.get(r.user_id as string) ?? 'removed member') : '-'}</span>
+                    <span className="sms-name">{r.user_id ? (nameOf.get(r.user_id as string) ?? 'removed member') : '-'}</span>
                     <Badge tone="neutral">{r.kind}</Badge>
-                    <span className={`ad-mono break-all ${ok ? 'text-accent' : 'text-danger'}`}>{r.provider_status ?? '-'}</span>
                   </div>
-                  <p className="text-xs text-muted [overflow-wrap:anywhere]">{explain(r.provider_status)}</p>
+                  <p className={`sms-row-note ${ok ? 'sms-ok' : 'sms-bad'}`}>{explain(r.provider_status) || '-'}</p>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <EmptyState icon="message" title="No attempts yet" text="Each SMS attempt will be listed here." />
+          <p className="sms-empty">No SMS attempts in this period.</p>
+        )}
+        {hasMore && (
+          <Link href={qs(from, to, pageNo + 1)} className={`${btnCls} ad-btn-ghost sms-more`}>
+            Show more
+          </Link>
         )}
       </section>
+
       <SmsSettingsForm
         v={{
           enabled: s.enabled,
@@ -140,35 +220,7 @@ export default async function SmsPage() {
           hasCredentials: s.hasCredentials,
         }}
       />
-      <div className="ad-cols ad-cols-wide">
-        <section className="ad-card rise" aria-labelledby="log-h">
-          <h2 id="log-h" className="ad-card-title mb-3">
-            <Icon name="list" size={18} /> Delivery log <span className="text-sm font-normal text-muted">(last 50)</span>
-          </h2>
-          {log?.length ? (
-            <div className="ad-scroll">
-              <Timeline
-                label="SMS delivery log"
-                items={log.map((l) => {
-                  const ok = isOk(l.provider_status);
-                  return {
-                    id: l.id as string,
-                    icon: ok ? 'check' : 'alert',
-                    tone: ok ? 'green' : 'red',
-                    title: `${l.user_id ? (nameOf.get(l.user_id) ?? 'removed') : '-'} · ${l.kind}`,
-                    sub: <span className={ok ? 'text-accent' : 'text-danger'}>{l.provider_status ?? '-'}</span>,
-                    time: relTime(l.sent_at, now),
-                    abs: absUtc(l.sent_at),
-                  };
-                })}
-              />
-            </div>
-          ) : (
-            <EmptyState icon="message" title="No SMS sent yet" text="Deliveries and failures will show up here." />
-          )}
-        </section>
-        <TestSmsForm />
-      </div>
-    </>
+      <TestSmsForm />
+    </div>
   );
 }

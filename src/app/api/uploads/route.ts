@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { handle, HttpError, requireConversation, requireUser } from '@/lib/auth';
 import { newFileKey, wrapKey } from '@/lib/crypto';
-import { ALLOWED_MIMES, CHUNK_SIZE, kindOf } from '@/lib/media';
+import { ALLOWED_MIMES, AUDIO_MAX_MB, CHUNK_SIZE, assertModeAllowed, kindOf, normalizeMime } from '@/lib/media';
 import { rateLimit } from '@/lib/rate-limit';
 import { adminClient } from '@/lib/supabase/admin';
 
@@ -19,7 +19,9 @@ export const POST = handle(async (req: Request) => {
   const { user, supabase } = await requireUser();
   if (!rateLimit(`upl:${user.id}`, 30, 60_000)) throw new HttpError(429, 'Too many uploads, slow down');
   const b = Body.parse(await req.json().catch(() => ({})));
+  b.mime = normalizeMime(b.mime); // MediaRecorder declares e.g. "audio/webm;codecs=opus"
   if (b.mode === 'timed' && !b.timerSeconds) throw new HttpError(400, 'A timer is required for timed snaps');
+  assertModeAllowed(b.mime, b.mode); // audio is always a normal message, never a snap
   await requireConversation(supabase, user.id, b.conversationId);
 
   if (b.replyTo) {
@@ -28,12 +30,13 @@ export const POST = handle(async (req: Request) => {
   }
 
   if (!(ALLOWED_MIMES as readonly string[]).includes(b.mime)) {
-    throw new HttpError(415, 'Only JPEG, PNG, WebP, GIF, MP4, MOV and WebM files are allowed');
+    throw new HttpError(415, 'Only JPEG, PNG, WebP, GIF, MP4, MOV, WebM and voice-note audio (WebM, MP4, OGG, MP3) files are allowed');
   }
   const db = adminClient();
   const { data: st } = await db.from('app_settings').select('*').eq('id', 1).single();
   if (!st) throw new Error('settings missing');
-  const maxMb = kindOf(b.mime) === 'image' ? st.photo_max_mb : st.video_max_mb;
+  const kind = kindOf(b.mime);
+  const maxMb = kind === 'audio' ? AUDIO_MAX_MB : kind === 'image' ? st.photo_max_mb : st.video_max_mb;
   if (b.size > maxMb * 1024 * 1024) throw new HttpError(413, `File is too large (max ${maxMb} MB)`);
 
   const { data: active } = await db

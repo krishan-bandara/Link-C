@@ -20,7 +20,7 @@ import { loadStickers, saveSticker, sendSticker } from '@/lib/chat/stickers';
 import MessageBubble from './MessageBubble';
 import { FOCUS } from './ui';
 import Composer from './Composer';
-import { quoteLabel } from '@/lib/chat/reply';
+import { quoteKind, quoteLabel } from '@/lib/chat/reply';
 import type { Quote } from './ReplyQuote';
 import AttachSheet, { type AttachChoice } from './AttachSheet';
 import UploadBubble, { type UploadItem } from './UploadBubble';
@@ -364,7 +364,7 @@ export default function ChatView({
     if (!id) return null;
     const m = messages.find((x) => x.id === id);
     if (!m) return { id, name: '', label: 'Earlier message' };
-    return { id, name: m.sender_id === me ? 'You' : other.name, label: quoteLabel(m, media[m.id]) };
+    return { id, name: m.sender_id === me ? 'You' : other.name, label: quoteLabel(m, media[m.id]), kind: quoteKind(m, media[m.id]) };
   };
 
   function startReply(id: string) {
@@ -441,6 +441,12 @@ export default function ChatView({
   function startUpload(file: File, c: AttachChoice) {
     setSheetFile(null);
     const o: UploadOpts = { conversationId, mode: c.mode, timerSeconds: c.timerSeconds, replyTo: replyTo?.id ?? null };
+    setReplyTo(null);
+    launchUpload(file, file.name, o);
+  }
+
+  function sendVoice(file: File) {
+    const o: UploadOpts = { conversationId, mode: 'normal', timerSeconds: null, replyTo: replyTo?.id ?? null };
     setReplyTo(null);
     launchUpload(file, file.name, o);
   }
@@ -794,7 +800,7 @@ export default function ChatView({
         )}
       </div>
 
-      <Composer handleRef={composerRef} onSend={sendText} onFile={onFile} onTyping={sendTyping} onStopTyping={stopTyping} onSticker={sendStickerMsg} onFocusInput={keyboardScroll} reply={replyTo ? quoteOf(replyTo.id) : null} onCancelReply={() => setReplyTo(null)} />
+      <Composer handleRef={composerRef} onSend={sendText} onFile={onFile} onTyping={sendTyping} onStopTyping={stopTyping} onSticker={sendStickerMsg} onVoice={sendVoice} onFocusInput={keyboardScroll} reply={replyTo ? quoteOf(replyTo.id) : null} onCancelReply={() => setReplyTo(null)} />
 
       {sheetFile && <AttachSheet file={sheetFile} onSend={(c) => startUpload(sheetFile, c)} onCancel={() => setSheetFile(null)} />}
       {zoom && <Lightbox src={`/api/media/${zoom.id}/stream`} onSave={() => void saveMedia(zoom.id, zoom.mime, flash)} onClose={() => setZoom(null)} />}

@@ -42,7 +42,7 @@ export default function WallpaperPicker({
   const file = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-3 gap-2 min-[400px]:grid-cols-4 sm:grid-cols-5">
         {WALLPAPER_PRESETS.map((p, i) => (
           <button
             key={p.id}
@@ -53,7 +53,7 @@ export default function WallpaperPicker({
             className={`${tile} rise`}
           >
             <span className="ui-wp-img" style={wallpaperStyle('preset', p.id, dark)} aria-hidden />
-            <span className="relative mb-1 rounded bg-black/55 px-1.5 text-[11px] text-white">{p.name}</span>
+            <span className="relative mb-1 max-w-[calc(100%-0.5rem)] truncate rounded bg-black/55 px-1.5 text-[11px] text-white">{p.name}</span>
           </button>
         ))}
         {assetId && (

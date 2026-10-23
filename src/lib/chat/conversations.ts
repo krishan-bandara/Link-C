@@ -16,7 +16,7 @@ export async function loadConversations(supabase: SupabaseClient, me: string): P
       const [last, unread] = await Promise.all([
         supabase
           .from('messages')
-          .select('body,type,created_at,sender_id,read_at')
+          .select('id,body,type,created_at,sender_id,read_at')
           .eq('conversation_id', c.id)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -28,13 +28,19 @@ export async function loadConversations(supabase: SupabaseClient, me: string): P
           .neq('sender_id', me)
           .is('read_at', null),
       ]);
+      // For a media message the list shows what kind it is (Photo / Video / Voice message), never the content.
+      let lastBody = (last.data?.body as string | undefined) ?? null;
+      if (last.data?.type === 'media') {
+        const { data: mi } = await supabase.from('media_items').select('kind,mode').eq('message_id', last.data.id).maybeSingle();
+        lastBody = mi?.mode && mi.mode !== 'normal' ? 'Snap' : mi?.kind === 'audio' ? 'Voice message' : mi?.kind === 'video' ? 'Video' : mi?.kind === 'image' ? 'Photo' : null;
+      }
       return {
         id: c.id as string,
         otherId,
         otherName: (people.get(otherId)?.display_name as string | undefined) ?? 'Member',
         otherAvatar: (people.get(otherId)?.avatar_asset_id as string | null | undefined) ?? null,
         otherAbout: (people.get(otherId)?.about as string | null | undefined) ?? null,
-        lastBody: (last.data?.body as string | undefined) ?? null,
+        lastBody,
         lastType: (last.data?.type as string | undefined) ?? null,
         lastAt: (last.data?.created_at as string | undefined) ?? null,
         lastMine: last.data?.sender_id === me,

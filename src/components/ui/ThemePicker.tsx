@@ -41,7 +41,7 @@ export default function ThemePicker({ value, onChange }: { value: Theme; onChang
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.id)}
-            className="ui-tile glass relative flex flex-col items-center gap-2 rounded-2xl border-2 border-transparent p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="ui-tile glass relative flex min-w-0 flex-col items-center gap-2 rounded-2xl border-2 border-transparent p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <span className="relative block h-20 w-full overflow-hidden rounded-xl border border-line">
               {o.id === 'system' ? (

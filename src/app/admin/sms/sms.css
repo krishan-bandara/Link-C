@@ -1,0 +1,47 @@
+/* SMS admin page. Prefix sms- keeps these rules apart from admin.css. */
+.sms-page { display: grid; gap: 14px; min-width: 0; padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.sms-page > * { min-width: 0; }
+.sms-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+.sms-status > * { min-width: 0; max-width: 100%; }
+.sms-card { display: grid; gap: 12px; min-width: 0; }
+.sms-card h2 { margin: 0; }
+.sms-filter { display: grid; gap: 10px; min-width: 0; }
+.sms-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.sms-dates .ad-input { min-height: 44px; font-size: 16px; width: 100%; min-width: 0; }
+.sms-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sms-chip {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 14px;
+  border-radius: 999px; border: 1px solid var(--c-line); font-size: 0.85rem; color: var(--c-text); text-decoration: none;
+  background: color-mix(in srgb, var(--c-panel) 70%, transparent);
+}
+.sms-chip[aria-current='true'] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 600; }
+.sms-apply { min-height: 44px; width: 100%; }
+.sms-summary { font-size: 0.9rem; color: var(--c-muted); }
+.sms-empty { font-size: 0.9rem; color: var(--c-muted); text-align: center; padding: 12px 0; }
+.sms-rows { list-style: none; margin: 0; padding: 0; display: grid; }
+.sms-rows li { padding: 10px 0; border-top: 1px solid var(--c-line); display: grid; gap: 4px; min-width: 0; }
+.sms-rows li:first-child { border-top: 0; }
+.sms-row-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; font-size: 0.9rem; }
+.sms-row-top .sms-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.sms-row-note { font-size: 0.8rem; color: var(--c-muted); overflow-wrap: anywhere; }
+.sms-ok { color: var(--accent); }
+.sms-bad { color: var(--c-danger); }
+.sms-more { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; width: 100%; }
+.sms-form { display: grid; gap: 12px; min-width: 0; }
+.sms-sec { border: 1px solid var(--c-edge); border-radius: 16px; background: var(--c-glass); min-width: 0; }
+.sms-sec > summary {
+  list-style: none; cursor: pointer; min-height: 52px; padding: 0 16px; display: flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: 1rem;
+}
+.sms-sec > summary::-webkit-details-marker { display: none; }
+.sms-sec > summary::after { content: ''; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform 0.15s; }
+.sms-sec[open] > summary::after { transform: rotate(-135deg); }
+.sms-sec-body { display: grid; gap: 14px; padding: 4px 16px 16px; min-width: 0; }
+.sms-sec-body > * { min-width: 0; }
+.sms-sec .ad-input, .sms-sec select, .sms-sec textarea { width: 100%; max-width: 100%; font-size: 16px; min-height: 44px; }
+.sms-sec textarea { min-height: 0; }
+.sms-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: auto; }
+.sms-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.sms-sec .ad-check { min-height: 44px; }
+.sms-save { width: 100%; min-height: 44px; }
+@media (min-width: 640px) { .sms-apply, .sms-save, .sms-more { width: auto; min-width: 200px; } }

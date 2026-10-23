@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, X } from 'lucide-react';
+import { Loader2, Mic, X } from 'lucide-react';
 import './chat.css';
 
 export type UploadItem = {
@@ -23,19 +23,20 @@ export default function UploadBubble({
   onCancel: () => void;
   onDismiss: () => void;
 }) {
+  const isVoice = /\.(webm|ogg|oga|m4a|mp3|wav|aac)$/i.test(item.name) || /^voice/i.test(item.name);
   const pct = item.total ? Math.round((item.sent / item.total) * 100) : 0;
   return (
     <div className="cv-in-mine mt-2 flex justify-end">
       <div className="cv-out w-64 max-w-[85%] rounded-[18px] rounded-br-md p-3 text-sm">
         <div className="flex items-center justify-between gap-2">
-          <span className="min-w-0 truncate">{item.name}</span>
+          <span className="flex min-w-0 items-center gap-1.5 truncate">{isVoice && <Mic className="h-4 w-4 shrink-0" aria-hidden />}<span className="truncate">{isVoice ? 'Voice message' : item.name}</span></span>
           {item.phase === 'error' ? (
-            <button type="button" onClick={onDismiss} aria-label="Dismiss" className="shrink-0 text-muted">
+            <button type="button" onClick={onDismiss} aria-label="Dismiss" className="flex h-8 w-8 shrink-0 items-center justify-center text-muted">
               <X className="h-4 w-4" />
             </button>
           ) : (
             item.phase !== 'done' && (
-              <button type="button" onClick={onCancel} aria-label="Cancel upload" className="shrink-0 text-muted">
+              <button type="button" onClick={onCancel} aria-label="Cancel upload" className="flex h-8 w-8 shrink-0 items-center justify-center text-muted">
                 <X className="h-4 w-4" />
               </button>
             )

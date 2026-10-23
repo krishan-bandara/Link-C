@@ -1,0 +1,147 @@
+/* Voice notes: recorder (composer) and player (message bubble). Uses the theme variables only. */
+
+.vr-mic {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  width: 44px;
+  height: 44px;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2, var(--accent)));
+  transition: transform 0.15s var(--ease, ease);
+}
+.vr-mic[data-held='true'] { transform: scale(1.35); }
+
+.vr-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 52px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 14px;
+  border-radius: 24px;
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-edge, var(--c-muted));
+  color: var(--c-text);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+.vr-bar[data-locked='true'] { right: 0; padding-right: 4px; }
+
+.vr-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: vr-pulse 1s ease-in-out infinite;
+}
+@keyframes vr-pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .vr-dot { animation: none; } }
+
+.vr-time { font-variant-numeric: tabular-nums; font-size: 15px; min-width: 2.6em; }
+.vr-wave { flex: 1; min-width: 0; height: 28px; }
+.vr-hint { font-size: 13px; color: var(--c-muted); white-space: nowrap; transition: color 0.15s, transform 0.15s; }
+.vr-hint[data-hot='true'] { color: #ef4444; transform: translateX(-4px); }
+.vr-lockhint {
+  position: absolute;
+  right: 4px;
+  bottom: calc(100% + 8px);
+  z-index: 16;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--c-panel-2);
+  color: var(--c-muted);
+  border: 1px solid var(--c-edge, var(--c-muted));
+  pointer-events: none;
+}
+.vr-lockhint[data-hot='true'] { color: var(--accent); }
+
+.vr-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--c-text);
+}
+.vr-btn.vr-send { background-image: linear-gradient(135deg, var(--accent), var(--a2, var(--accent))); color: var(--c-accent-ink, #000); }
+
+.vr-note {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(100% + 4px);
+  z-index: 16;
+  font-size: 12px;
+  line-height: 1.3;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--c-panel-2);
+  color: var(--c-muted);
+}
+.vr-note[data-error='true'] { color: var(--c-danger, #ef4444); }
+
+.vr-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- player ---------- */
+.ap { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; color: inherit; }
+.ap-play {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background-image: linear-gradient(135deg, var(--accent), var(--a2, var(--accent)));
+  color: var(--c-accent-ink, #000);
+}
+.ap-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ap-time { font-size: 11px; color: var(--c-muted); font-variant-numeric: tabular-nums; line-height: 1; }
+.ap-chip {
+  flex: none;
+  min-width: 44px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--c-text);
+}
+.ap-err { font-size: 12px; color: var(--c-danger, #ef4444); }
+
+.ap-seek {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  touch-action: none;
+  cursor: pointer;
+  --p: 0%;
+}
+.ap-seek:disabled { cursor: default; opacity: 0.6; }
+.ap-seek::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--p), color-mix(in srgb, var(--c-muted) 40%, transparent) var(--p));
+}
+.ap-seek::-moz-range-track { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--c-muted) 40%, transparent); }
+.ap-seek::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+.ap-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: var(--accent); border: 0; }
+.ap-seek::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 0; }
+.ap-seek:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.ap-play:focus-visible, .ap-chip:focus-visible, .vr-btn:focus-visible, .vr-mic:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

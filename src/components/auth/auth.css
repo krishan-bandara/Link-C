@@ -94,6 +94,7 @@
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* the card may never be wider than the screen */
   place-items: center;
   padding: calc(24px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
 }
@@ -106,6 +107,8 @@
 }
 .lc-card {
   position: relative;
+  min-width: 0;
+  max-width: 100%;
   width: min(420px, 100%);
   padding: 22px 28px 26px;
   border-radius: 24px;
@@ -140,6 +143,7 @@
   80% { transform: translateX(3px); }
 }
 .lc-wide { width: min(460px, 100%); }
+.lc-card h1, .lc-sub { overflow-wrap: anywhere; }
 @media (max-width: 420px) {
   .lc-card { padding: 20px 20px 22px; }
 }
@@ -193,6 +197,8 @@
 .lc-field { margin-bottom: 14px; }
 .lc-input {
   width: 100%;
+  min-width: 0;
+  scroll-margin-block: 7rem;
   height: 52px;
   padding: 0 16px;
   border-radius: 14px;
@@ -216,9 +222,9 @@
 .lc-pw .lc-input { padding-right: 64px; }
 .lc-eye {
   position: absolute;
-  right: 6px;
-  top: 6px;
-  height: 40px;
+  right: 4px;
+  top: 4px;
+  height: 44px;
   min-width: 52px;
   padding: 0 10px;
   border: 0;

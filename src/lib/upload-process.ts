@@ -9,7 +9,12 @@ import { adminClient } from '@/lib/supabase/admin';
 import { snapStore, mediaStore } from '@/lib/storage';
 import {
   ALLOWED_MIMES,
+  AUDIO_FFMPEG_FORMAT_ARGS,
+  AUDIO_FINAL_MIME,
+  AUDIO_MAX_MB,
   SNAP_TTL_HOURS,
+  audioFormatOf,
+  probeProblem,
   cleanupUploadSession,
   kindOf,
   setFailure,
@@ -20,21 +25,46 @@ import {
 
 class Reject extends Error {}
 
-function runFfmpeg(input: string, output: string, format: 'mp4' | 'webm'): Promise<void> {
+function runFfmpeg(input: string, output: string, formatArgs: string[], what = 'video'): Promise<void> {
   const bin = process.env.FFMPEG_PATH || 'ffmpeg';
-  const args = ['-nostdin', '-y', '-protocol_whitelist', 'file', '-i', input, '-map_metadata', '-1', '-c', 'copy'];
-  if (format === 'mp4') args.push('-movflags', '+faststart');
-  args.push('-f', format, output);
+  const args = ['-nostdin', '-y', '-protocol_whitelist', 'file', '-i', input, '-map_metadata', '-1', '-c', 'copy', ...formatArgs, output];
   return new Promise((resolve, reject) => {
     const p = spawn(bin, args, { stdio: 'ignore', shell: false });
     const timer = setTimeout(() => p.kill('SIGKILL'), 10 * 60_000);
     p.on('error', () => {
       clearTimeout(timer);
-      reject(new Reject('Video processing is not available on the server'));
+      reject(new Reject(`${what[0].toUpperCase()}${what.slice(1)} processing is not available on the server`));
     });
     p.on('close', (code) => {
       clearTimeout(timer);
-      code === 0 ? resolve() : reject(new Reject('This video could not be processed'));
+      code === 0 ? resolve() : reject(new Reject(`This ${what} could not be processed`));
+    });
+  });
+}
+
+/** ffprobe -v error -show_streams -of json <file>; 10 s timeout, no shell. Resolves to the parsed JSON. */
+function probeStreams(input: string): Promise<unknown> {
+  const bin = process.env.FFPROBE_PATH || 'ffprobe';
+  const args = ['-v', 'error', '-protocol_whitelist', 'file', '-show_streams', '-of', 'json', input];
+  return new Promise((resolve, reject) => {
+    const p = spawn(bin, args, { stdio: ['ignore', 'pipe', 'ignore'], shell: false });
+    let out = '';
+    p.stdout.on('data', (d: Buffer) => {
+      if (out.length < 1_000_000) out += d.toString('utf8');
+    });
+    const timer = setTimeout(() => p.kill('SIGKILL'), 10_000);
+    p.on('error', () => {
+      clearTimeout(timer);
+      reject(new Reject('Media processing is not available on the server'));
+    });
+    p.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) return reject(new Reject('This file could not be read'));
+      try {
+        resolve(JSON.parse(out));
+      } catch {
+        reject(new Reject('This file could not be read'));
+      }
     });
   });
 }
@@ -79,11 +109,20 @@ export async function processUpload(sessionId: string): Promise<void> {
       await hfh.close();
     }
     const ft = await fileTypeFromBuffer(head.subarray(0, headLen));
-    const detected = ft?.mime as (typeof ALLOWED_MIMES)[number] | undefined;
-    if (!detected || !ALLOWED_MIMES.includes(detected)) throw new Reject('This file type is not supported');
-    const kind = kindOf(detected);
-    if (kind !== kindOf(s.mime)) throw new Reject('File does not match its declared type');
-    const limit = (kind === 'image' ? st?.photo_max_mb : st?.video_max_mb) ?? 10;
+    const detected = ft?.mime;
+    if (!detected) throw new Reject('This file type is not supported');
+    const declaredKind = kindOf(s.mime);
+    // Audio-only WebM/MP4 files are detected as video/webm or video/mp4: ffprobe decides below.
+    const audioFormat = declaredKind === 'audio' ? audioFormatOf(detected) : null;
+    if (declaredKind === 'audio') {
+      if (!audioFormat) throw new Reject('File does not match its declared type');
+      if (s.mode !== 'normal') throw new Reject('Voice messages cannot be snaps');
+    } else {
+      if (!(ALLOWED_MIMES as readonly string[]).includes(detected)) throw new Reject('This file type is not supported');
+      if (kindOf(detected) !== declaredKind) throw new Reject('File does not match its declared type');
+    }
+    const kind = declaredKind;
+    const limit = (kind === 'audio' ? AUDIO_MAX_MB : kind === 'image' ? st?.photo_max_mb : st?.video_max_mb) ?? 10;
     const maxBytes = Number(limit) * 1024 * 1024;
 
     // 3. strip metadata
@@ -108,9 +147,23 @@ export async function processUpload(sessionId: string): Promise<void> {
       }
     } else if (kind === 'video') {
       cleanPath = path.join(dir, 'clean');
+      // Extra safety check only: if ffprobe is unavailable or cannot read the file, ffmpeg below still validates it,
+      // so videos keep working exactly as before. A file that provably has no picture is rejected.
+      const problem = await probeStreams(rawPath).then(
+        (info) => probeProblem(info, 'video'),
+        () => null,
+      );
+      if (problem) throw new Reject(problem);
       const fmt = detected === 'video/webm' ? 'webm' : 'mp4';
-      await runFfmpeg(rawPath, cleanPath, fmt);
+      await runFfmpeg(rawPath, cleanPath, fmt === 'mp4' ? ['-f', 'mp4', '-movflags', '+faststart'] : ['-f', 'webm']);
       finalMime = fmt === 'webm' ? 'video/webm' : 'video/mp4';
+    } else if (audioFormat) {
+      // Confirm the container really holds sound and no picture, then re-mux without metadata.
+      const problem = probeProblem(await probeStreams(rawPath), 'audio');
+      if (problem) throw new Reject(problem);
+      cleanPath = path.join(dir, 'clean');
+      await runFfmpeg(rawPath, cleanPath, AUDIO_FFMPEG_FORMAT_ARGS[audioFormat], 'audio file');
+      finalMime = AUDIO_FINAL_MIME[audioFormat];
     }
     const cleanSize = (await stat(cleanPath)).size;
     if (cleanSize <= 0) throw new Reject('Empty file');

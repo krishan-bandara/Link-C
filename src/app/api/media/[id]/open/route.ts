@@ -15,10 +15,11 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   // RLS: only conversation participants can see the row
   const { data: item } = await supabase
     .from('media_items')
-    .select('id,sender_id,mode')
+    .select('id,sender_id,mode,kind')
     .eq('id', id)
     .maybeSingle();
   if (!item) throw new HttpError(404, 'Not found');
+  if (item.kind === 'audio') throw new HttpError(400, 'Voice messages are not snaps');
   if (item.mode === 'normal') throw new HttpError(400, 'Not a snap');
   if (item.sender_id === user.id) throw new HttpError(403, 'You cannot open your own snap');
 
@@ -38,8 +39,8 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   await db.from('view_events').insert({ media_id: id, viewer_id: user.id });
   const m = won[0];
   return NextResponse.json({
-    // Images load once, so 30 s is plenty; videos need a longer window for Range requests while playing.
-    token: signToken(`${id}:${user.id}`, m.kind === 'video' ? 600 : 30),
+    // Images load once, so 30 s is plenty; videos (and any non-image) need a longer window for Range requests while playing.
+    token: signToken(`${id}:${user.id}`, m.kind === 'image' ? 30 : 600),
     kind: m.kind,
     mime: m.mime,
     timerSeconds: m.timer_seconds ?? null,

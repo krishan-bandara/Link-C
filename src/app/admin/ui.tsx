@@ -87,16 +87,51 @@ export function Popover({ label, children }: { label: string; children: ReactNod
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
-  // Keep the panel inside the visible area (not cut off on the left, not under the sidebar).
+  // Place the panel inside the visible area with a 12px margin on every side: clamp left/right, open upward or downward
+  // (whichever has room), never under the top bar, the bottom tab bar or the desktop sidebar, and scroll inside if it is tall.
   useLayoutEffect(() => {
     const el = panelRef.current;
-    if (!el) return;
-    el.style.translate = '';
+    const wrap = ref.current;
+    if (!el || !wrap) return;
+    const reset = () => {
+      for (const k of ['left', 'right', 'top', 'bottom', 'width', 'maxHeight'] as const) el.style[k] = '';
+      el.style.translate = '';
+    };
+    reset();
     if (!open) return;
-    const side = document.querySelector('.ad-side');
-    const minLeft = (side && getComputedStyle(side).display !== 'none' ? side.getBoundingClientRect().right : 0) + 8;
-    const r = el.getBoundingClientRect();
-    if (r.left < minLeft) el.style.translate = `${Math.ceil(minLeft - r.left)}px 0`;
+    const M = 12;
+    const place = () => {
+      const vw = document.documentElement.clientWidth;
+      const vh = window.innerHeight;
+      const w = wrap.getBoundingClientRect();
+      const side = document.querySelector('.ad-side');
+      const minLeft = Math.max(M, side && getComputedStyle(side).display !== 'none' ? side.getBoundingClientRect().right + 8 : 0);
+      const width = Math.min(280, vw - M - minLeft);
+      const left = Math.min(Math.max(w.right - width, minLeft), vw - M - width);
+      const top = document.querySelector('.ad-top')?.getBoundingClientRect().bottom ?? 0;
+      const tabs = document.querySelector('.ad-tabs-wrap');
+      const tabsTop = tabs && getComputedStyle(tabs).display !== 'none' ? tabs.getBoundingClientRect().top : vh;
+      const above = w.top - 8 - Math.max(top, 0) - M;
+      const below = Math.min(vh, tabsTop) - w.bottom - 8 - M;
+      const up = above >= Math.min(el.scrollHeight, 360) || above >= below;
+      el.style.right = 'auto';
+      el.style.width = `${width}px`;
+      el.style.left = `${left - w.left}px`;
+      if (up) {
+        el.style.bottom = 'calc(100% + 8px)';
+        el.style.top = 'auto';
+        el.style.maxHeight = `${Math.max(160, above)}px`;
+        el.style.transformOrigin = 'bottom right';
+      } else {
+        el.style.top = 'calc(100% + 8px)';
+        el.style.bottom = 'auto';
+        el.style.maxHeight = `${Math.max(160, below)}px`;
+        el.style.transformOrigin = 'top right';
+      }
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
   }, [open]);
   useEffect(() => {
     if (!open) return;

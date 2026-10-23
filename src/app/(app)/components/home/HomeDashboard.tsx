@@ -79,7 +79,7 @@ export default function HomeDashboard() {
             <i />
           </div>
           <p className="ui-step ui-cursor">{`// ${hello.toLowerCase()}`}</p>
-          <h1 id="hm-hello" className="mt-2 text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
+          <h1 id="hm-hello" className="mt-2 break-words text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
             {hello}, <span className="ui-gtext">{first}</span>
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted sm:text-base">{sub}</p>

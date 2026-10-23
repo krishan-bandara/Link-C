@@ -5,15 +5,7 @@ import { adminClient } from '@/lib/supabase/admin';
 import { dataDir, rm, storeFor } from '@/lib/storage';
 
 export const CHUNK_SIZE = 8 * 1024 * 1024;
-export const ALLOWED_MIMES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'video/mp4',
-  'video/quicktime',
-  'video/webm',
-] as const;
+export * from '@/lib/media-types';
 export const SNAP_TTL_HOURS = 24;
 
 export const uuidSchema = z.string().uuid();
@@ -22,8 +14,6 @@ export const parseId = (v: string) => {
   if (!r.success) throw new HttpError(404, 'Not found');
   return r.data;
 };
-
-export const kindOf = (mime: string): 'image' | 'video' => (mime.startsWith('image/') ? 'image' : 'video');
 
 // Temp areas (ids are server-generated uuids, never user paths).
 export const uploadDir = (id: string) => path.join(dataDir(), 'tmp', 'uploads', parseId(id));
