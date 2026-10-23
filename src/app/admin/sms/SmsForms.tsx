@@ -1,8 +1,9 @@
 'use client';
 
+import type { FormEvent } from 'react';
 import { saveSmsSettings, sendTestSms } from '../actions';
 import { Icon, btnCls, btnGhostCls, inputCls } from '../kit';
-import { ActionForm, Field, SaveBar, SmsTemplateField, Submit } from '../ui';
+import { ActionForm, Field, SmsTemplateField, Submit } from '../ui';
 
 export type SmsFormValues = {
   enabled: boolean;
@@ -25,25 +26,83 @@ export type SmsFormValues = {
   hasCredentials: boolean;
 };
 
+/** A field inside a closed section cannot show its validation bubble, so open that section. */
+function openOnInvalid(e: FormEvent<HTMLElement>) {
+  (e.target as HTMLElement).closest('details')?.setAttribute('open', '');
+}
+
 export function SmsSettingsForm({ v }: { v: SmsFormValues }) {
   return (
-    <ActionForm action={saveSmsSettings} className="ad-formgrid">
-      <div className="ad-stack">
-        <section className="ad-card rise space-y-4">
-          <div>
-            <h2 className="ad-card-title">
-              <Icon name="server" size={18} /> Provider settings
-            </h2>
-            <p className="ad-card-sub">Where alerts are sent and how the request looks.</p>
+    <div className="sms-form" onInvalidCapture={openOnInvalid}>
+      <ActionForm action={saveSmsSettings} className="sms-form">
+        <details className="sms-sec" open>
+          <summary>
+            <Icon name="clock" size={18} /> Schedule
+          </summary>
+          <div className="sms-sec-body">
+            <div className="sms-two">
+              <Field label="SMS 1: offline after (s)" hint="Min 30, recommended 45.">
+                <input name="offline_after_seconds" type="number" min={30} defaultValue={v.offline_after_seconds} className={inputCls} />
+              </Field>
+              <Field label="SMS 2 after (minutes)" hint="After SMS 1.">
+                <input name="step2_after_minutes" type="number" min={1} max={1440} defaultValue={v.step2_after_minutes} className={inputCls} />
+              </Field>
+            </div>
+            <Field label="Repeat every (minutes) after the previous SMS" hint="For SMS 3 and later, until they open the app.">
+              <input name="repeat_every_minutes" type="number" min={1} max={1440} defaultValue={v.repeat_every_minutes} className={inputCls} />
+            </Field>
+            <div className="sms-two">
+              <Field label="Daily cap (per person)" hint="Successful SMS only.">
+                <input name="daily_cap" type="number" min={0} defaultValue={v.daily_cap} className={inputCls} />
+              </Field>
+              <Field label="Monthly cap (overall)" hint="Successful SMS only.">
+                <input name="monthly_cap" type="number" min={0} defaultValue={v.monthly_cap} className={inputCls} />
+              </Field>
+            </div>
+            <div className="sms-two">
+              <Field label="Quiet from">
+                <input name="quiet_start" type="time" defaultValue={v.quiet_start} className={inputCls} />
+              </Field>
+              <Field label="Quiet until">
+                <input name="quiet_end" type="time" defaultValue={v.quiet_end} className={inputCls} />
+              </Field>
+            </div>
           </div>
-          <label className="ad-check">
-            <input type="checkbox" name="enabled" defaultChecked={v.enabled} />
-            SMS alerts enabled
-          </label>
-          <Field label="API URL" hint="https only, port 443. Private and internal addresses are blocked.">
-            <input name="api_url" type="url" defaultValue={v.api_url} placeholder="https://api.provider.com/sms/send" className={inputCls} />
-          </Field>
-          <div className="ad-fields ad-fields-3">
+        </details>
+
+        <details className="sms-sec">
+          <summary>
+            <Icon name="message" size={18} /> Messages
+          </summary>
+          <div className="sms-sec-body">
+            <p className="ad-hint">Plain system-style text, no app name. A blank SMS 2 or 3 reuses SMS 1. A text set on a member overrides all three.</p>
+            <div className="space-y-1">
+              <span className="ad-label">SMS 1 text (max 160)</span>
+              <SmsTemplateField initial={v.template_text} label="SMS 1 text" />
+            </div>
+            <div className="space-y-1">
+              <span className="ad-label">SMS 2 text (max 160, optional)</span>
+              <SmsTemplateField initial={v.template_step2} name="template_step2" label="SMS 2 text" />
+            </div>
+            <div className="space-y-1">
+              <span className="ad-label">SMS 3 and later (max 160, optional)</span>
+              <SmsTemplateField initial={v.template_step3} name="template_step3" label="SMS 3 and later text" />
+            </div>
+          </div>
+        </details>
+
+        <details className="sms-sec">
+          <summary>
+            <Icon name="server" size={18} /> Gateway (advanced)
+          </summary>
+          <div className="sms-sec-body">
+            <label className="ad-check">
+              <input type="checkbox" name="enabled" defaultChecked={v.enabled} />
+              SMS alerts enabled
+            </label>
+            <Field label="API URL" hint="https only, port 443.">
+              <input name="api_url" type="url" defaultValue={v.api_url} placeholder="https://api.provider.com/sms/send" className={inputCls} />
+            </Field>
             <Field label="HTTP method">
               <select name="http_method" defaultValue={v.http_method} className={inputCls}>
                 <option>POST</option>
@@ -60,109 +119,45 @@ export function SmsSettingsForm({ v }: { v: SmsFormValues }) {
             <Field label="Sender ID">
               <input name="sender_id" defaultValue={v.sender_id} maxLength={40} className={inputCls} />
             </Field>
-          </div>
-          <Field label="Body template" hint="Placeholders: {to} {text} {sender} {apiKey} {apiSecret} {basicAuth} {toDigits} (number without +). For the query format this is the query string.">
-            <textarea name="body_template" defaultValue={v.body_template} rows={3} className={`${inputCls} ad-mono`} />
-          </Field>
-          <Field label="Headers template (JSON object)" hint={'Same placeholders. For HTTP Basic login (Twilio) use {"Authorization":"Basic {basicAuth}"}.'}>
-            <textarea name="headers_template" defaultValue={v.headers_template} rows={2} className={`${inputCls} ad-mono`} />
-          </Field>
-        </section>
-      </div>
-
-      <div className="ad-stack">
-        <section className="ad-card rise space-y-4">
-          <div>
-            <h2 className="ad-card-title">
-              <Icon name="lock" size={18} /> Credentials
-            </h2>
-            <p className="ad-card-sub">Write-only. Stored values are never shown again.</p>
-          </div>
-          <div className="ad-fields">
-            <Field label="API key" hint={v.hasCredentials ? 'A value is stored. Leave blank to keep it.' : 'Not set.'}>
+            <Field label="API key" hint={v.hasCredentials ? 'Stored. Leave blank to keep it.' : 'Not set. Write-only.'}>
               <input name="apiKey" type="password" autoComplete="new-password" placeholder="write-only" className={inputCls} />
             </Field>
-            <Field label="API secret" hint="Write-only. Leave blank to keep the current value.">
+            <Field label="API secret" hint="Write-only. Leave blank to keep it.">
               <input name="apiSecret" type="password" autoComplete="new-password" placeholder="write-only" className={inputCls} />
             </Field>
+            <Field label="Body template" hint="{to} {text} {sender} {apiKey} {apiSecret} {basicAuth} {toDigits}. For query format: the query string.">
+              <textarea name="body_template" defaultValue={v.body_template} rows={3} className={`${inputCls} sms-mono`} />
+            </Field>
+            <Field label="Headers template (JSON)" hint={'Same placeholders, e.g. {"Authorization":"Basic {basicAuth}"}.'}>
+              <textarea name="headers_template" defaultValue={v.headers_template} rows={2} className={`${inputCls} sms-mono`} />
+            </Field>
           </div>
-        </section>
+        </details>
 
-        <section className="ad-card rise space-y-4">
-          <div>
-            <h2 className="ad-card-title">
-              <Icon name="message" size={18} /> Alert text and limits
-            </h2>
-            <p className="ad-card-sub">What people receive, and how often.</p>
-          </div>
-          <p className="ad-card-sub">
-            Texts should look like an ordinary system message and not mention the app. Leave the SMS 2 or SMS 3 and later text
-            blank to reuse the first text. A text set on a member overrides all three.
-          </p>
-          <div className="space-y-1">
-            <span className="ad-label">SMS 1 text (max 160)</span>
-            <SmsTemplateField initial={v.template_text} label="SMS 1 text" />
-          </div>
-          <div className="space-y-1">
-            <span className="ad-label">SMS 2 text (max 160, optional)</span>
-            <SmsTemplateField initial={v.template_step2} name="template_step2" label="SMS 2 text" />
-          </div>
-          <div className="space-y-1">
-            <span className="ad-label">SMS 3 and later (max 160, optional)</span>
-            <SmsTemplateField initial={v.template_step3} name="template_step3" label="SMS 3 and later text" />
-          </div>
-          <div className="ad-fields ad-fields-2">
-            <Field label="SMS 1: offline after (s)" hint={`SMS 1 goes out as soon as they are offline with an unread message: after ${v.offline_after_seconds} seconds without the app open. Minimum 30, recommended 45.`}>
-              <input name="offline_after_seconds" type="number" min={30} defaultValue={v.offline_after_seconds} className={inputCls} />
-            </Field>
-            <Field label="SMS 2 after (minutes)" hint={`SMS 2 goes out ${v.step2_after_minutes} minutes after SMS 1 if they still have not opened the app.`}>
-              <input name="step2_after_minutes" type="number" min={1} max={1440} defaultValue={v.step2_after_minutes} className={inputCls} />
-            </Field>
-            <Field label="Repeat every (minutes) after the previous SMS" hint={`SMS 3 and later go out every ${v.repeat_every_minutes} minutes after the previous one, until they open the app.`}>
-              <input name="repeat_every_minutes" type="number" min={1} max={1440} defaultValue={v.repeat_every_minutes} className={inputCls} />
-            </Field>
-            <Field label="Daily cap (per person)" hint="Counts only SMS that were sent successfully.">
-              <input name="daily_cap" type="number" min={0} defaultValue={v.daily_cap} className={inputCls} />
-            </Field>
-            <Field label="Monthly cap (overall)" hint="Counts only SMS that were sent successfully.">
-              <input name="monthly_cap" type="number" min={0} defaultValue={v.monthly_cap} className={inputCls} />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Quiet from">
-                <input name="quiet_start" type="time" defaultValue={v.quiet_start} className={inputCls} />
-              </Field>
-              <Field label="Quiet until">
-                <input name="quiet_end" type="time" defaultValue={v.quiet_end} className={inputCls} />
-              </Field>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <SaveBar hint="Leave the key and secret blank to keep what is stored.">
-        <Submit className={btnCls}>
+        <Submit className={`${btnCls} sms-save`}>
           <Icon name="check" size={16} /> Save SMS settings
         </Submit>
-      </SaveBar>
-    </ActionForm>
+      </ActionForm>
+    </div>
   );
 }
 
 export function TestSmsForm() {
   return (
-    <ActionForm action={sendTestSms} className="ad-card rise space-y-4">
-      <div>
-        <h2 className="ad-card-title">
-          <Icon name="send" size={18} /> Send test SMS
-        </h2>
-        <p className="ad-card-sub">Check that the provider settings work.</p>
+    <details className="sms-sec">
+      <summary>
+        <Icon name="send" size={18} /> Send a test SMS
+      </summary>
+      <div className="sms-sec-body">
+        <ActionForm action={sendTestSms} className="sms-form">
+          <Field label="Phone number" hint="E.164, e.g. +94... Not stored or logged.">
+            <input name="to" type="tel" inputMode="tel" required autoComplete="off" placeholder="+94..." className={inputCls} />
+          </Field>
+          <Submit className={`${btnGhostCls} sms-save`}>
+            <Icon name="send" size={15} /> Send test
+          </Submit>
+        </ActionForm>
       </div>
-      <Field label="Phone number" hint="E.164. The number is not stored or logged.">
-        <input name="to" type="tel" inputMode="tel" required autoComplete="off" placeholder="+94..." className={inputCls} />
-      </Field>
-      <Submit className={btnGhostCls}>
-        <Icon name="send" size={15} /> Send test
-      </Submit>
-    </ActionForm>
+    </details>
   );
 }

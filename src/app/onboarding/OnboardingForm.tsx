@@ -89,10 +89,10 @@ export default function OnboardingForm({
   return (
     <div className="relative min-h-dvh">
       <SkyBackground intensity="subtle" />
-      <main className="safe-top safe-bottom relative z-10 mx-auto flex min-h-dvh w-full max-w-xl items-center px-4 py-8">
+      <main className="safe-top safe-bottom relative z-10 mx-auto flex min-h-dvh w-full max-w-xl items-center px-3 py-6 sm:px-4 sm:py-8">
         <div className="w-full">
           <TerminalCard title="~/onboarding/notice - read me">
-            <form onSubmit={submit} className="space-y-6 p-5 sm:p-6">
+            <form onSubmit={submit} className="space-y-6">
               <header className="rise space-y-2">
                 <StepLabel>read(privacy_notice)</StepLabel>
                 <h1 className="text-3xl font-semibold">
@@ -127,7 +127,7 @@ export default function OnboardingForm({
                 {maskedPhone && (
                   <div className="space-y-2 pt-2">
                     <p>
-                      Number on file: <span className="font-mono text-main">{maskedPhone}</span>
+                      Number on file: <span className="break-all font-mono text-main">{maskedPhone}</span>
                     </p>
                     {verified ? (
                       <p className="pop flex items-center gap-1.5 font-medium text-accent">
@@ -140,23 +140,23 @@ export default function OnboardingForm({
                           {codeSent ? 'Send a new code' : 'Send me a code'}
                         </button>
                         {codeSent && (
-                          <div className="flex gap-2">
+                          <div className="flex items-stretch gap-2">
                             <input
                               inputMode="numeric"
                               autoComplete="one-time-code"
                               maxLength={6}
                               aria-label="6-digit code"
-                              className="ui-field font-mono tracking-widest"
+                              className="ui-field min-w-0 flex-1 font-mono tracking-widest"
                               value={code}
                               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                               placeholder="6-digit code"
                             />
-                            <button type="button" onClick={verifyCode} disabled={code.length !== 6} className="ui-btn !px-5">
+                            <button type="button" onClick={verifyCode} disabled={code.length !== 6} className="ui-btn shrink-0 !px-4">
                               Verify
                             </button>
                           </div>
                         )}
-                        <p role="status" aria-live="polite" className="min-h-5 text-muted">
+                        <p role="status" aria-live="polite" className="min-h-5 break-words text-muted">
                           {phoneMsg}
                         </p>
                       </>
@@ -174,7 +174,7 @@ export default function OnboardingForm({
 
               <label className="rise flex cursor-pointer items-start gap-3 text-sm" style={{ animationDelay: '580ms' }}>
                 <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 h-6 w-6 shrink-0 accent-[var(--accent)]" />
-                <span>I have read and accept</span>
+                <span className="min-w-0 py-1">I have read and accept</span>
               </label>
 
               <p role="alert" className="min-h-5 text-sm text-danger">

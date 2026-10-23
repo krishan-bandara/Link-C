@@ -46,6 +46,10 @@ const EXT: Record<string, string> = {
   'image/gif': 'gif',
   'video/mp4': 'mp4',
   'video/webm': 'webm',
+  'audio/webm': 'webm',
+  'audio/mp4': 'm4a',
+  'audio/ogg': 'ogg',
+  'audio/mpeg': 'mp3',
 };
 export const extForMime = (mime: string): string => EXT[mime] ?? 'bin';
 

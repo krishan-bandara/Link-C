@@ -100,6 +100,12 @@ body {
   color: var(--c-text);
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip; /* nothing may push the page sideways on a phone */
+}
+
 body {
   min-height: 100dvh;
   -webkit-tap-highlight-color: transparent;

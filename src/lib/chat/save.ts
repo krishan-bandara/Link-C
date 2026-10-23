@@ -8,6 +8,10 @@ const EXT: Record<string, string> = {
   'video/mp4': 'mp4',
   'video/webm': 'webm',
   'video/quicktime': 'mov',
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
 };
 
 export type SaveResult = 'saved' | 'shared' | 'cancelled' | 'error';

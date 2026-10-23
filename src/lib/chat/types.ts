@@ -16,7 +16,7 @@ export type Media = {
   message_id: string;
   conversation_id: string;
   sender_id: string;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'audio';
   mime: string;
   size_bytes: number;
   mode: 'normal' | 'once' | 'timed';

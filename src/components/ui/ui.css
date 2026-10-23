@@ -14,6 +14,12 @@
   cursor: pointer;
   transition: transform 0.18s var(--ease), box-shadow 0.25s var(--ease), background-color 0.2s, opacity 0.2s, filter 0.2s;
 }
+.ui-btn,
+.ui-btn-ghost,
+.ui-btn-outline {
+  min-height: 2.75rem; /* 44px tap target */
+  max-width: 100%;
+}
 .ui-btn {
   background-image: linear-gradient(135deg, var(--accent), var(--a2));
   color: var(--c-accent-ink);
@@ -66,6 +72,8 @@
 
 .ui-field {
   width: 100%;
+  min-width: 0; /* an input inside a flex row must be allowed to shrink */
+  scroll-margin-block: 7rem; /* keep the field clear of the keyboard and sticky bars when focused */
   border-radius: 0.875rem;
   border: 1px solid var(--c-edge);
   background: color-mix(in srgb, var(--c-panel) 70%, transparent);
@@ -107,6 +115,11 @@
   color: var(--c-muted);
   outline: none;
   transition: background-color 0.2s, color 0.2s, transform 0.15s var(--ease);
+}
+.ui-icon-btn-sm { flex-shrink: 0; }
+@media (pointer: coarse) {
+  .ui-icon-btn { height: 2.75rem; width: 2.75rem; }
+  .ui-icon-btn-sm { height: 2.5rem; width: 2.5rem; }
 }
 .ui-icon-btn:hover {
   background: var(--c-panel-2);
@@ -205,6 +218,11 @@
 }
 .ui-switch[aria-checked='true'] {
   background-image: linear-gradient(135deg, var(--accent), var(--a2));
+}
+.ui-switch::before {
+  content: '';
+  position: absolute;
+  inset: -8px -4px; /* bigger invisible tap area */
 }
 .ui-switch:focus-visible {
   box-shadow: 0 0 0 2px var(--c-app), 0 0 0 4px var(--accent);
@@ -336,6 +354,8 @@
 }
 
 .wz-chip {
+  min-height: 2.5rem;
+  max-width: 100%;
   border-radius: 9999px;
   border: 1px solid var(--c-edge);
   background: color-mix(in srgb, var(--c-panel) 65%, transparent);

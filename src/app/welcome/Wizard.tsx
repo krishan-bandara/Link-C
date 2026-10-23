@@ -358,7 +358,7 @@ export default function Wizard({
   return (
     <div className="relative min-h-dvh">
       <SkyBackground intensity="subtle" />
-      <main className="safe-top safe-bottom relative z-10 mx-auto flex min-h-dvh w-full max-w-5xl flex-col items-stretch justify-center gap-5 px-4 py-6 lg:flex-row lg:items-center lg:gap-10">
+      <main className="safe-top safe-bottom relative z-10 mx-auto flex min-h-dvh w-full max-w-5xl flex-col items-stretch justify-center gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-6 lg:flex-row lg:items-center lg:gap-10">
         {/* live preview: on top on phones, on the side on desktop */}
         <aside className="shrink-0 lg:w-80" aria-label="Live preview">
           <p className="ui-step mb-2 hidden text-center lg:block" style={{ color: '#8fe9c4' }}>{'// live_preview'}</p>
@@ -373,7 +373,7 @@ export default function Wizard({
         <div className="min-w-0 flex-1 lg:max-w-xl" onKeyDown={onKeyDown}>
           <TerminalCard title={`~/profile/setup - step ${step + 1} of ${STEPS}`}>
             <div className="relative">
-            <div className="space-y-5 p-5 sm:p-6">
+            <div className="space-y-5">
               {/* glowing progress track with step dots */}
               <div className="px-1.5 pt-1">
                 <div className="wz-track" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step + 1} aria-label={`Step ${step + 1} of ${STEPS}`}>
@@ -403,22 +403,22 @@ export default function Wizard({
                 )}
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <button type="button" onClick={() => go(step - 1)} disabled={step === 0 || busy} className={`ui-btn-ghost ${step === 0 ? 'invisible' : ''}`} aria-label="Back">
-                  <ArrowLeft className="h-4 w-4" aria-hidden /> Back
+              <div className="flex items-center justify-between gap-2">
+                <button type="button" onClick={() => go(step - 1)} disabled={step === 0 || busy} className={`ui-btn-ghost !px-3 min-[400px]:!px-5 ${step === 0 ? 'invisible' : ''}`} aria-label="Back">
+                  <ArrowLeft className="h-4 w-4" aria-hidden /> <span className="max-[399px]:sr-only">Back</span>
                 </button>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   {step >= 1 && step <= 5 && (
-                    <button type="button" onClick={() => go(step + 1)} className="ui-btn-ghost">
+                    <button type="button" onClick={() => go(step + 1)} className="ui-btn-ghost !px-3 min-[400px]:!px-5">
                       Skip
                     </button>
                   )}
                   {last ? (
-                    <button type="button" onClick={() => void finish()} disabled={busy} className="ui-btn min-w-36">
+                    <button type="button" onClick={() => void finish()} disabled={busy} className="ui-btn min-w-28 sm:min-w-36">
                       <Rocket className="h-4 w-4" aria-hidden /> {busy ? 'Saving…' : 'Finish'}
                     </button>
                   ) : (
-                    <button type="button" onClick={onNext} disabled={(step === 0 && !nameOk) || upBusy || wBusy} className="ui-btn min-w-32">
+                    <button type="button" onClick={onNext} disabled={(step === 0 && !nameOk) || upBusy || wBusy} className="ui-btn min-w-28 sm:min-w-32">
                       Next <ArrowRight className="h-4 w-4" aria-hidden />
                     </button>
                   )}
@@ -427,7 +427,7 @@ export default function Wizard({
             </div>
 
             {confetti && (
-              <div className="pop glass absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl text-center" role="status">
+              <div className="pop glass absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl p-3 text-center" role="status">
                 <svg className="wz-check h-16 w-16" viewBox="0 0 52 52" fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <circle cx="26" cy="26" r="23" opacity="0.4" />
                   <path d="M15 27l8 8 15-17" />

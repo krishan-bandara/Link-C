@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, CornerUpLeft, CheckCheck, Download, EyeOff, Plus, StickerIcon, Trash2, Timer } from 'lucide-react';
+import { Camera, Check, CornerUpLeft, CheckCheck, Download, EyeOff, MoreHorizontal, Plus, StickerIcon, Trash2, Timer } from 'lucide-react';
 import type { Media, Msg } from '@/lib/chat/types';
 import { isBigEmoji, QUICK_REACTIONS } from '@/lib/chat/emoji';
 import { stickerSrc } from '@/lib/chat/stickers';
 import Linkify from './Linkify';
+import AudioPlayer from './AudioPlayer';
 import { QuoteInBubble, type Quote } from './ReplyQuote';
 import { buzz } from '@/lib/chat/haptics';
 import { BUBBLE_SHADOW, FOCUS } from './ui';
@@ -52,23 +53,34 @@ function MediaBody({
         </p>
       );
     const src = `/api/media/${media.id}/stream`;
+    if (media.kind === 'audio') {
+      return (
+        <div className="px-1 pt-1">
+          <AudioPlayer src={src} mine={mine} />
+        </div>
+      );
+    }
     // The box has a reserved size, so the chat does not jump while the picture loads.
     return (
       <div className="group/media relative">
         {media.kind === 'image' ? (
-          <button type="button" onClick={() => onZoom(media)} className={`relative block w-64 max-w-full overflow-hidden rounded-xl ${loaded ? '' : 'cv-media-ph min-h-48'} ${FOCUS}`} aria-label="View image">
+          <button type="button" onClick={() => onZoom(media)} className={`relative block w-64 max-w-full overflow-hidden rounded-xl ${loaded ? '' : 'cv-media-ph min-h-48'} ${FOCUS}`} aria-label="View image" data-swipeok>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={src} alt="" draggable={false} loading="lazy" onLoad={() => { setLoaded(true); onMediaLoad(); }} onError={() => setLoaded(true)} className={`pointer-events-none max-h-72 w-full select-none rounded-xl object-cover ${loaded ? 'cv-img-in' : 'opacity-0'}`} />
           </button>
         ) : (
-          <video
-            src={src}
-            controls
-            preload="metadata"
-            playsInline
-            onLoadedMetadata={onMediaLoad}
-            className="min-h-48 max-h-72 w-64 max-w-full rounded-xl bg-black"
-          />
+          <>
+            <video
+              src={src}
+              controls
+              preload="metadata"
+              playsInline
+              onLoadedMetadata={onMediaLoad}
+              className="min-h-48 max-h-72 w-64 max-w-full rounded-xl bg-black"
+            />
+            {/* transparent strip over the top of the video: the native controls are at the bottom, so a long-press here still opens the message menu */}
+            <div aria-hidden className="absolute inset-x-0 top-0 h-10 rounded-t-xl pr-12" />
+          </>
         )}
         <button
           type="button"
@@ -89,6 +101,7 @@ function MediaBody({
     <button
       type="button"
       disabled={!s.open || opening}
+      data-swipeok
       onClick={() => onOpenSnap(media)}
       className={`flex w-48 items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${FOCUS} ${s.open ? 'bg-accent/20 hover:bg-accent/30' : 'bg-panel-2/60 text-muted'}`}
     >
@@ -166,6 +179,7 @@ export default function MessageBubble({
 }) {
   const [open, setOpen] = useState(false);
   const [armed, setArmed] = useState(false); // reaction chips added after mount bounce in; the ones loaded with the history do not
+  const [place, setPlace] = useState<'below' | 'above' | 'sheet'>('below'); // where the options menu goes so it is never cut off
   const [flip, setFlip] = useState(false); // show the hover pill below the bubble when there is no room above it
   const wrapRef = useRef<HTMLDivElement>(null);
   const checkRoom = () => {
@@ -179,6 +193,14 @@ export default function MessageBubble({
   const slideRef = useRef<HTMLDivElement>(null);
   const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  const openMenu = () => {
+    const r = wrapRef.current?.getBoundingClientRect();
+    if (r) {
+      const below = window.innerHeight - r.bottom;
+      setPlace(below >= 250 ? 'below' : r.top >= 300 ? 'above' : 'sheet');
+    }
+    setOpen(true);
+  };
   useEffect(() => {
     if (!open) return;
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
@@ -227,13 +249,18 @@ export default function MessageBubble({
     press.current = setTimeout(() => {
       longPressed.current = true;
       buzz(10);
-      setOpen(true);
+      openMenu();
     }, 400);
   };
   const cancelPress = () => clearTimeout(press.current);
 
   // Swipe right on a message to reply (touch screens).
   const onTouchStart = (e: React.TouchEvent) => {
+    // never fight the video controls, the voice seek bar or other buttons
+    if ((e.target as HTMLElement).closest('video,audio,input[type=range],button:not([data-swipeok])')) {
+      swipe.current = null;
+      return;
+    }
     const t = e.touches[0];
     swipe.current = { x: t.clientX, y: t.clientY, dx: 0, on: false };
   };
@@ -269,6 +296,16 @@ export default function MessageBubble({
     <span className={`flex items-center gap-1 text-xs leading-none text-muted ${bare ? 'cv-meta-chip rounded-full px-2 py-1' : ''}`}>
       <span>{time}</span>
       {mine && <Ticks m={msg} />}
+      <button
+        type="button"
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        aria-label="Message options"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`relative -mr-1 h-6 w-7 items-center justify-center rounded-full text-muted before:absolute before:-inset-2.5 before:content-[''] ${msg.type === 'media' ? 'flex' : 'hidden pointer-coarse:flex'} ${FOCUS}`}
+      >
+        <MoreHorizontal className="h-4 w-4" aria-hidden />
+      </button>
     </span>
   );
 
@@ -321,7 +358,7 @@ export default function MessageBubble({
         className={`relative flex min-w-0 max-w-[85%] flex-col transition-transform ${mine ? 'items-end' : 'items-start'} ${open ? 'z-20' : ''}`}
       >
         {open && <button type="button" tabIndex={-1} aria-label="Close menu" className="fixed inset-0 -z-10 cursor-default" onClick={() => setOpen(false)} />}
-        {open && <div className={`absolute bottom-full z-10 mb-1 ${mine ? 'right-0' : 'left-0'}`}>{pill}</div>}
+        {open && place === 'below' && <div className={`absolute bottom-full z-10 mb-1 ${mine ? 'right-0' : 'left-0'}`}>{pill}</div>}
         {!open && (
           <div className={`absolute ${flip ? 'top-full mt-1' : '-top-8'} z-10 hidden pointer-fine:group-hover:block ${mine ? 'right-0' : 'left-0'} group-has-[:focus-visible]:block`}>{pill}</div>
         )}
@@ -331,7 +368,7 @@ export default function MessageBubble({
           } ${msg.type === 'media' && !snap ? 'p-1' : ''}`}
           onContextMenu={(e) => {
             e.preventDefault();
-            setOpen(true);
+            openMenu();
           }}
           onPointerDown={startPress}
           onPointerUp={cancelPress}
@@ -373,10 +410,10 @@ export default function MessageBubble({
               <span className="float-right ml-3 mt-2.5">{meta}</span>
             </p>
           )}
-          {(
+          {msg.type !== 'media' && (
             <button
               type="button"
-              onClick={() => setOpen((v) => !v)}
+              onClick={() => (open ? setOpen(false) : openMenu())}
               aria-label="Message options"
               aria-expanded={open}
               className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full cv-opt-btn bg-panel/80 text-xs text-muted opacity-0 focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:hidden ${mine ? '-left-7' : '-right-7'} ${FOCUS}`}
@@ -386,7 +423,17 @@ export default function MessageBubble({
           )}
         </div>
         {open && (
-          <div ref={menuRef} className={`cv-menu absolute top-full z-10 mt-1 overflow-hidden rounded-xl py-1 shadow-xl ${mine ? 'right-0' : 'left-0'}`} role="menu" onKeyDown={onMenuKey}>
+          <div
+            className={
+              place === 'below'
+                ? `absolute top-full z-10 mt-1 ${mine ? 'right-0' : 'left-0'}`
+                : place === 'above'
+                  ? `absolute bottom-full z-10 mb-1 flex flex-col gap-1 ${mine ? 'right-0 items-end' : 'left-0 items-start'}`
+                  : 'fixed inset-x-0 bottom-4 z-30 flex flex-col items-center gap-1'
+            }
+          >
+          {place !== 'below' && pill}
+          <div ref={menuRef} className="cv-menu overflow-hidden rounded-xl py-1 shadow-xl" role="menu" onKeyDown={onMenuKey}>
             <button
               type="button"
               role="menuitem"
@@ -459,6 +506,7 @@ export default function MessageBubble({
                 <Trash2 className="h-4 w-4" /> Delete for everyone
               </button>
             )}
+          </div>
           </div>
         )}
         {counts.size > 0 && (

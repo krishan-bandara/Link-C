@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Camera, ImageIcon, Paperclip, Send, Smile } from 'lucide-react';
+import { Camera, ImageIcon, Paperclip, Send, Smile, Video } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import StickerTray from './StickerTray';
 import CreateStickerDialog from './CreateStickerDialog';
 import { buzz } from '@/lib/chat/haptics';
+import { pickAudioMime } from '@/lib/chat/voice';
+import VoiceRecorder from './VoiceRecorder';
 import { FOCUS } from './ui';
 import { ReplyBar, type Quote } from './ReplyQuote';
 import './chat.css';
@@ -24,6 +26,7 @@ export type ComposerHandle = {
 export default function Composer({
   onSend,
   onFile,
+  onVoice,
   onTyping,
   onStopTyping,
   onSticker,
@@ -34,6 +37,8 @@ export default function Composer({
 }: {
   onSend: (body: string) => Promise<string | null>;
   onFile: (f: File) => void;
+  /** A finished voice note (the chat view uploads it with mode 'normal'). */
+  onVoice?: (file: File, seconds: number) => void;
   onTyping: () => void;
   onStopTyping: () => void;
   onSticker: (stickerId: string) => Promise<string | null>;
@@ -54,6 +59,11 @@ export default function Composer({
 
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
+  const vidRef = useRef<HTMLInputElement>(null);
+  const [voiceMime, setVoiceMime] = useState<string | null>(null);
+  useEffect(() => {
+    setVoiceMime(pickAudioMime());
+  }, []);
   const [attachMenu, setAttachMenu] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -229,6 +239,19 @@ export default function Composer({
             if (f) onFile(f);
           }}
         />
+        <input
+          ref={vidRef}
+          type="file"
+          accept="video/*"
+          capture="environment"
+          className="hidden"
+          aria-label="Record a video"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) onFile(f);
+          }}
+        />
         <button
           ref={toggleRef}
           type="button"
@@ -268,6 +291,17 @@ export default function Composer({
                   }}
                 >
                   <ImageIcon className="h-5 w-5 text-accent" aria-hidden /> Gallery
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent/10 ${FOCUS}`}
+                  onClick={() => {
+                    setAttachMenu(false);
+                    vidRef.current?.click();
+                  }}
+                >
+                  <Video className="h-5 w-5 text-accent" aria-hidden /> Video
                 </button>
               </div>
             </>
@@ -312,6 +346,7 @@ export default function Composer({
         >
           <Send className="h-5 w-5" />
         </button>
+        {!hasText && voiceMime && onVoice && <VoiceRecorder mime={voiceMime} onVoice={onVoice} />}
       </div>
       {near && (
         <p className={`px-2 pt-1 text-right text-xs ${text.length >= MAX - 50 ? 'text-danger' : 'text-muted'}`} aria-live="polite">

@@ -29,8 +29,10 @@ export function useConversations(): Ctx {
   return c;
 }
 
+export const MEDIA_LABELS = ['Photo', 'Video', 'Voice message', 'Snap'];
+
 export function preview(c: ConversationItem) {
-  if (c.lastType === 'media') return 'Photo or video';
+  if (c.lastType === 'media') return c.lastBody && MEDIA_LABELS.includes(c.lastBody) ? c.lastBody : 'Photo or video';
   if (c.lastType === 'sticker') return 'Sticker';
   return c.lastBody ?? 'No messages yet';
 }
