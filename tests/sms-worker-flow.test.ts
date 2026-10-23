@@ -177,9 +177,10 @@ describe('caps (only http 2% rows count)', () => {
   const logRow = (user: string, status: string, ago: number) =>
     rows('sms_log').push({ id: ++fakeDb().seq, user_id: user, kind: 'alert', provider_status: status, sent_at: new Date(Date.now() - ago).toISOString() });
 
-  it('daily cap 10: blocked at 10 successes in 24 h; writes a "cap reached" row and defers about 10 minutes', async () => {
+  it('daily cap 10 is ONE shared pool: 10 successes today (any members) block everyone; a "cap reached" row is written and the person deferred', async () => {
     seed();
-    for (let i = 0; i < 10; i++) logRow(A, 'http 200', (i + 1) * MIN);
+    for (let i = 0; i < 6; i++) logRow(A, 'http 200', (i + 1) * MIN);
+    for (let i = 0; i < 4; i++) logRow(B, 'http 200', (i + 1) * MIN); // other members count toward the same pool
     await startWorker();
     await advance(5 * MIN);
     expect(gw().attempts.length).toBe(0);
@@ -191,16 +192,16 @@ describe('caps (only http 2% rows count)', () => {
     expect(gw().attempts.length).toBe(0);
   });
 
-  it('daily cap ignores failures and old rows: 9 ok + many failures + old ok rows still sends', async () => {
+  it('daily pool ignores failures and yesterday: 8 + 1 ok today allow one more SMS, then the pool is used up', async () => {
     seed();
-    for (let i = 0; i < 9; i++) logRow(A, 'http 200', (i + 1) * MIN);
-    for (let i = 0; i < 20; i++) logRow(A, 'http 500', MIN);
-    for (let i = 0; i < 20; i++) logRow(A, 'http 200', 25 * 3600_000); // older than 24 h
-    logRow(B, 'http 200', MIN); // someone else's rows do not count toward A's daily cap
+    for (let i = 0; i < 8; i++) logRow(A, 'http 200', (i + 1) * MIN);
+    logRow(B, 'http 200', MIN); // someone else uses the same pool: 9 today
+    for (let i = 0; i < 20; i++) logRow(A, 'http 500', MIN); // failures never count
+    for (let i = 0; i < 20; i++) logRow(A, 'http 200', 25 * 3600_000); // yesterday (before local midnight) does not count
     await startWorker();
     await advance(10_000);
-    expect(gw().sent.length).toBe(1);
-    await advance(11 * MIN); // SMS 2 would be the 11th success in 24 h: blocked
+    expect(gw().sent.length).toBe(1); // the 10th SMS today
+    await advance(11 * MIN); // SMS 2 would be the 11th: the shared pool is used up
     expect(gw().sent.length).toBe(1);
   });
 
