@@ -1,4 +1,5 @@
 // Pure helpers for the worker (no I/O, so they can be unit tested).
+import { inQuietHours, isMuted, type Dnd } from '@/lib/chatprefs';
 
 /** Minutes since local midnight in the given IANA time zone. */
 export function localMinutes(now: Date, tz: string): number {
@@ -116,4 +117,20 @@ export function smsTextFor(
 ): string {
   const stepText = step <= 0 ? null : step === 1 ? settings.template_step2 : settings.template_step3;
   return member?.sms_template || stepText || settings.template_text;
+}
+
+/**
+ * May this person get a push or SMS alert right now? Only if at least one UNREAD incoming message sits in a chat that is not
+ * muted for them (`unreadMutedUntil` = chat_prefs.muted_until per unread message's chat, null when no pref; omit to skip the
+ * mute check, e.g. when the database already filtered) AND they are outside their Do-not-disturb hours (Colombo time).
+ */
+export function alertAllowed(o: {
+  unreadMutedUntil?: (string | null)[];
+  dnd: Dnd | null | undefined;
+  now?: Date;
+}): boolean {
+  const now = o.now ?? new Date();
+  if (inQuietHours(o.dnd, now)) return false;
+  if (o.unreadMutedUntil && !o.unreadMutedUntil.some((m) => !isMuted(m, now.getTime()))) return false;
+  return true;
 }

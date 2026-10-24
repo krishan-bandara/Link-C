@@ -36,6 +36,18 @@ Per-member appearance in Settings > Appearance, layered on top of the night-sky 
 - Code: `src/lib/look.ts` (shape, defaults, parsing), `src/lib/useLook.ts` (client hook), `src/app/look*.css` (styles).
 - Contract between code and CSS, set on `<html>`: `data-bg` (background style), `data-tabs` (floating tab bar on or off), and CSS variables `--lg-a` (glass see-through amount, 0.15 to 0.8) and `--lg-b` (glass blur in px). Style new UI with these, do not hard-code colours. Unknown or invalid stored values must fall back to the Pure white glass defaults.
 
+## Member tools (2026-10-25, in progress)
+Eight features being built in parallel by separate agents. Not yet confirmed deployed or tested on phones. Data layer: `supabase/migrations/20261025000026_member_tools.sql` (must be applied to the live DB first). Shared client helper: `src/lib/chatprefs.ts`. All writes from the browser go through security definer RPCs that check the caller; the new tables have RLS on.
+1. Mute and Do-not-disturb: per chat, mute for 8 hours, 1 week or until unmuted (`chat_prefs.muted_until`, RPC `set_chat_mute`; null = unmuted, `infinity` = until unmuted). Per member quiet hours in Colombo time (`user_prefs.dnd_on`, `dnd_from`, `dnd_to`, default 22:00 to 07:00, HH:MM text). A muted chat or quiet hours silence push, sounds and the offline SMS for that member. Unread badges still show.
+2. Star a chat (`chat_prefs.starred`, RPC `set_chat_star`): starred chats are pinned at the top of the chat list, and a "Favourites" filter pill shows only them.
+3. Edit a sent message (RPC `edit_message`, column `messages.edited_at`): own text messages only, within 15 minutes of sending, 1 to 4000 characters. The message shows "edited". Edits overwrite the old text (no history kept).
+4. Signed-in devices in Settings (RPCs `list_my_sessions`, `revoke_my_session`, `revoke_other_sessions`): sign out one device or all other devices. Limit: a signed-out device can stay signed in until its short access pass expires.
+5. Log out button at the bottom of Settings with a confirmation, also in the account menu.
+6. Offline mode: the chat list and the last messages are cached and readable offline; text messages written offline are queued and sent when the connection returns. All offline data is wiped on logout. Privacy note: while logged in, messages are stored on the device.
+7. Admin > Health, member activity (RPC `admin_member_health`, owner only): last seen, last login, active sessions. Amber after 3 days without activity, red after 7.
+8. Admin > Storage (table `storage_stats`, written by the worker, no direct client access): server disk free and Backblaze usage. Editable thresholds in `app_settings`: `disk_free_alert_pct` (default 15), `b2_budget_gb` (default 10), `b2_alert_pct` (default 80). A red banner in Admin and a push to the owner when nearly full (`storage_stats.alert_level` ok/warn/critical, `alert_sent_at` limits repeats). Backblaze figures are an estimate (sum of plaintext sizes).
+Still to do: apply the migration, run RLS tests for the new tables and RPCs, test on real phones, then deploy.
+
 ## Remaining
 1. Regression agent on the newest build (running), fix what it finds, rebuild if needed (`docker compose build && docker compose up -d`).
 2. Cleanup (owner approved): delete `node_modules`, remove qa-* accounts + B2 orphans (`node --env-file=.env qa/b2-orphans.mjs --apply`), keep real owner,

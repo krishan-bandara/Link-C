@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, ChevronRight, Heart, KeyRound, LogOut, Palette, Plus, Smile, Trash2, User, Lock, type LucideIcon } from 'lucide-react';
+import { Bell, BellOff, ChevronRight, Heart, KeyRound, LogOut, Palette, Plus, Smile, Trash2, User, Lock, type LucideIcon } from 'lucide-react';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { applyTheme, packInfo, type PackId, type Theme } from '@/lib/theme';
 import { DEFAULT_ABOUT, deleteAsset, resolveDark, savePrefs, uploadAsset, type Prefs, type WallpaperKind } from '@/lib/prefs';
 import { applyLook, serializeLook, type Look } from '@/lib/look';
 import LookPicker from '@/components/ui/LookPicker';
+import DndPicker from '@/components/ui/DndPicker';
+import { announceDnd } from '@/lib/DndProvider';
+import { checkDnd } from '@/lib/dnd';
+import type { Dnd } from '@/lib/chatprefs';
 import PhotoPicker from '@/components/ui/PhotoPicker';
 import ThemePicker from '@/components/ui/ThemePicker';
 import PackPicker from '@/components/ui/PackPicker';
@@ -19,6 +23,9 @@ import PasswordField from '@/components/auth/PasswordField';
 import StrengthMeter from '@/components/auth/StrengthMeter';
 import Card, { CardTitle } from '@/components/ui/Card';
 import PageHeader from '@/components/ui/PageHeader';
+import ActiveDevices from '@/components/ui/ActiveDevices';
+import LogoutButton from '@/components/ui/LogoutButton';
+import { Smartphone } from 'lucide-react';
 import SoundToggle from '@/components/SoundToggle';
 import '@/components/ui/ui.css';
 import '../home.css';
@@ -63,6 +70,9 @@ export default function SettingsClient({
   const [look, setLook] = useState<Look>(prefs.look);
   const lookTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLook = useRef<Look | null>(null);
+  const [dnd, setDnd] = useState<Dnd>(prefs.dnd);
+  const dndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDnd = useRef<Dnd | null>(null);
   const [dark, setDark] = useState(false);
   const [stickers, setStickers] = useState<Sticker[] | null>(null);
   const [emoji, setEmoji] = useState('');
@@ -130,6 +140,53 @@ export default function SettingsClient({
     toast(ok ? 'Saved' : 'Could not save. Try again.', !ok);
     if (ok) router.refresh();
     return ok;
+  }
+
+  // quiet-hours time edits are saved once typing pauses; a pending one is written at once when the page is hidden or left
+  useEffect(() => {
+    const flush = () => {
+      const next = pendingDnd.current;
+      if (!next) return;
+      pendingDnd.current = null;
+      if (dndTimer.current) clearTimeout(dndTimer.current);
+      dndTimer.current = null;
+      void savePrefs(supabaseBrowser(), userId, { dnd_from: next.from, dnd_to: next.to });
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', flush);
+      flush(); // unmount
+    };
+  }, [userId]);
+
+  function changeDnd(next: Dnd, immediate: boolean) {
+    const prev = dnd;
+    setDnd(next);
+    if (dndTimer.current) clearTimeout(dndTimer.current);
+    dndTimer.current = null;
+    pendingDnd.current = null;
+    const check = checkDnd(next);
+    if (!check.ok) return; // wait for a valid time
+    announceDnd(next);
+    if (immediate) {
+      void savePref({ dnd_on: next.on, dnd_from: next.from, dnd_to: next.to }).then((ok) => {
+        if (!ok) {
+          setDnd(prev);
+          announceDnd(prev);
+        }
+      });
+      return;
+    }
+    pendingDnd.current = next;
+    dndTimer.current = setTimeout(() => {
+      pendingDnd.current = null;
+      void savePref({ dnd_from: next.from, dnd_to: next.to });
+    }, 500);
   }
 
   const nameBlur = () => {
@@ -387,6 +444,10 @@ export default function SettingsClient({
           </div>
         </Section>
 
+        <Section title="Do not disturb" icon={BellOff} index={7}>
+          <DndPicker value={dnd} onChange={changeDnd} />
+        </Section>
+
         <Section title="Account" icon={User} index={5}>
           <div className="space-y-1">
             <label htmlFor="s-email" className="text-sm text-muted">
@@ -394,9 +455,6 @@ export default function SettingsClient({
             </label>
             <input id="s-email" className="ui-field" value={email} readOnly />
           </div>
-          <button type="button" onClick={signOut} className="ui-btn-outline !text-danger">
-            <LogOut className="h-4 w-4" aria-hidden /> Sign out
-          </button>
         </Section>
         <Section title="My stickers" icon={Smile} index={3} wide>
           {stickers === null ? (
@@ -473,6 +531,10 @@ export default function SettingsClient({
           </p>
         </Section>
 
+        <Section title="Signed-in devices" icon={Smartphone} index={7}>
+          <ActiveDevices toast={toast} />
+        </Section>
+
         <Section title="Credits" icon={Heart} index={6}>
           <p className="text-sm text-muted">Fluent Emoji, libraries and everything else this app is built with.</p>
           <Link href="/credits" className="ui-btn-outline w-full justify-between">
@@ -480,6 +542,9 @@ export default function SettingsClient({
             <ChevronRight className="h-4 w-4 text-muted" aria-hidden />
           </Link>
         </Section>
+        </div>
+        <div className="mx-auto mt-6 w-full max-w-md pb-6">
+          <LogoutButton />
         </div>
       </div>
       {node}

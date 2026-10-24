@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowDown, ArrowLeft, Eraser, ImageIcon, MapPin, MoreVertical, Phone, Video } from 'lucide-react';
+import { ArrowDown, ArrowLeft, BellOff, Eraser, ImageIcon, MapPin, MoreVertical, Phone, Star, Video } from 'lucide-react';
+import { useConversations } from '@/app/(app)/components/ConversationsContext';
+import MuteSheet from './MuteSheet';
+import { isMuted, muteLabel } from '@/lib/chatprefs';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { effectiveWallpaper, wallpaperStyle } from '@/lib/wallpapers';
 import ChatWallpaperSheet, { type ChatWallpaper } from './ChatWallpaperSheet';
@@ -21,6 +24,7 @@ import MessageBubble from './MessageBubble';
 import { FOCUS } from './ui';
 import Composer from './Composer';
 import { quoteKind, quoteLabel } from '@/lib/chat/reply';
+import { canEdit, editErrorText, validEditText } from '@/lib/chat/edit';
 import type { Quote } from './ReplyQuote';
 import AttachSheet, { type AttachChoice } from './AttachSheet';
 import UploadBubble, { type UploadItem } from './UploadBubble';
@@ -35,6 +39,12 @@ import EmojiSheet from './EmojiSheet';
 import { holdAlive } from '@/lib/idle-client';
 import { buzz, prefersReducedMotion } from '@/lib/chat/haptics';
 import EmptyChat from './EmptyChat';
+import PendingBubble from './PendingBubble';
+import { saveMessages } from '@/lib/offline/cache';
+import { OUTBOX_SENT_EVENT, deleteItem, enqueue, flushOutbox, retryItem } from '@/lib/offline/outbox';
+import { useOutbox } from '@/lib/offline/hooks';
+import { classifyError } from '@/lib/offline/logic';
+import { reportNetworkFailure } from '@/lib/offline/status';
 import type { ComposerHandle } from './Composer';
 import './chat.css';
 
@@ -81,13 +91,18 @@ export default function ChatView({
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [sheetFile, setSheetFile] = useState<File | null>(null);
   const [replyTo, setReplyTo] = useState<Msg | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [viewAvatar, setViewAvatar] = useState(false);
   const [confirmId, setConfirmId] = useState<{ id: string; scope: 'me' | 'all'; mine: boolean } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [offline, setOffline] = useState(false);
   const [clearAsk, setClearAsk] = useState(false);
   const [wpOpen, setWpOpen] = useState(false);
+  const [muteOpen, setMuteOpen] = useState(false);
+  const { prefs, setMute, toggleStar } = useConversations();
+  const chatPref = prefs[conversationId];
+  const muted = isMuted(chatPref?.mutedUntil);
+  const starred = !!chatPref?.starred;
   const [chatWp, setChatWp] = useState<ChatWallpaper>(chatWallpaper);
   const [clearing, setClearing] = useState(false);
   const [zoom, setZoom] = useState<Media | null>(null);
@@ -134,6 +149,13 @@ export default function ChatView({
       call.clearNotice();
     }
   }, [call, flash]);
+
+  // ---- offline: queued text messages of this chat, and the read cache for the offline viewer
+  const pending = useOutbox(me, conversationId);
+  useEffect(() => {
+    const t = setTimeout(() => void saveMessages(conversationId, messages), 1500);
+    return () => clearTimeout(t);
+  }, [conversationId, messages]);
 
   const dark = useIsDark();
   const wp = effectiveWallpaper(chatWp, wallpaper);
@@ -194,6 +216,16 @@ export default function ChatView({
       return [...cur, m].sort(byTime);
     });
   }, []);
+
+  // a queued message was delivered (or found already delivered): show the real one in place of the pending bubble
+  useEffect(() => {
+    const onSent = (e: Event) => {
+      const d = (e as CustomEvent<{ item: { conversationId: string }; msg: Msg }>).detail;
+      if (d.item.conversationId === conversationId) upsertMsg(d.msg);
+    };
+    window.addEventListener(OUTBOX_SENT_EVENT, onSent);
+    return () => window.removeEventListener(OUTBOX_SENT_EVENT, onSent);
+  }, [conversationId, upsertMsg]);
 
   // removes a message and its media entry from the open chat
   const dropMessage = useCallback((id: string) => {
@@ -321,7 +353,7 @@ export default function ChatView({
     lastId.current = last?.id ?? null;
     if (stick.current || (newLast && last?.sender_id === me)) el.scrollTop = el.scrollHeight;
     else if (newLast && last && last.sender_id !== me && !initialIds.has(last.id)) setUnread((n) => n + 1);
-  }, [messages, uploads, media, share, me, typing, initialIds]);
+  }, [messages, uploads, media, share, me, typing, initialIds, pending.length]);
 
   // When the list changes size (emoji panel, on-screen keyboard) stay glued to the newest message.
   useEffect(() => {
@@ -370,8 +402,25 @@ export default function ChatView({
   function startReply(id: string) {
     const m = messages.find((x) => x.id === id);
     if (!m || m.type === 'system') return;
+    setEditingId(null);
     setReplyTo(m);
     composerRef.current?.focusBox();
+  }
+
+  function startEdit(id: string) {
+    const m = messages.find((x) => x.id === id);
+    if (!m || !canEdit(m, me)) return flash(editErrorText('edit window closed'));
+    setReplyTo(null);
+    setEditingId(id);
+  }
+
+  async function saveEdit(id: string, body: string): Promise<void> {
+    const m = messages.find((x) => x.id === id);
+    setEditingId(null); // leave edit mode and clear the box either way
+    if (!m || validEditText(body, m.body) === null) return; // unchanged: nothing to save
+    const { data, error } = await supabase.rpc('edit_message', { msg: id, new_body: body.trim() });
+    if (error) return flash(editErrorText(error.message));
+    upsertMsg({ ...m, body: body.trim(), edited_at: typeof data === 'string' ? data : new Date().toISOString() });
   }
 
   function jumpTo(id: string) {
@@ -416,12 +465,30 @@ export default function ChatView({
   }
 
   // ---- actions
+  // Offline: the text goes to the outbox (shown as a pending bubble, sent in order when the connection is back).
+  async function queueText(body: string, ambiguous: boolean): Promise<string | null> {
+    const item = await enqueue({ userId: me, conversationId, body, replyTo: replyTo?.id ?? null, ambiguous });
+    if (!item) return 'Message not saved. Too many unsent messages, or storage is unavailable.';
+    setReplyTo(null);
+    return null;
+  }
+
   async function sendText(body: string): Promise<string | null> {
+    // behind an unsent message, or with no signal: queue (keeps the order, nothing is lost)
+    if (!navigator.onLine || pending.length > 0) {
+      const err = await queueText(body, false);
+      if (!err && navigator.onLine) void flushOutbox(supabase, me);
+      return err;
+    }
     const { data, error } = await supabase
       .from('messages')
       .insert({ conversation_id: conversationId, sender_id: me, body, ...(replyTo ? { reply_to: replyTo.id } : {}) })
       .select(MSG_COLS)
       .single();
+    if (error && classifyError(error, true) === 'network') {
+      reportNetworkFailure();
+      return queueText(body, true); // the request may have arrived: the outbox checks for a copy before resending
+    }
     if (error) {
       return /rate limit/i.test(error.message)
         ? 'You are sending messages too fast. Please wait a moment and try again.'
@@ -529,18 +596,6 @@ export default function ChatView({
     });
   }, []);
 
-  useEffect(() => {
-    const down = () => setOffline(true);
-    const up = () => setOffline(false);
-    setOffline(!navigator.onLine);
-    window.addEventListener('offline', down);
-    window.addEventListener('online', up);
-    return () => {
-      window.removeEventListener('offline', down);
-      window.removeEventListener('online', up);
-    };
-  }, []);
-
   // Clear chat: hides the history for me only (the other person keeps theirs). Enforced in the database.
   async function clearChat() {
     setClearing(true);
@@ -638,6 +693,7 @@ export default function ChatView({
         onMediaLoad={keepAtBottom}
         quote={quoteOf(m.reply_to)}
         onReply={startReply}
+        onEdit={startEdit}
         onJump={jumpTo}
       />,
     );
@@ -656,7 +712,10 @@ export default function ChatView({
           {online && <span className="cv-online-dot absolute -bottom-0.5 -right-0.5 border-2 border-panel" aria-hidden />}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold leading-tight">{other.name}</p>
+          <p className="flex items-center gap-1.5 truncate font-semibold leading-tight">
+            <span className="truncate">{other.name}</span>
+            {muted && <BellOff className="h-3.5 w-3.5 shrink-0 text-muted" role="img" aria-label={muteLabel(chatPref?.mutedUntil) || 'Muted'} />}
+          </p>
           <p className="flex items-center gap-1.5 truncate text-xs leading-tight text-muted" aria-live="polite">
             {typing ? (
               <span className="text-grad font-medium">typing…</span>
@@ -695,7 +754,7 @@ export default function ChatView({
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} aria-hidden />
-              <div role="menu" className="glass ring-glow absolute right-0 top-11 z-40 w-48 overflow-hidden rounded-2xl py-1 shadow-2xl">
+              <div role="menu" className="glass ring-glow absolute right-0 top-11 z-40 w-60 overflow-hidden rounded-2xl py-1 shadow-2xl">
                 <button
                   type="button"
                   role="menuitem"
@@ -706,6 +765,28 @@ export default function ChatView({
                   className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-main outline-none hover:bg-panel-2 focus-visible:bg-panel-2"
                 >
                   <ImageIcon className="h-4 w-4 text-accent" /> Wallpaper
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setMuteOpen(true);
+                  }}
+                  className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-main outline-none hover:bg-panel-2 focus-visible:bg-panel-2"
+                >
+                  <BellOff className="h-4 w-4 shrink-0 text-accent" /> <span className="min-w-0">Mute notifications{muted && <span className="block truncate text-xs text-muted">{muteLabel(chatPref?.mutedUntil)}</span>}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    if (!(await toggleStar(conversationId))) flash('Could not update favourites');
+                  }}
+                  className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-main outline-none hover:bg-panel-2 focus-visible:bg-panel-2"
+                >
+                  <Star className="h-4 w-4 text-accent" fill={starred ? 'currentColor' : 'none'} /> {starred ? 'Remove from favourites' : 'Add to favourites'}
                 </button>
                 <button
                   type="button"
@@ -723,11 +804,6 @@ export default function ChatView({
           )}
         </div>
       </header>
-      {offline && (
-        <p role="status" className="bg-danger/15 px-4 py-1.5 text-center text-xs text-danger">
-          You are offline. Messages cannot be sent until the connection is back.
-        </p>
-      )}
 
       {iAmRequester && <LocationPanel share={share} otherName={other.name} onStop={stopShare} />}
 
@@ -759,6 +835,9 @@ export default function ChatView({
           )}
           {!messages.length && !visibleUploads.length && <EmptyChat name={other.name} onPick={(t) => composerRef.current?.fill(t)} />}
           {rows}
+          {pending.map((p) => (
+            <PendingBubble key={p.id} item={p} onRetry={(id) => void retryItem(id).then(() => flushOutbox(supabase, me))} onDelete={(id) => void deleteItem(id)} />
+          ))}
           {typing && (
             <div className="cv-typing mt-2 flex justify-start" role="status" aria-label={`${other.name} is typing`}>
               <div className="cv-in flex items-center gap-1 rounded-[18px] rounded-tl-md px-3.5 py-3.5">
@@ -800,7 +879,7 @@ export default function ChatView({
         )}
       </div>
 
-      <Composer handleRef={composerRef} onSend={sendText} onFile={onFile} onTyping={sendTyping} onStopTyping={stopTyping} onSticker={sendStickerMsg} onVoice={sendVoice} onFocusInput={keyboardScroll} reply={replyTo ? quoteOf(replyTo.id) : null} onCancelReply={() => setReplyTo(null)} />
+      <Composer handleRef={composerRef} onSend={sendText} onFile={onFile} onTyping={sendTyping} onStopTyping={stopTyping} onSticker={sendStickerMsg} onVoice={sendVoice} onFocusInput={keyboardScroll} reply={replyTo ? quoteOf(replyTo.id) : null} onCancelReply={() => setReplyTo(null)} editing={editingId ? { id: editingId, body: messages.find((x) => x.id === editingId)?.body ?? '' } : null} onSaveEdit={saveEdit} onCancelEdit={() => setEditingId(null)} />
 
       {sheetFile && <AttachSheet file={sheetFile} onSend={(c) => startUpload(sheetFile, c)} onCancel={() => setSheetFile(null)} />}
       {zoom && <Lightbox src={`/api/media/${zoom.id}/stream`} onSave={() => void saveMedia(zoom.id, zoom.mime, flash)} onClose={() => setZoom(null)} />}
@@ -814,6 +893,16 @@ export default function ChatView({
         />
       )}
       {snap && <SnapViewer snap={snap} onClose={closeSnap} />}
+      {muteOpen && (
+        <MuteSheet
+          mutedUntil={chatPref?.mutedUntil ?? null}
+          onClose={() => setMuteOpen(false)}
+          onPick={async (o) => {
+            setMuteOpen(false);
+            if (!(await setMute(conversationId, o))) flash('Could not change mute');
+          }}
+        />
+      )}
       {wpOpen && (
         <ChatWallpaperSheet
           supabase={supabase}

@@ -1,8 +1,9 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Camera, Check, CheckCheck, Image as ImageIcon, Mic, Search, Smile, Video, X } from 'lucide-react';
+import { BellOff, Camera, Check, CheckCheck, Image as ImageIcon, Mic, Search, Smile, Star, Video, X } from 'lucide-react';
+import { isMuted, type ChatPref } from '@/lib/chatprefs';
 import '@/components/ui/ui.css';
 import '../home.css';
 import type { ConversationItem } from '@/lib/chat/types';
@@ -10,7 +11,7 @@ import Avatar from '@/components/ui/Avatar';
 import AvatarViewer from '@/components/ui/AvatarViewer';
 import Skeleton from '@/components/ui/Skeleton';
 import { useMounted } from '@/components/ui/useMounted';
-import { filterConversations, type Filter } from '@/lib/conversationFilter';
+import { filterConversations, sortStarredFirst, type Filter } from '@/lib/conversationFilter';
 import { useLook } from '@/lib/useLook';
 import { preview, useConversations } from './ConversationsContext';
 
@@ -43,13 +44,41 @@ function Skeletons() {
   );
 }
 
-function Row({ c, idx, active, typing, online, mounted, ticks, onAvatar }: { c: ConversationItem; idx: number; active: boolean; typing: boolean; online: boolean; mounted: boolean; ticks: boolean; onAvatar: (c: ConversationItem) => void }) {
+const LONG_PRESS_MS = 550;
+
+function Row({ c, idx, active, typing, online, mounted, ticks, pref, onAvatar, onStar }: { c: ConversationItem; idx: number; active: boolean; typing: boolean; online: boolean; mounted: boolean; ticks: boolean; pref: ChatPref | undefined; onAvatar: (c: ConversationItem) => void; onStar: (c: ConversationItem) => void }) {
+  const starred = !!pref?.starred;
+  const muted = isMuted(pref?.mutedUntil);
+  const press = useRef<{ t?: ReturnType<typeof setTimeout>; fired: boolean }>({ fired: false });
+  const cancelPress = () => clearTimeout(press.current.t);
   return (
-    <li data-id={c.id} className="hm-li" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
+    <li data-id={c.id} className="hm-li group relative" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
       <Link
         href={`/c/${c.id}`}
         aria-current={active ? 'page' : undefined}
         className="ui-row hm-row flex items-center gap-3 px-3 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+        style={{ WebkitTouchCallout: 'none' }}
+        onPointerDown={(e) => {
+          press.current.fired = false;
+          if (e.pointerType !== 'touch') return;
+          cancelPress();
+          press.current.t = setTimeout(() => {
+            press.current.fired = true;
+            onStar(c);
+          }, LONG_PRESS_MS);
+        }}
+        onPointerUp={cancelPress}
+        onPointerLeave={cancelPress}
+        onPointerCancel={cancelPress}
+        onPointerMove={(e) => e.pointerType === 'touch' && Math.abs(e.movementY) + Math.abs(e.movementX) > 4 && cancelPress()}
+        onContextMenu={(e) => press.current.fired && e.preventDefault()}
+        onClick={(e) => {
+          // a long press must not also open the chat
+          if (press.current.fired) {
+            e.preventDefault();
+            press.current.fired = false;
+          }
+        }}
       >
         <span
           className="hm-av-sm cursor-zoom-in"
@@ -65,8 +94,14 @@ function Row({ c, idx, active, typing, online, mounted, ticks, onAvatar }: { c: 
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
-            <span className="truncate font-medium text-main">{c.otherName}</span>
-            <span className={`shrink-0 text-xs ${c.unread ? 'font-semibold text-accent' : 'text-muted'}`}>{mounted ? when(c.lastAt) : ''}</span>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="truncate font-medium text-main">{c.otherName}</span>
+              {starred && <Star className="h-3.5 w-3.5 shrink-0 fill-current text-accent" role="img" aria-label="Favourite" />}
+            </span>
+            <span className={`flex shrink-0 items-center gap-1 text-xs ${c.unread ? 'font-semibold text-accent' : 'text-muted'}`}>
+              {muted && <BellOff className="h-3.5 w-3.5" role="img" aria-label="Muted" />}
+              {mounted ? when(c.lastAt) : ''}
+            </span>
           </span>
           <span className="mt-0.5 flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1 text-sm text-muted">
@@ -91,12 +126,33 @@ function Row({ c, idx, active, typing, online, mounted, ticks, onAvatar }: { c: 
           </span>
         </span>
       </Link>
+      {/* Keyboard and mouse way to star (touch uses a long press). Sits outside the link so it never navigates. */}
+      <button
+        type="button"
+        onClick={() => onStar(c)}
+        aria-pressed={starred}
+        aria-label={starred ? `Remove ${c.otherName} from favourites` : `Add ${c.otherName} to favourites`}
+        className="ui-icon-btn absolute right-1 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-panel/90 opacity-0 backdrop-blur-sm focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:hover)]:flex"
+      >
+        <Star className={`h-4 w-4 ${starred ? 'fill-current text-accent' : ''}`} aria-hidden />
+      </button>
     </li>
   );
 }
 
 export default function ConversationList({ activePath }: { activePath: string }) {
-  const { items, typing, online, loaded } = useConversations();
+  const { items, typing, online, loaded, prefs, toggleStar } = useConversations();
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
+  const star = async (c: ConversationItem) => {
+    const was = !!prefs[c.id]?.starred;
+    if (await toggleStar(c.id)) setToast(was ? 'Removed from favourites' : 'Added to favourites');
+    else setToast('Could not update favourites');
+  };
   const mounted = useMounted();
   const look = useLook();
   const [qRaw, setQ] = useState('');
@@ -108,7 +164,7 @@ export default function ConversationList({ activePath }: { activePath: string })
   const listRef = useRef<HTMLUListElement>(null);
   const prevTops = useRef<Map<string, number>>(new Map());
 
-  const shown = useMemo(() => filterConversations(items, q, filter, online), [items, q, filter, online]);
+  const shown = useMemo(() => sortStarredFirst(filterConversations(items, q, filter, online, prefs), prefs), [items, q, filter, online, prefs]);
   const unreadCount = useMemo(() => items.filter((c) => c.unread > 0).length, [items]);
   const order = shown.map((c) => c.id).join(',');
 
@@ -156,10 +212,12 @@ export default function ConversationList({ activePath }: { activePath: string })
   const emptyText = q.trim()
     ? filter === 'all'
       ? `No one called “${q.trim()}”.`
-      : `No ${filter === 'unread' ? 'unread chats' : 'one online'} match “${q.trim()}”.`
+      : `No ${filter === 'unread' ? 'unread chats' : filter === 'favourites' ? 'favourites' : 'one online'} match “${q.trim()}”.`
     : filter === 'unread'
       ? 'No unread chats'
-      : 'No one is online';
+      : filter === 'favourites'
+        ? 'No favourites yet. Star a chat to pin it here.'
+        : 'No one is online';
 
   return (
     <div>
@@ -186,9 +244,9 @@ export default function ConversationList({ activePath }: { activePath: string })
         )}
         {look.pills && (
           <div className={`lk-pills${look.search ? ' mt-2' : ''}`} role="group" aria-label="Filter conversations">
-            {(['all', 'unread', 'online'] as const).map((f) => (
+            {(['all', 'unread', 'online', 'favourites'] as const).map((f) => (
               <button key={f} type="button" className="lk-pill" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-                {f === 'all' ? 'All' : f === 'unread' ? 'Unread' : 'Online'}
+                {f === 'all' ? 'All' : f === 'unread' ? 'Unread' : f === 'online' ? 'Online' : 'Favourites'}
                 {f === 'unread' && unreadCount > 0 && <span className="ml-1 text-xs opacity-80">{unreadCount}</span>}
               </button>
             ))}
@@ -204,9 +262,14 @@ export default function ConversationList({ activePath }: { activePath: string })
       ) : (
         <ul ref={listRef} className="relative">
           {shown.map((c, idx) => (
-            <Row key={c.id} c={c} idx={idx} active={activePath === `/c/${c.id}`} typing={!!typing[c.id]} online={!!online[c.id]} mounted={mounted} ticks={look.ticks} onAvatar={setViewing} />
+            <Row key={c.id} c={c} idx={idx} active={activePath === `/c/${c.id}`} typing={!!typing[c.id]} online={!!online[c.id]} mounted={mounted} ticks={look.ticks} pref={prefs[c.id]} onAvatar={setViewing} onStar={star} />
           ))}
         </ul>
+      )}
+      {toast && (
+        <p role="status" className="glass fixed bottom-24 left-1/2 z-40 max-w-[90%] -translate-x-1/2 rounded-full px-4 py-2 text-center text-sm text-main">
+          {toast}
+        </p>
       )}
       {viewing && <AvatarViewer userId={viewing.otherId} name={viewing.otherName} assetId={viewing.otherAvatar} onClose={() => setViewing(null)} />}
     </div>

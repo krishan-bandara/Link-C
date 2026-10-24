@@ -1,6 +1,7 @@
 // Client-side helpers for the member's own profile and appearance preferences (RLS limits everything to own rows).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseLook, type Look } from '@/lib/look';
+import { parseHm, type Dnd } from '@/lib/chatprefs';
 import { DEFAULT_ACCENT, isHex, isPack, isTheme, type PackId, type Theme } from '@/lib/theme';
 import { DEFAULT_WALLPAPER } from '@/lib/wallpapers';
 
@@ -15,11 +16,14 @@ export type Prefs = {
   wallpaperAssetId: string | null;
   wizardDone: boolean;
   look: Look;
+  dnd: Dnd;
 };
+
+export const DEFAULT_DND: Dnd = { on: false, from: '22:00', to: '07:00' };
 
 export const DEFAULT_ABOUT = 'Hey there! I am using Link-C';
 
-export const PREF_COLS = 'theme,pack,accent,wallpaper_kind,wallpaper_preset,wallpaper_asset_id,wizard_done_at,look';
+export const PREF_COLS = 'theme,pack,accent,wallpaper_kind,wallpaper_preset,wallpaper_asset_id,wizard_done_at,look,dnd_on,dnd_from,dnd_to';
 
 type Row = {
   theme?: string | null;
@@ -30,7 +34,19 @@ type Row = {
   wallpaper_asset_id?: string | null;
   wizard_done_at?: string | null;
   look?: string | null;
+  dnd_on?: boolean | null;
+  dnd_from?: string | null;
+  dnd_to?: string | null;
 };
+
+/** Quiet hours from a row; bad or missing times fall back to the defaults. */
+export function dndFromRow(r: Pick<Row, 'dnd_on' | 'dnd_from' | 'dnd_to'> | null | undefined): Dnd {
+  return {
+    on: r?.dnd_on === true,
+    from: parseHm(r?.dnd_from) === null ? DEFAULT_DND.from : (r?.dnd_from as string),
+    to: parseHm(r?.dnd_to) === null ? DEFAULT_DND.to : (r?.dnd_to as string),
+  };
+}
 
 export function prefsFromRow(r: Row | null | undefined): Prefs {
   return {
@@ -42,6 +58,7 @@ export function prefsFromRow(r: Row | null | undefined): Prefs {
     wallpaperAssetId: r?.wallpaper_asset_id ?? null,
     wizardDone: !!r?.wizard_done_at,
     look: parseLook(r?.look),
+    dnd: dndFromRow(r),
   };
 }
 
@@ -63,6 +80,9 @@ export async function savePrefs(
     wallpaper_preset: string;
     wizard_done_at: string;
     look: string;
+    dnd_on: boolean;
+    dnd_from: string;
+    dnd_to: string;
   }>,
 ): Promise<boolean> {
   const { error } = await supabase

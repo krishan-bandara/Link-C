@@ -6,7 +6,7 @@ import { BLUR_MAX, BLUR_MIN, DEFAULT_LOOK, GLASS_MAX, GLASS_MIN, LOOK_BGS, type 
 type Flag = 'search' | 'pills' | 'ticks' | 'tabs';
 const SWITCHES: { key: Flag; label: string; hint: string }[] = [
   { key: 'search', label: 'Search bar', hint: 'Show the search box above your chats.' },
-  { key: 'pills', label: 'Filter pills', hint: 'Show the All / Unread / Groups shortcuts.' },
+  { key: 'pills', label: 'Filter pills', hint: 'Show the All / Unread / Online / Favourites shortcuts.' },
   { key: 'ticks', label: 'Read ticks', hint: 'Show sent and read ticks in the chat list preview.' },
   { key: 'tabs', label: 'Floating tab bar', hint: 'A floating glass bar instead of a flat one at the bottom.' },
 ];

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Camera, ImageIcon, Paperclip, Send, Smile, Video } from 'lucide-react';
+import { Camera, ImageIcon, Paperclip, Pencil, Send, Smile, Video, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import StickerTray from './StickerTray';
 import CreateStickerDialog from './CreateStickerDialog';
@@ -33,6 +33,9 @@ export default function Composer({
   onFocusInput,
   reply,
   onCancelReply,
+  editing,
+  onSaveEdit,
+  onCancelEdit,
   handleRef,
 }: {
   onSend: (body: string) => Promise<string | null>;
@@ -45,6 +48,10 @@ export default function Composer({
   onFocusInput?: () => void;
   reply?: Quote | null;
   onCancelReply?: () => void;
+  /** Edit mode: the message being edited. The box shows its text and Send saves it instead of sending a new message. */
+  editing?: { id: string; body: string } | null;
+  onSaveEdit?: (id: string, body: string) => Promise<void>;
+  onCancelEdit?: () => void;
   handleRef?: React.Ref<ComposerHandle>;
 }) {
   const [text, setText] = useState('');
@@ -115,9 +122,40 @@ export default function Composer({
     };
   }, [panel, closePanel]);
 
+  // entering edit mode puts the original text in the box; leaving it clears the box
+  const editId = editing?.id ?? null;
+  const editBody = editing?.body ?? '';
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (editId) {
+      wasEditing.current = true;
+      setError(null);
+      setText(editBody.slice(0, MAX));
+      requestAnimationFrame(() => {
+        const el = area.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+        resize(el);
+      });
+    } else if (wasEditing.current) {
+      wasEditing.current = false;
+      setText('');
+      if (area.current) area.current.style.height = 'auto';
+    }
+  }, [editId, editBody]);
+
   async function submit() {
     const body = text.trim();
     if (!body || busy) return;
+    if (editing && onSaveEdit) {
+      setBusy(true);
+      setError(null);
+      await onSaveEdit(editing.id, body); // the chat view shows any error and leaves edit mode
+      setBusy(false);
+      area.current?.focus();
+      return;
+    }
     setBusy(true);
     setError(null);
     onStopTyping();
@@ -198,7 +236,16 @@ export default function Composer({
           </div>
         </div>
       )}
-      {reply && onCancelReply && <ReplyBar q={reply} onCancel={onCancelReply} />}
+      {editing && onCancelEdit && (
+        <div className="mx-2 mb-1 flex items-center gap-2 rounded-xl border-l-4 border-accent bg-panel-2 px-3 py-2" role="status">
+          <Pencil className="h-4 w-4 shrink-0 text-accent" aria-hidden />
+          <p className="min-w-0 flex-1 truncate text-xs font-semibold text-accent">Editing message</p>
+          <button type="button" onClick={onCancelEdit} aria-label="Cancel editing" className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-panel ${FOCUS}`}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {!editing && reply && onCancelReply && <ReplyBar q={reply} onCancel={onCancelReply} />}
       {error && (
         <p className="px-2 pb-1 text-xs text-danger" role="alert">
           {error}
@@ -330,6 +377,11 @@ export default function Composer({
             else onStopTyping();
           }}
           onKeyDown={(e) => {
+            if (e.key === 'Escape' && editing) {
+              e.preventDefault();
+              onCancelEdit?.();
+              return;
+            }
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
               void submit();
@@ -346,7 +398,7 @@ export default function Composer({
           tabIndex={hasText ? 0 : -1}
           aria-hidden={!hasText}
           className={`cv-send mb-0.5 flex h-11 shrink-0 items-center justify-center rounded-full text-accent-ink ${FOCUS}`}
-          aria-label="Send"
+          aria-label={editing ? 'Save edit' : 'Send'}
         >
           <Send className="h-5 w-5" />
         </button>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, CornerUpLeft, CheckCheck, Download, EyeOff, MoreHorizontal, Plus, StickerIcon, Trash2, Timer } from 'lucide-react';
+import { Camera, Check, CornerUpLeft, CheckCheck, Download, EyeOff, MoreHorizontal, Pencil, Plus, StickerIcon, Trash2, Timer } from 'lucide-react';
 import type { Media, Msg } from '@/lib/chat/types';
 import { isBigEmoji, QUICK_REACTIONS } from '@/lib/chat/emoji';
 import { stickerSrc } from '@/lib/chat/stickers';
@@ -9,6 +9,7 @@ import Linkify from './Linkify';
 import AudioPlayer from './AudioPlayer';
 import { QuoteInBubble, type Quote } from './ReplyQuote';
 import { buzz } from '@/lib/chat/haptics';
+import { canEdit } from '@/lib/chat/edit';
 import { BUBBLE_SHADOW, FOCUS } from './ui';
 
 function Ticks({ m }: { m: Msg }) {
@@ -155,6 +156,7 @@ export default function MessageBubble({
   quote,
   onReply,
   onJump,
+  onEdit,
 }: {
   msg: Msg;
   media: Media | undefined;
@@ -176,8 +178,10 @@ export default function MessageBubble({
   quote: Quote | null;
   onReply: (id: string) => void;
   onJump: (id: string) => void;
+  onEdit?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [editOk, setEditOk] = useState(false); // rechecked each time the menu opens, so Edit disappears once the 15 minutes are over
   const [armed, setArmed] = useState(false); // reaction chips added after mount bounce in; the ones loaded with the history do not
   const [place, setPlace] = useState<'below' | 'above' | 'sheet'>('below'); // where the options menu goes so it is never cut off
   const [flip, setFlip] = useState(false); // show the hover pill below the bubble when there is no room above it
@@ -199,6 +203,7 @@ export default function MessageBubble({
       const below = window.innerHeight - r.bottom;
       setPlace(below >= 250 ? 'below' : r.top >= 300 ? 'above' : 'sheet');
     }
+    setEditOk(!!onEdit && canEdit(msg, me));
     setOpen(true);
   };
   useEffect(() => {
@@ -294,6 +299,7 @@ export default function MessageBubble({
 
   const meta = (
     <span className={`flex items-center gap-1 text-xs leading-none text-muted ${bare ? 'cv-meta-chip rounded-full px-2 py-1' : ''}`}>
+      {msg.type === 'text' && msg.edited_at && <span>edited</span>}
       <span>{time}</span>
       {mine && <Ticks m={msg} />}
       <button
@@ -456,6 +462,19 @@ export default function MessageBubble({
             >
               <Plus className="h-4 w-4" /> React
             </button>
+            {editOk && onEdit && (
+              <button
+                type="button"
+                role="menuitem"
+                className={menuItem}
+                onClick={() => {
+                  setOpen(false);
+                  if (canEdit(msg, me)) onEdit(msg.id);
+                }}
+              >
+                <Pencil className="h-4 w-4" /> Edit
+              </button>
+            )}
             {sticker && msg.sticker_id && (
               <button
                 type="button"

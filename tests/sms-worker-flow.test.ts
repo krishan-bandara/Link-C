@@ -398,3 +398,59 @@ describe('quiet hours', () => {
     expect(gw().attempts.length).toBe(0);
   });
 });
+
+describe('muted chats and Do-not-disturb', () => {
+  it('a muted chat (future time or infinity) makes no SMS; an expired mute behaves normally', async () => {
+    seed();
+    rows('chat_prefs').push({ user_id: A, conversation_id: `c-${A}`, muted_until: 'infinity', starred: false });
+    await startWorker();
+    await advance(15 * MIN);
+    expect(gw().attempts.length).toBe(0);
+    rows('chat_prefs')[0].muted_until = new Date(Date.now() - MIN).toISOString(); // mute ran out
+    await advance(MIN);
+    expect(gw().sent.map((s) => s.text)).toEqual(['T1']);
+  });
+
+  it('one unmuted unread chat is enough to alert, even if another unread chat is muted', async () => {
+    seed();
+    rows('conversations').push({ id: 'c2', user_a: A, user_b: 'user-c' });
+    rows('messages').push({ id: 'm2', conversation_id: 'c2', sender_id: 'user-c', read_at: null, type: 'text', created_at: new Date(Date.now() - MIN).toISOString() });
+    rows('chat_prefs').push({ user_id: A, conversation_id: 'c2', muted_until: 'infinity', starred: false });
+    await startWorker();
+    await advance(10_000);
+    expect(gw().sent.length).toBe(1);
+  });
+
+  it('DND hours: no SMS, step and caps untouched; one SMS 1 when they end, then the normal schedule', async () => {
+    // 11:30 local now; DND 11:30 -> 11:40 local
+    seed();
+    rows('user_prefs').push({ user_id: A, dnd_on: true, dnd_from: '11:30', dnd_to: '11:40' });
+    await startWorker();
+    await advance(9 * MIN + 30_000);
+    expect(gw().attempts.length).toBe(0);
+    expect(pres(A).sms_step).toBe(0);
+    expect(pres(A).last_sms_at).toBeNull();
+    expect(logs().length).toBe(0);
+    await advance(MIN);
+    expect(gw().sent.map((s) => s.text)).toEqual(['T1']); // a single alert, no burst
+    await advance(10 * MIN);
+    expect(gw().sent.map((s) => s.text)).toEqual(['T1', 'T2']);
+  });
+
+  it('DND off (even with times set) changes nothing', async () => {
+    seed();
+    rows('user_prefs').push({ user_id: A, dnd_on: false, dnd_from: '11:00', dnd_to: '12:00' });
+    await startWorker();
+    await advance(10_000);
+    expect(gw().sent.length).toBe(1);
+  });
+
+  it('DND only silences that member: others still get their SMS', async () => {
+    seed();
+    addMember(B, A, '+94779999999');
+    rows('user_prefs').push({ user_id: A, dnd_on: true, dnd_from: '11:00', dnd_to: '12:00' });
+    await startWorker();
+    await advance(10_000);
+    expect(gw().sent.map((s) => s.to)).toEqual(['+94779999999']);
+  });
+});

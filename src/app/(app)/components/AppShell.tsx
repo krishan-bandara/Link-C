@@ -2,15 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { ChevronsLeft, ChevronsRight, Home, LogOut, MessageCircle, Moon, MoreVertical, Settings, Shield, Sun } from 'lucide-react';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { applyTheme, DEFAULT_ACCENT, isHex, isTheme } from '@/lib/theme';
 import { resolveDark, savePrefs } from '@/lib/prefs';
 import type { ConversationItem } from '@/lib/chat/types';
 import Avatar from '@/components/ui/Avatar';
+import { useLogout } from '@/components/ui/LogoutButton';
 import ConversationList from './ConversationList';
 import LocationGuard from './LocationGuard';
+import OfflineBanner from '@/components/OfflineBanner';
 import { ConversationsProvider, useConversations, type Me } from './ConversationsContext';
 import '@/components/ui/ui.css';
 import '../home.css';
@@ -34,7 +36,7 @@ function navFor(isOwner: boolean): NavDef[] {
 
 /** Settings / Admin / Sign out popover. `side` decides where it opens. */
 function UserMenu({ me, side, children }: { me: Me; side: 'below' | 'right'; children: (p: { toggle: () => void; open: boolean }) => React.ReactNode }) {
-  const router = useRouter();
+  const { ask: askLogout, dialog: logoutDialog } = useLogout();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [dark, setDark] = useState(false);
@@ -65,15 +67,10 @@ function UserMenu({ me, side, children }: { me: Me; side: 'below' | 'right'; chi
     };
   }, [open]);
 
-  async function signOut() {
-    await supabaseBrowser().auth.signOut();
-    router.replace('/login');
-    router.refresh();
-  }
-
   return (
     <div ref={ref} className="relative">
       {children({ toggle: () => setOpen((v) => !v), open })}
+      {logoutDialog}
       {open && (
         <div
           role="menu"
@@ -93,8 +90,8 @@ function UserMenu({ me, side, children }: { me: Me; side: 'below' | 'right'; chi
             {dark ? <Sun className="h-4 w-4 text-accent" /> : <Moon className="h-4 w-4 text-accent" />}
             {dark ? 'Light mode' : 'Dark mode'}
           </button>
-          <button type="button" role="menuitem" onClick={signOut} className={item}>
-            <LogOut className="h-4 w-4 text-accent" /> Sign out
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); askLogout(); }} className={item}>
+            <LogOut className="h-4 w-4 text-accent" /> Log out
           </button>
         </div>
       )}
@@ -134,6 +131,7 @@ function Shell({ collapsedInit, children }: { collapsedInit?: boolean; children:
 
   return (
     <div className="flex h-[var(--app-h,100dvh)] w-full max-w-full flex-col overflow-hidden text-main">
+      <OfflineBanner userId={me.id} />
       <LocationGuard me={me.id} />
       <div className="flex min-h-0 w-full flex-1">
         {/* desktop rail */}
