@@ -108,14 +108,14 @@ describe('secondFor', () => {
 describe('inkFor', () => {
   it('is dark on yellow and white on blue', () => {
     expect(inkFor('#FFCC00')).toBe('#111b21');
-    expect(inkFor('#007AFF', secondFor('#007AFF'))).toBe('#ffffff');
+    expect(inkFor('#007aff', secondFor('#007aff'))).toBe('#ffffff');
   });
 });
 
 describe('accentStyle', () => {
   it('describes the default accent', () => {
     const s = accentStyle(DEFAULT_ACCENT);
-    expect(s['--accent']).toBe('#007AFF');
+    expect(s['--accent']).toBe('#007aff');
     expect(s['--c-accent-ink']).toBe('#ffffff');
     expect(s['--a2']).toMatch(HEX);
   });

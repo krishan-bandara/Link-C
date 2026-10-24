@@ -3,23 +3,23 @@ export type Theme = 'light' | 'dark' | 'system';
 
 export const THEME_COOKIE = 'lc-theme';
 export const ACCENT_COOKIE = 'lc-accent';
-export const DEFAULT_ACCENT = '#007AFF';
+export const DEFAULT_ACCENT = '#007aff';
 
 /** Apple system colours, each with the partner colour used for the end of its gradient. */
 export const ACCENTS: { name: string; hex: string; second: string }[] = [
-  { name: 'Blue', hex: '#007AFF', second: '#5856D6' },
-  { name: 'Green', hex: '#34C759', second: '#32ADE6' },
-  { name: 'Mint', hex: '#00C7BE', second: '#32ADE6' },
-  { name: 'Teal', hex: '#30B0C7', second: '#32ADE6' },
-  { name: 'Cyan', hex: '#32ADE6', second: '#AF52DE' },
-  { name: 'Indigo', hex: '#5856D6', second: '#AF52DE' },
-  { name: 'Purple', hex: '#AF52DE', second: '#FF2D55' },
-  { name: 'Pink', hex: '#FF2D55', second: '#FF9500' },
-  { name: 'Red', hex: '#FF3B30', second: '#FFCC00' },
-  { name: 'Orange', hex: '#FF9500', second: '#FF2D55' },
-  { name: 'Yellow', hex: '#FFCC00', second: '#34C759' },
-  { name: 'Brown', hex: '#A2845E', second: '#FF9500' },
-  { name: 'Graphite', hex: '#8E8E93', second: '#AF52DE' },
+  { name: 'Blue', hex: '#007aff', second: '#5856d6' },
+  { name: 'Green', hex: '#34c759', second: '#32ade6' },
+  { name: 'Mint', hex: '#00c7be', second: '#32ade6' },
+  { name: 'Teal', hex: '#30b0c7', second: '#32ade6' },
+  { name: 'Cyan', hex: '#32ade6', second: '#af52de' },
+  { name: 'Indigo', hex: '#5856d6', second: '#af52de' },
+  { name: 'Purple', hex: '#af52de', second: '#ff2d55' },
+  { name: 'Pink', hex: '#ff2d55', second: '#ff9500' },
+  { name: 'Red', hex: '#ff3b30', second: '#ffcc00' },
+  { name: 'Orange', hex: '#ff9500', second: '#ff2d55' },
+  { name: 'Yellow', hex: '#ffcc00', second: '#34c759' },
+  { name: 'Brown', hex: '#a2845e', second: '#ff9500' },
+  { name: 'Graphite', hex: '#8e8e93', second: '#af52de' },
 ];
 
 /**
