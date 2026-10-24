@@ -146,7 +146,7 @@ function Shell({ collapsedInit, children }: { collapsedInit?: boolean; children:
             {nav.map((n) => (
               <Link key={n.key} href={n.href} aria-label={n.label} data-tip={n.label} aria-current={n.match(pathname) ? 'page' : undefined} className="hm-nav-item">
                 <n.icon className="h-5 w-5" aria-hidden />
-                {n.key === 'chats' && unread > 0 && <span className="hm-nav-badge">{badge}</span>}
+                {n.key === 'chats' && unread > 0 && <span className="hm-nav-badge" aria-hidden>{badge}</span>}
               </Link>
             ))}
           </div>
@@ -223,8 +223,9 @@ function Shell({ collapsedInit, children }: { collapsedInit?: boolean; children:
           {nav.map((n) => (
             <Link key={n.key} href={n.href} aria-current={n.match(pathname) ? 'page' : undefined} className="hm-tab min-h-[3.25rem] !justify-center !text-xs">
               <n.icon className="h-5 w-5" aria-hidden />
-              {n.key === 'chats' && unread > 0 && <span className="hm-tab-badge">{badge}</span>}
+              {n.key === 'chats' && unread > 0 && <span className="hm-tab-badge" aria-hidden>{badge}</span>}
               {n.label}
+              {n.key === 'chats' && unread > 0 && <span className="sr-only">, {unread} unread</span>}
             </Link>
           ))}
         </nav>

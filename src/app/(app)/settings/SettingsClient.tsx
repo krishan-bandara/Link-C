@@ -7,6 +7,8 @@ import { Bell, ChevronRight, Heart, KeyRound, LogOut, Palette, Plus, Smile, Tras
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { applyTheme, packInfo, type PackId, type Theme } from '@/lib/theme';
 import { DEFAULT_ABOUT, deleteAsset, resolveDark, savePrefs, uploadAsset, type Prefs, type WallpaperKind } from '@/lib/prefs';
+import { applyLook, serializeLook, type Look } from '@/lib/look';
+import LookPicker from '@/components/ui/LookPicker';
 import PhotoPicker from '@/components/ui/PhotoPicker';
 import ThemePicker from '@/components/ui/ThemePicker';
 import PackPicker from '@/components/ui/PackPicker';
@@ -58,6 +60,9 @@ export default function SettingsClient({
   const [wPreset, setWPreset] = useState(prefs.wallpaperPreset);
   const [wAsset, setWAsset] = useState(prefs.wallpaperAssetId);
   const [wBusy, setWBusy] = useState(false);
+  const [look, setLook] = useState<Look>(prefs.look);
+  const lookTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLook = useRef<Look | null>(null);
   const [dark, setDark] = useState(false);
   const [stickers, setStickers] = useState<Sticker[] | null>(null);
   const [emoji, setEmoji] = useState('');
@@ -81,6 +86,28 @@ export default function SettingsClient({
     mq.addEventListener('change', on);
     return () => mq.removeEventListener('change', on);
   }, [theme]);
+
+  // a slider save still waiting on its debounce is written at once when the page is hidden or left
+  useEffect(() => {
+    const flush = () => {
+      const next = pendingLook.current;
+      if (!next) return;
+      pendingLook.current = null;
+      if (lookTimer.current) clearTimeout(lookTimer.current);
+      lookTimer.current = null;
+      void savePrefs(supabaseBrowser(), userId, { look: serializeLook(next) });
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', flush);
+      flush(); // unmount
+    };
+  }, [userId]);
 
   const loadStickers = useCallback(async () => {
     const res = await fetch('/api/stickers').catch(() => null);
@@ -277,6 +304,30 @@ export default function SettingsClient({
                 setAccent(a);
                 applyTheme(theme, a);
                 void savePref({ accent: a });
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm text-muted">Glass look</h3>
+            <LookPicker
+              look={look}
+              onChange={(next, immediate) => {
+                setLook(next);
+                applyLook(next); // live preview
+                // sliders fire on every tick: save once dragging pauses; anything else (and presets) saves at once
+                const dragging = !immediate && (next.glass !== look.glass || next.blur !== look.blur);
+                if (lookTimer.current) clearTimeout(lookTimer.current);
+                lookTimer.current = null;
+                if (dragging) {
+                  pendingLook.current = next;
+                  lookTimer.current = setTimeout(() => {
+                    pendingLook.current = null;
+                    void savePref({ look: serializeLook(next) });
+                  }, 400);
+                } else {
+                  pendingLook.current = null;
+                  void savePref({ look: serializeLook(next) });
+                }
               }}
             />
           </div>

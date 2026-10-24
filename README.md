@@ -9,6 +9,8 @@ Personal, invite-only secure chat PWA: 1:1 realtime chat, photo/video sharing (n
 - The owner can disable or enable a person's login, reset a password, or remove a person. Idle users are signed out after 1 minute.
 - The whole UI uses the night-sky, frosted-glass design (dark by default, light variant, accent choices).
 
+- **Clean glass look (member settings, in progress):** each member picks their own look in Settings > Appearance (13 Apple accent colours or custom, five background styles, light/dark, glass strength and blur, switches for search bar, filter pills, read ticks and floating tab bar, plus a one-tap "Pure white glass" default). Developer notes are in [docs/BUILD-STATE.md](docs/BUILD-STATE.md).
+
 ## Quick start (local development)
 
 1. `npm ci`

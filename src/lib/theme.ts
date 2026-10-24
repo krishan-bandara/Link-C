@@ -3,18 +3,23 @@ export type Theme = 'light' | 'dark' | 'system';
 
 export const THEME_COOKIE = 'lc-theme';
 export const ACCENT_COOKIE = 'lc-accent';
-export const DEFAULT_ACCENT = '#6ee7f9';
+export const DEFAULT_ACCENT = '#007AFF';
 
-/** WhatsApp green first, then a few friendly alternatives. */
-export const ACCENTS: { name: string; hex: string }[] = [
-  { name: 'Cyan', hex: '#6ee7f9' },
-  { name: 'Violet', hex: '#a78bfa' },
-  { name: 'Mint', hex: '#5eead4' },
-  { name: 'Pink', hex: '#f472b6' },
-  { name: 'Amber', hex: '#fbbf24' },
-  { name: 'Blue', hex: '#60a5fa' },
-  { name: 'Rose', hex: '#fb7185' },
-  { name: 'Lime', hex: '#a3e635' },
+/** Apple system colours, each with the partner colour used for the end of its gradient. */
+export const ACCENTS: { name: string; hex: string; second: string }[] = [
+  { name: 'Blue', hex: '#007AFF', second: '#5856D6' },
+  { name: 'Green', hex: '#34C759', second: '#32ADE6' },
+  { name: 'Mint', hex: '#00C7BE', second: '#32ADE6' },
+  { name: 'Teal', hex: '#30B0C7', second: '#32ADE6' },
+  { name: 'Cyan', hex: '#32ADE6', second: '#AF52DE' },
+  { name: 'Indigo', hex: '#5856D6', second: '#AF52DE' },
+  { name: 'Purple', hex: '#AF52DE', second: '#FF2D55' },
+  { name: 'Pink', hex: '#FF2D55', second: '#FF9500' },
+  { name: 'Red', hex: '#FF3B30', second: '#FFCC00' },
+  { name: 'Orange', hex: '#FF9500', second: '#FF2D55' },
+  { name: 'Yellow', hex: '#FFCC00', second: '#34C759' },
+  { name: 'Brown', hex: '#A2845E', second: '#FF9500' },
+  { name: 'Graphite', hex: '#8E8E93', second: '#AF52DE' },
 ];
 
 /**
@@ -34,26 +39,47 @@ export const PACKS: PackInfo[] = [
 export const isPack = (v: unknown): v is PackId => PACKS.some((p) => p.id === v);
 export const packInfo = (id: PackId | null | undefined) => PACKS.find((p) => p.id === id);
 
+/** decodeURIComponent that never throws: a malformed cookie value must not crash a page. */
+export const safeDecode = (s: string) => {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return '';
+  }
+};
+
 export const isTheme = (v: unknown): v is Theme => v === 'light' || v === 'dark' || v === 'system';
 export const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v);
 
 /** Readable text colour for text placed on the accent colour: whichever of white or dark ink has the better contrast. */
-export function inkFor(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+export function inkFor(hex: string, second?: string): string {
+  const lumOf = (h: string) => {
+    const n = parseInt(h.slice(1), 16);
+    const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const mixHex = (x: string, y: string) => {
+    const a = parseInt(x.slice(1), 16);
+    const b = parseInt(y.slice(1), 16);
+    const ch = (s: number) => Math.round((((a >> s) & 255) + ((b >> s) & 255)) / 2);
+    return '#' + [16, 8, 0].map((s) => ch(s).toString(16).padStart(2, '0')).join('');
+  };
+  // text sits on the whole gradient (fill, middle, far end), so judge by the weakest point
+  const points = [hex, ...(second && /^#[0-9a-f]{6}$/i.test(second) ? [mixHex(hex, second), second] : [])].map(lumOf);
   const DARK_LUM = 0.0102; // #111b21
-  const withWhite = 1.05 / (lum + 0.05);
-  const withDark = (lum + 0.05) / (DARK_LUM + 0.05);
-  return withDark > withWhite ? '#111b21' : '#ffffff';
+  const withWhite = Math.min(...points.map((l) => 1.05 / (l + 0.05)));
+  const withDark = Math.min(...points.map((l) => (l + 0.05) / (DARK_LUM + 0.05)));
+  return withWhite >= withDark ? '#ffffff' : '#111b21';
 }
 
 /** The violet end of the gradient is fixed for the default cyan, otherwise it is a rotated shade of the accent. */
 export function secondFor(hex: string, pack?: PackId | null): string {
   if (hex === '#6ee7f9') return '#a78bfa';
+  const apple = ACCENTS.find((a) => a.hex.toLowerCase() === hex.toLowerCase());
+  if (apple) return apple.second;
   const info = packInfo(pack);
   if (info && info.accent === hex) return info.second;
   const n = parseInt(hex.slice(1), 16);
@@ -65,7 +91,7 @@ export function secondFor(hex: string, pack?: PackId | null): string {
 /** Inline style for <html> carrying the accent colour. */
 export function accentStyle(hex: string, pack?: PackId | null): Record<string, string> {
   const h = isHex(hex) ? hex : DEFAULT_ACCENT;
-  return { '--accent': h, '--c-accent-ink': inkFor(h), '--a2': secondFor(h, pack) };
+  return { '--accent': h, '--c-accent-ink': inkFor(h, secondFor(h, pack)), '--a2': secondFor(h, pack) };
 }
 
 /** Browser only: apply immediately and remember in cookies so the server renders the same theme next time. */
@@ -80,7 +106,7 @@ export function applyTheme(theme: Theme, accent: string, pack?: PackId | null) {
     document.cookie = `${PACK_COOKIE}=${pack ?? ''}; path=/; max-age=31536000; samesite=lax`;
   }
   root.style.setProperty('--accent', hex);
-  root.style.setProperty('--c-accent-ink', inkFor(hex));
+  root.style.setProperty('--c-accent-ink', inkFor(hex, secondFor(hex, isPack(pack === undefined ? root.getAttribute('data-pack') : pack) ? ((pack === undefined ? root.getAttribute('data-pack') : pack) as PackId) : null)));
   const activePack = pack === undefined ? root.getAttribute('data-pack') : pack;
   root.style.setProperty('--a2', secondFor(hex, isPack(activePack) ? activePack : null));
   const opts = '; path=/; max-age=31536000; samesite=lax';

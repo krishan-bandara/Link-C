@@ -29,6 +29,13 @@ focus-trapped dialogs, atomic login lockout, change-password keeps own session.
 Owner decisions pending: SMS gateway for Sri Lanka (Twilio trial is not allowed there; use a local gateway or rely on push), hosting (existing VM or a
 1 GB DigitalOcean droplet in Bangalore/Singapore).
 
+## Clean glass look (2026-10-25, in progress)
+Per-member appearance in Settings > Appearance, layered on top of the night-sky design above. Not yet confirmed deployed or tested on phones; design references are outside the repo (owner's OneDrive `Link-C\designing`).
+- Options: 13 Apple system accent colours + custom colour; backgrounds Pure white glass (default), Soft pale, Vivid wallpaper, Two-tone, Plain; light/dark; glass strength and blur sliders; switches for search bar, filter pills (All, Unread, Online), read ticks in the chat list preview, floating glass tab bar; one-tap "Pure white glass" preset.
+- Storage: `user_prefs.look` (JSON text), migration `supabase/migrations/20261025000024_clean_glass_look.sql`, plus cookie `lc-look` so the look applies before first paint. The migration must be applied to the live DB before the column is used.
+- Code: `src/lib/look.ts` (shape, defaults, parsing), `src/lib/useLook.ts` (client hook), `src/app/look*.css` (styles).
+- Contract between code and CSS, set on `<html>`: `data-bg` (background style), `data-tabs` (floating tab bar on or off), and CSS variables `--lg-a` (glass see-through amount, 0.15 to 0.8) and `--lg-b` (glass blur in px). Style new UI with these, do not hard-code colours. Unknown or invalid stored values must fall back to the Pure white glass defaults.
+
 ## Remaining
 1. Regression agent on the newest build (running), fix what it finds, rebuild if needed (`docker compose build && docker compose up -d`).
 2. Cleanup (owner approved): delete `node_modules`, remove qa-* accounts + B2 orphans (`node --env-file=.env qa/b2-orphans.mjs --apply`), keep real owner,

@@ -1,0 +1,534 @@
+/*
+ * Clean glass look (the "Pure white glass" family). Everything is scoped under html[data-bg], which src/lib/look.ts sets,
+ * so nothing here changes unless a look is active. Contract: data-bg white|pale|vivid|duo|mono, data-tabs float|bar,
+ * inline --lg-a (glass opacity 0.15 to 0.8) and --lg-b (blur in px). Works with data-theme light|dark|system and with
+ * theme packs (data-pack keeps its own palette, this file only adds the glass shape and blur).
+ * NEVER write a star followed by a slash inside a comment in this file: it ends the comment.
+ */
+
+/* ------------------------------------------------------------------------------------------------------------------
+   1. Tokens. Light first, then dark (explicit and system), then packs, then the solid fallbacks.
+   ------------------------------------------------------------------------------------------------------------------ */
+html[data-bg] {
+  --lk-ga: min(1, calc(var(--lg-a, 0.22) * 0.9 + 0.3));
+  --lk-glass: rgb(255 255 255 / var(--lk-ga));
+  --lk-strong: rgb(255 255 255 / calc(var(--lk-ga) * 0.5 + 0.5));
+  --lk-edge: rgb(255 255 255 / 0.92);
+  --lk-ring: rgb(60 70 90 / 0.09);
+  --lk-shadow: 0 10px 26px rgb(40 60 90 / 0.12);
+  --lk-hi: inset 0 1px 0 #fff, inset 0 -6px 14px rgb(255 255 255 / 0.45);
+  --lk-bf: blur(var(--lg-b, 24px)) saturate(1.6);
+  --lk-field: rgb(120 130 150 / 0.12);
+  --lk-base: #fff;
+  --lk-solid: #fff;
+  --lk-lite: #fff;
+  --lk-mono: #f2f2f7;
+  --lk-g1: 9%;
+  --lk-g2: 8%;
+  --lk-pale: 14%;
+  --lk-v1: 60%;
+  --lk-v2: 88%;
+  --lk-d1: 55%;
+}
+html[data-bg]:root {
+  --c-glass: var(--lk-glass);
+}
+
+html[data-bg][data-theme='dark'] {
+  --lk-ga: calc(var(--lg-a, 0.22) * 0.3 + 0.05);
+  --lk-glass: rgb(255 255 255 / var(--lk-ga));
+  --lk-strong: rgb(30 33 41 / 0.88);
+  --lk-edge: rgb(255 255 255 / 0.2);
+  --lk-ring: rgb(0 0 0 / 0.45);
+  --lk-shadow: 0 10px 26px rgb(0 0 0 / 0.42);
+  --lk-hi: inset 0 1px 0 rgb(255 255 255 / 0.28);
+  --lk-field: rgb(255 255 255 / 0.09);
+  --lk-base: #0d1013;
+  --lk-solid: #1c1f26;
+  --lk-lite: #000;
+  --lk-mono: #000;
+  --lk-g1: 22%;
+  --lk-g2: 18%;
+  --lk-pale: 20%;
+  --lk-v1: 50%;
+  --lk-v2: 26%;
+  --lk-d1: 45%;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-bg][data-theme='system'] {
+    --lk-ga: calc(var(--lg-a, 0.22) * 0.3 + 0.05);
+    --lk-glass: rgb(255 255 255 / var(--lk-ga));
+    --lk-strong: rgb(30 33 41 / 0.88);
+    --lk-edge: rgb(255 255 255 / 0.2);
+    --lk-ring: rgb(0 0 0 / 0.45);
+    --lk-shadow: 0 10px 26px rgb(0 0 0 / 0.42);
+    --lk-hi: inset 0 1px 0 rgb(255 255 255 / 0.28);
+    --lk-field: rgb(255 255 255 / 0.09);
+    --lk-base: #0d1013;
+    --lk-solid: #1c1f26;
+    --lk-lite: #000;
+    --lk-mono: #000;
+    --lk-g1: 22%;
+    --lk-g2: 18%;
+    --lk-pale: 20%;
+    --lk-v1: 50%;
+    --lk-v2: 26%;
+    --lk-d1: 45%;
+  }
+}
+
+/* Accent used as text on dark glass: lift it so dark accents (indigo, purple) stay readable. */
+html[data-bg][data-theme='dark']:not([data-pack]) {
+  --c-accent-text: color-mix(in srgb, var(--accent) 62%, #fff);
+}
+@media (prefers-color-scheme: dark) {
+  html[data-bg][data-theme='system']:not([data-pack]) {
+    --c-accent-text: color-mix(in srgb, var(--accent) 62%, #fff);
+  }
+}
+
+/* Packs keep their palette: glass is the pack panel colour at the chosen strength, edges are the pack edges. */
+html[data-bg][data-pack] {
+  --lk-glass: color-mix(in srgb, var(--c-panel) calc(var(--lk-ga) * 100%), transparent);
+  --lk-strong: color-mix(in srgb, var(--c-panel) 92%, transparent);
+  --lk-edge: var(--c-edge);
+  --lk-ring: transparent;
+  --lk-base: var(--c-app);
+  --lk-solid: var(--c-panel);
+  --lk-mono: var(--c-app);
+  --lk-field: color-mix(in srgb, var(--c-text) 8%, transparent);
+  --lk-hi: inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+html[data-bg][data-pack]:root {
+  --c-glass: var(--lk-glass);
+}
+
+/* Fewer see-through surfaces when the device asks for it, or when backdrop-filter is missing. */
+@media (prefers-reduced-transparency: reduce) {
+  html[data-bg][data-bg][data-bg][data-bg] {
+    --lk-glass: var(--lk-solid);
+    --lk-strong: var(--lk-solid);
+    --lk-bf: none;
+    --c-glass: var(--lk-solid);
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-bg][data-bg][data-bg][data-bg] {
+    --lk-glass: var(--lk-solid);
+    --lk-strong: var(--lk-solid);
+    --lk-bf: none;
+    --c-glass: var(--lk-solid);
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   2. Page background per data-bg (beats the globals.css night-sky gradient by specificity).
+   ------------------------------------------------------------------------------------------------------------------ */
+html[data-bg='white'] {
+  --lk-bg:
+    radial-gradient(70% 40% at 15% 8%, color-mix(in srgb, var(--accent) var(--lk-g1), var(--lk-base)), transparent 70%),
+    radial-gradient(70% 40% at 90% 95%, color-mix(in srgb, var(--a2) var(--lk-g2), var(--lk-base)), transparent 70%),
+    var(--lk-base);
+}
+html[data-bg='pale'] {
+  --lk-bg:
+    radial-gradient(90% 50% at 85% 0%, color-mix(in srgb, var(--a2) 10%, transparent), transparent 70%),
+    color-mix(in srgb, var(--accent) var(--lk-pale), var(--lk-base));
+}
+html[data-bg='vivid'] {
+  --lk-bg: linear-gradient(160deg, color-mix(in srgb, var(--accent) var(--lk-v1), var(--lk-lite)), color-mix(in srgb, var(--accent) var(--lk-v2), var(--lk-lite)));
+}
+html[data-bg='duo'] {
+  --lk-bg:
+    radial-gradient(120% 70% at 0% 0%, color-mix(in srgb, var(--accent) var(--lk-d1), var(--lk-lite)), transparent 65%),
+    radial-gradient(110% 70% at 100% 100%, color-mix(in srgb, var(--a2) var(--lk-d1), var(--lk-lite)), transparent 65%),
+    color-mix(in srgb, var(--accent) 12%, var(--lk-base));
+}
+html[data-bg='mono'] {
+  --lk-bg: var(--lk-mono);
+}
+html[data-bg],
+html[data-bg] body {
+  background: var(--lk-bg);
+  background-attachment: fixed;
+}
+
+/* Text sitting directly on a strong colour needs a little more contrast than the default muted grey (not for packs). */
+html[data-bg='vivid']:not([data-pack]),
+html[data-bg='duo']:not([data-pack]) {
+  --c-muted: #2a3550;
+}
+html[data-bg='vivid'][data-theme='dark']:not([data-pack]),
+html[data-bg='duo'][data-theme='dark']:not([data-pack]) {
+  --c-muted: #cdd5e6;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-bg='vivid'][data-theme='system']:not([data-pack]),
+  html[data-bg='duo'][data-theme='system']:not([data-pack]) {
+    --c-muted: #cdd5e6;
+  }
+}
+/* Panels that used to be solid app colour must let the background through. */
+html[data-bg] div.bg-app,
+html[data-bg] aside.bg-app,
+html[data-bg] div[class*='bg-app/'],
+html[data-bg] aside[class*='bg-app/'] {
+  background-color: transparent;
+}
+html[data-bg] header[class*='bg-panel/'] {
+  background-color: var(--lk-glass);
+  border-color: var(--lk-edge);
+}
+html[data-bg] .hm-rail {
+  background: var(--lk-glass);
+  border-right-color: var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   3. The glass surface.
+   ------------------------------------------------------------------------------------------------------------------ */
+html[data-bg] .glass {
+  background: var(--lk-glass);
+  border: 1px solid var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring), var(--lk-shadow);
+}
+html[data-bg] .cv-panel,
+html[data-bg] .cv-menu,
+html[data-bg] .cv-surface,
+html[data-bg] .cv-pill {
+  background: var(--lk-strong);
+  border-color: var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+}
+html[data-bg] .cv-datechip,
+html[data-bg] .cv-toast,
+html[data-bg] .cv-bar,
+html[data-bg] .cv-starter {
+  background: var(--lk-glass);
+  border-color: var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   4. Chat list: glass cards, glass pill search, filter pills, round badge.
+   ------------------------------------------------------------------------------------------------------------------ */
+html[data-bg] .hm-li {
+  padding: 0 0.75rem 0.45rem;
+}
+html[data-bg] .hm-row {
+  border-radius: 26px;
+  background: var(--lk-glass);
+  border: 1px solid var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring), 0 6px 16px rgb(40 60 90 / 0.08);
+}
+html[data-bg] .hm-row:hover {
+  background: color-mix(in srgb, var(--accent) 7%, var(--lk-glass));
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring), 0 8px 20px rgb(40 60 90 / 0.12);
+}
+html[data-bg] .hm-row[aria-current='page'] {
+  background: color-mix(in srgb, var(--accent) 16%, var(--lk-glass));
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--lk-edge));
+}
+html[data-bg] .hm-row[aria-current='page']::before {
+  display: none;
+}
+html[data-bg] .hm-av-sm {
+  box-shadow: 0 0 0 2px var(--lk-edge);
+}
+html[data-bg] .hm-av-sm[data-online='true'] {
+  box-shadow: 0 0 0 2px var(--lk-edge), 0 0 14px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+html[data-bg] .hm-search {
+  min-height: 2.6rem;
+  border-radius: 9999px;
+  background: var(--lk-glass);
+  border: 1px solid var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring), 0 4px 12px rgb(40 60 90 / 0.07);
+}
+html[data-bg] .hm-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--lk-hi), 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+html[data-bg] .ui-badge {
+  background-image: none;
+  background-color: var(--accent);
+  color: var(--c-accent-ink);
+  border-radius: 9999px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 4px 10px -3px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Filter pills (the other agent adds these classes in ConversationList). */
+.lk-pills {
+  display: flex;
+  gap: 0.45rem;
+  padding: 0.1rem 0 0.1rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.lk-pills::-webkit-scrollbar {
+  display: none;
+}
+.lk-pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0 0.95rem;
+  border-radius: 9999px;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--c-text);
+  background: var(--c-panel);
+  border: 1px solid var(--c-edge);
+  outline: none;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, transform 0.15s var(--ease);
+}
+.lk-pill:active {
+  transform: scale(0.96);
+}
+.lk-pill:focus-visible {
+  box-shadow: 0 0 0 2px var(--c-accent-text, var(--accent));
+}
+html[data-bg] .lk-pill:focus-visible {
+  box-shadow: var(--lk-hi), 0 0 0 2px var(--c-app), 0 0 0 4px var(--c-accent-text, var(--accent));
+}
+html[data-bg] .hm-row:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--c-accent-text, var(--accent)), var(--lk-hi);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lk-pill,
+  .lk-pill:active {
+    transition: none;
+    transform: none;
+  }
+}
+html[data-bg] .lk-pill {
+  background: var(--lk-glass);
+  border-color: var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring);
+}
+.lk-pill[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--c-panel));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--c-edge));
+  color: var(--c-accent-text);
+  font-weight: 700;
+}
+html[data-bg] .lk-pill[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--lk-glass));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--lk-edge));
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   5. Phone tab bar. data-tabs=bar keeps the full-width bar; float makes a glass pill. The bar sits in the page flow
+   (not position fixed), so content never hides behind it. The Tailwind important utilities on the nav are beaten with
+   important here.
+   ------------------------------------------------------------------------------------------------------------------ */
+html[data-bg][data-tabs='bar'] .hm-tabbar {
+  background: var(--lk-glass);
+  border-top-color: var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+}
+html[data-bg][data-tabs='float'] .hm-tabbar {
+  margin: 0 0.9rem calc(0.6rem + env(safe-area-inset-bottom));
+  padding: 0.4rem !important;
+  border-radius: 30px;
+  border: 1px solid var(--lk-edge);
+  background: var(--lk-glass);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring), var(--lk-shadow);
+}
+html[data-bg][data-tabs='float'] .hm-tab-ind {
+  left: 0.4rem;
+  top: 0.4rem !important;
+  bottom: 0.4rem !important;
+  width: calc((100% - 0.8rem) / var(--n, 3));
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--accent) 20%, var(--lk-glass));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45);
+}
+html[data-bg][data-tabs='float'] .hm-tab-ind::before {
+  display: none;
+}
+html[data-bg] .hm-tab {
+  border-radius: 22px;
+}
+html[data-bg] .hm-tab[aria-current='page'] {
+  font-weight: 800;
+}
+html[data-bg] .hm-tab-badge,
+html[data-bg] .hm-nav-badge {
+  background-image: none;
+  background-color: var(--accent);
+  color: var(--c-accent-ink);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   6. Chat screen.
+   ------------------------------------------------------------------------------------------------------------------ */
+/* header: inset rounded glass card (the safe-top border is replaced, so the notch inset moves into the margin) */
+html[data-bg] .glass.cv-header {
+  margin: calc(0.5rem + env(safe-area-inset-top)) 0.6rem 0.25rem;
+  border: 1px solid var(--lk-edge);
+  border-radius: 26px;
+}
+html[data-bg] .cv-header::after {
+  display: none;
+}
+
+/* composer: transparent frame, the input row becomes a floating glass pill */
+html[data-bg] .cv-composer {
+  background: transparent;
+  border-top-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: 0.25rem 0.6rem 0.4rem;
+}
+html[data-bg] .cv-composer > div.flex.items-end,
+html[data-bg] .cv-composer .cv-row {
+  padding: 0.3rem;
+  border-radius: 30px;
+  background: var(--lk-glass);
+  border: 1px solid var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring), var(--lk-shadow);
+}
+html[data-bg] .cv-field {
+  background: var(--lk-field);
+  border-color: transparent;
+  border-radius: 22px;
+}
+html[data-bg] .cv-field:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+html[data-bg] .cv-send {
+  background-image: linear-gradient(135deg, var(--accent), var(--a2));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55), 0 6px 14px -6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+html[data-bg] .cv-send[data-on='false'] {
+  box-shadow: none;
+}
+/* emoji and sticker panel: rounded top */
+html[data-bg] .cv-panel {
+  border-radius: 26px 26px 20px 20px;
+  border: 1px solid var(--lk-edge);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring), var(--lk-shadow);
+}
+html[data-bg] .cv-panel .border-b {
+  border-color: var(--lk-ring);
+}
+
+/* received bubbles: clear glass */
+html[data-bg] .cv-in {
+  background: var(--lk-glass);
+  border: 1px solid var(--lk-edge);
+  -webkit-backdrop-filter: var(--lk-bf);
+  backdrop-filter: var(--lk-bf);
+  box-shadow: var(--lk-hi), 0 0 0 1px var(--lk-ring), 0 4px 12px rgb(40 60 90 / 0.08);
+}
+
+/* my bubbles: accent gradient, accent-ink text everywhere inside (not for packs, which keep their own bubble) */
+html[data-bg]:not([data-pack]) .cv-out {
+  background: linear-gradient(135deg, var(--accent), var(--a2));
+  border: 1px solid rgb(255 255 255 / 0.35);
+  color: var(--c-accent-ink);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 6px 14px -4px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+html[data-bg][data-pack] .cv-out {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+html[data-bg]:not([data-pack]) .cv-out .text-main,
+html[data-bg]:not([data-pack]) .cv-out .text-accent,
+html[data-bg]:not([data-pack]) .cv-out .text-tick,
+html[data-bg]:not([data-pack]) .cv-out .text-danger,
+html[data-bg]:not([data-pack]) .cv-out a,
+html[data-bg]:not([data-pack]) .cv-out svg {
+  color: var(--c-accent-ink);
+}
+html[data-bg]:not([data-pack]) .cv-out .text-muted {
+  color: color-mix(in srgb, var(--c-accent-ink) 72%, transparent);
+}
+html[data-bg]:not([data-pack]) .cv-out a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* a read tick stays the bold one, so delivered and read still differ without a colour change */
+html[data-bg]:not([data-pack]) .cv-out .text-tick {
+  stroke-width: 2.8;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   7. Forced colours (Windows High Contrast): rely on system colours and visible edges.
+   ------------------------------------------------------------------------------------------------------------------ */
+@media (forced-colors: active) {
+  html[data-bg] .glass,
+  html[data-bg] .hm-row,
+  html[data-bg] .hm-search,
+  html[data-bg] .lk-pill,
+  html[data-bg] .hm-tabbar,
+  html[data-bg] .cv-in,
+  html[data-bg] .cv-out,
+  html[data-bg] .cv-composer > div.flex.items-end,
+  html[data-bg] .cv-composer .cv-row,
+  html[data-bg] .cv-panel {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: CanvasText;
+  }
+  html[data-bg] .lk-pill[aria-pressed='true'],
+  html[data-bg] .hm-row[aria-current='page'],
+  html[data-bg] .ui-badge {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   8. Review fixes: readability of accent text, own-bubble details, panel spacing.
+   ------------------------------------------------------------------------------------------------------------------ */
+html[data-bg][data-theme='light']:not([data-pack]) {
+  --c-accent-text: color-mix(in srgb, var(--accent) 45%, #000);
+}
+html[data-bg]:not([data-pack]) .cv-in .text-accent,
+html[data-bg] .cv-panel .text-accent {
+  color: var(--c-accent-text);
+}
+html[data-bg]:not([data-pack]) .cv-out {
+  border-color: rgb(255 255 255 / 0.5);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 6px 14px -4px rgb(30 40 70 / 0.3);
+}
+html[data-bg]:not([data-pack]) .cv-out .text-muted {
+  color: color-mix(in srgb, var(--c-accent-ink) 78%, transparent);
+}
+html[data-bg]:not([data-pack]) .cv-out button.border-accent {
+  border-color: var(--c-accent-ink);
+  background: rgb(0 0 0 / 0.12);
+}
+html[data-bg] .cv-panel {
+  margin-bottom: 0.4rem;
+}
