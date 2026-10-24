@@ -4,7 +4,10 @@ import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { adminClient } from '@/lib/supabase/admin';
 import { dataDir, mediaStore } from '@/lib/storage';
+import { supabaseServer } from '@/lib/supabase/server';
+import { classify, needsAttention } from '@/lib/memberHealth';
 import { ownerOrRedirect } from './guard';
+import { StorageBanner } from './storage/StorageBanner';
 import { Icon, PageHeader, StatTile, btnCls, btnGhostCls, type IconName, type StatTone } from './kit';
 
 export const metadata = { title: 'Dashboard - Admin - Link-C' };
@@ -89,7 +92,20 @@ export default async function AdminDashboard() {
   const tempPct = s && s.temp_cap_mb > 0 ? (mb(tempBytes) / s.temp_cap_mb) * 100 : 0;
   const onlineCount = online.error ? null : (online.count ?? 0);
 
+  // Members quiet for 3+ days (owner session runs the health RPC; failures are ignored).
+  let inactiveCount = 0;
+  try {
+    const { data: health } = await (await supabaseServer()).rpc('admin_member_health');
+    const nowMs = Date.now();
+    inactiveCount = ((health ?? []) as { login_disabled: boolean; last_seen_at: string | null; last_sign_in_at: string | null }[]).filter((m) =>
+      needsAttention(classify(m.last_seen_at, m.last_sign_in_at, nowMs).status, !!m.login_disabled),
+    ).length;
+  } catch {
+    /* health tile is optional */
+  }
+
   const attn: Attn[] = [];
+  if (inactiveCount > 0) attn.push({ icon: 'clock', tone: 'amber', text: `${inactiveCount} member${inactiveCount === 1 ? '' : 's'} inactive.`, href: '/admin/health', cta: 'Members health' });
   if (driver !== 'b2') attn.push({ icon: 'server', tone: 'amber', text: `Media storage driver is "${driver}" (this server's disk, not Backblaze B2).`, href: '#storage', cta: 'See storage' });
   if (snapPct >= 80) attn.push({ icon: 'disk', tone: 'amber', text: `Snap storage is at ${snapPct.toFixed(0)}% of its cap.`, href: '/admin/settings', cta: 'Raise the cap' });
   if (tempPct >= 80) attn.push({ icon: 'disk', tone: 'amber', text: `Temporary uploads are at ${tempPct.toFixed(0)}% of their cap.`, href: '/admin/settings', cta: 'Raise the cap' });
@@ -99,6 +115,7 @@ export default async function AdminDashboard() {
   return (
     <>
       <PageHeader title="Dashboard" subtitle="A quick look at people, activity and storage." />
+      <StorageBanner />
 
       <section aria-label="Key numbers" className="ad-statgrid">
         <StatTile index={0} icon="users" tone="cyan" label="Active people" value={active.count ?? 0} href="/admin/members" />

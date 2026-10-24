@@ -149,7 +149,7 @@ class Q implements PromiseLike<Result> {
   }
 }
 
-/** Same rules as public.sms_candidates_v2 (supabase/migrations/20261022000020_sms_repeat_schedule.sql). */
+/** Same rules as public.sms_candidates_v2 (supabase/migrations/20261025000027_quiet_alerts.sql). */
 function smsCandidatesV2(offlineSeconds: number): Row[] {
   const cutoff = Date.now() - offlineSeconds * 1000;
   const groups = new Map<string, Row>();
@@ -158,6 +158,9 @@ function smsCandidatesV2(offlineSeconds: number): Row[] {
     const c = rows('conversations').find((x) => x.id === m.conversation_id);
     if (!c) continue;
     const rid = c.user_a === m.sender_id ? c.user_b : c.user_a;
+    // Same rule as the SQL: unread messages in a chat muted for the recipient (muted_until in the future, or 'infinity') do not count.
+    const cp = rows('chat_prefs').find((x) => x.user_id === rid && x.conversation_id === m.conversation_id);
+    if (cp?.muted_until && (cp.muted_until === 'infinity' || Date.parse(cp.muted_until) > Date.now())) continue;
     const r = rows('profiles').find((x) => x.id === rid);
     if (!r || r.login_disabled || !r.sms_alerts_enabled || r.phone_enc == null) continue;
     const p = rows('presence_state').find((x) => x.user_id === rid);

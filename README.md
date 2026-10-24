@@ -34,5 +34,5 @@ Checks: `npm run lint`, `npm run typecheck`, `npm test`. RLS tests (use a test d
 ## Docs
 
 - [docs/DEPLOY.md](docs/DEPLOY.md): full deployment guide, first login, pre-launch checklist
-- [docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md): owner guide (invites, resets, disable login, stickers)
+- [docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md): owner guide (invites, resets, disable login, stickers, Health and Storage pages, member tools)
 - [docs/BUILD-STATE.md](docs/BUILD-STATE.md): decisions and build status

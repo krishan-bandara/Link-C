@@ -1,12 +1,14 @@
 import { readdir, rm, stat, statfs } from 'node:fs/promises';
 import path from 'node:path';
+import type { Dnd } from '@/lib/chatprefs';
 import { readPhone } from '@/lib/phone';
 import { cleanupUploadSession, deleteMediaBlobs } from '@/lib/media';
 import { sendSms } from '@/lib/sms';
 import { pushConfigured, sendPush, type PushSub } from '@/lib/push';
 import { dataDir, snapStore } from '@/lib/storage';
 import { adminClient } from '@/lib/supabase/admin';
-import { agoIso, capReached, dayStart, diskUsedRatio, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
+import { storageStatsStep } from './storage-stats';
+import { agoIso, alertAllowed, capReached, dayStart, diskUsedRatio, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
 
 export { capReached, dayStart, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
 
@@ -170,6 +172,16 @@ async function deferPerson(userId: string, ms: number) {
   if (error) logErr('defer sms', new Error(error.message));
 }
 
+/** Do-not-disturb settings (Colombo time) for the given people. People without a row have DND off. A read error stops the alert run (fail closed). */
+async function loadDnd(userIds: string[]): Promise<Map<string, Dnd>> {
+  const out = new Map<string, Dnd>();
+  if (!userIds.length) return out;
+  const { data, error } = await adminClient().from('user_prefs').select('user_id,dnd_on,dnd_from,dnd_to').in('user_id', userIds);
+  if (error) throw new Error(error.message);
+  for (const r of data ?? []) out.set(r.user_id as string, { on: !!r.dnd_on, from: String(r.dnd_from ?? ''), to: String(r.dnd_to ?? '') });
+  return out;
+}
+
 const positive = (v: unknown, fallback: number) => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -197,7 +209,12 @@ async function smsAlerts() {
 
   const { data: cands, error: cerr } = await db.rpc('sms_candidates_v2', { p_offline_seconds: offlineSeconds });
   if (cerr) throw new Error(cerr.message);
+  // Muted chats are already excluded by sms_candidates_v2. People inside their Do-not-disturb hours are skipped WITHOUT touching
+  // step, last attempt or caps: they stay candidates, and one alert follows when the quiet hours end (if still unread and offline).
+  const dnd = await loadDnd(((cands ?? []) as SmsCand[]).map((c) => c.user_id));
+  const nowDate = new Date();
   const due = ((cands ?? []) as SmsCand[]).filter((c) =>
+    alertAllowed({ dnd: dnd.get(c.user_id), now: nowDate }) &&
     smsDue({
       step: c.step ?? 0,
       firstSentAt: c.sms_first_at,
@@ -330,7 +347,11 @@ async function pushAlerts() {
   if (!st || !st.enabled) return;
   const { data: cands, error: cerr } = await db.rpc('push_candidates', { p_offline_seconds: st.offline_after_seconds });
   if (cerr) throw new Error(cerr.message);
-  for (const c of (cands ?? []) as { user_id: string }[]) {
+  const pushCands = (cands ?? []) as { user_id: string }[];
+  const dnd = await loadDnd(pushCands.map((c) => c.user_id));
+  for (const c of pushCands) {
+    // Do-not-disturb: skip without touching last_push_at, so one push goes out when quiet hours end (muted chats are filtered in SQL).
+    if (!alertAllowed({ dnd: dnd.get(c.user_id) })) continue;
     const { data: subs } = await db.from('push_subscriptions').select('id,endpoint,p256dh,auth').eq('user_id', c.user_id);
     let anyOk = false;
     for (const s of subs ?? []) {
@@ -362,6 +383,7 @@ async function tick() {
     await step('upload cleanup', uploadCleanup);
     await step('location cleanup', locationCleanup);
     await step('disk check', diskCheck);
+    await step('storage stats', storageStatsStep);
   }
   // Push alerts are off (SMS is the alert channel). Set PUSH_ALERTS=1 in the env file to turn them back on.
   if (process.env.PUSH_ALERTS === '1') await step('push alerts', pushAlerts);

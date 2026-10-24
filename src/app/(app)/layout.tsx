@@ -6,6 +6,7 @@ import AppShell from './components/AppShell';
 import Heartbeat from './components/Heartbeat';
 import RefreshGuard from '@/components/RefreshGuard';
 import LookProvider from '@/lib/LookProvider';
+import DndProvider from '@/lib/DndProvider';
 import PrefsSync from './components/PrefsSync';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <RefreshGuard />
       <PrefsSync theme={prefs.theme} accent={prefs.accent} pack={prefs.pack} look={prefs.look} />
       <LookProvider initial={prefs.look}>
+      <DndProvider initial={prefs.dnd}>
       <AppShell
         me={{
           id: profile.id,
@@ -47,6 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         {children}
       </AppShell>
+      </DndProvider>
       </LookProvider>
     </>
   );

@@ -49,6 +49,33 @@ Each person sets their own look in **Settings > Appearance**. It is personal: it
 
 The choice is saved to the person's account, so it follows them to another device (this needs the database migration `20261025000024_clean_glass_look.sql` applied first).
 
+## What members can do (in progress)
+
+These member tools are being built and have not been confirmed deployed or tested on phones yet. They need the database migration `20261025000026_member_tools.sql` applied first.
+
+- **Mute a chat**: 8 hours, 1 week or until you unmute. A muted chat makes no push, no sound and no offline SMS. The unread badge still shows.
+- **Do-not-disturb** (Settings): choose quiet hours in Sri Lanka (Colombo) time, for example 22:00 to 07:00. During them nothing makes a push, sound or SMS. Unread badges still show.
+- **Favourites**: star a chat to pin it at the top of the list. The Favourites pill shows only starred chats.
+- **Edit a message**: you can edit your own text message for 15 minutes after sending. It then shows "edited". The old text is not kept.
+- **Signed-in devices** (Settings): see where you are signed in, and sign out one device or all other devices. A signed-out device may stay signed in for a short while, until its short access pass runs out.
+- **Log out**: button at the bottom of Settings (and in the account menu), with a confirmation.
+- **Offline**: with no connection you can read the chat list and the latest messages. Text messages you write are queued and sent when you are back online. Everything stored for offline use is wiped when you log out. Privacy note: while you are logged in, your messages are stored on your device, so log out on a shared or borrowed device.
+
+## Health (member activity)
+
+Admin > Health lists every member with **last seen**, **last login** and how many devices are signed in. A row turns **amber** after 3 days without activity and **red** after 7 days. Use it to spot someone who is stuck, has lost access, or whose account you may want to disable. Only the owner can see this page.
+
+## Storage
+
+Admin > Storage shows how full things are: the server disk (free space), Backblaze (media kept, plus avatars, wallpapers and stickers), and the temporary snaps on the server disk. The Backblaze number is an estimate, so also check your Backblaze account. The worker refreshes the figures regularly and shows when they were last checked.
+
+You can edit three thresholds:
+- **Disk free alert (%)**, default 15: alert when free disk space falls below this.
+- **Backblaze budget (GB)**, default 10: how much media you are happy to keep.
+- **Backblaze alert (%)**, default 80: alert when usage passes this share of the budget.
+
+When a threshold is crossed, a **red banner** appears in Admin and you (the owner) get a **push notification**. The push is not repeated on every check. If it fires, delete old media, raise the budget, or free disk space on the server.
+
 ## SMS settings
 
 Admin > SMS holds the gateway, monthly cap and quiet hours for the disguised offline alerts. See the "Known limits" part of `docs/DEPLOY.md` for the honest limits (carriers may filter messages). Always test with a real phone.
