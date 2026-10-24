@@ -52,14 +52,26 @@ export default function ChatWallpaperSheet({
 
   async function save(kind: WallpaperKind, preset: string | null) {
     setBusy(true);
-    const { error } = await supabase
+    // A plain update first: the browser may only write kind, preset and updated_at, so an upsert (which also rewrites
+    // the key columns) is refused once the row exists. Insert only when this chat has no row yet.
+    const stamp = new Date().toISOString();
+    const upd = await supabase
       .from('chat_wallpapers')
-      .upsert(
-        { user_id: me, conversation_id: conversationId, kind, preset, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id,conversation_id' },
-      );
+      .update({ kind, preset, updated_at: stamp })
+      .eq('user_id', me)
+      .eq('conversation_id', conversationId)
+      .select('user_id');
+    let failed = !!upd.error;
+    if (!failed && !upd.data?.length) {
+      // a picture ('custom') can only be chosen once the server has stored one, so a missing row cannot be custom
+      if (kind === 'custom') failed = true;
+      else {
+        const ins = await supabase.from('chat_wallpapers').insert({ user_id: me, conversation_id: conversationId, kind, preset, updated_at: stamp });
+        failed = !!ins.error;
+      }
+    }
     setBusy(false);
-    if (error) return onError('Could not change the wallpaper');
+    if (failed) return onError('Could not change the wallpaper');
     onChange({ kind, preset, assetId: ownAsset });
   }
 
