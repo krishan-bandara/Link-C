@@ -31,6 +31,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Noto Emoji Animation (animated sticker packs)
+
+The "Animated" sticker packs use Google's Noto Emoji Animation,
+https://googlefonts.github.io/noto-emoji-animation/, licensed under Creative Commons
+Attribution 4.0 (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/.
+Changes: resized to 256 px and re-encoded as animated WebP.
+
 ## Libraries
 
 Each library is used under its own licence, which is distributed with the package in `node_modules`.

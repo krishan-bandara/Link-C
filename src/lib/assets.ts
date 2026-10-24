@@ -87,11 +87,24 @@ export async function requireParticipant(userId: string, conversationId: string)
 
 // ---------------------------------------------------------------- storing and reading
 
-async function normalise(kind: AssetKind, input: Buffer): Promise<{ data: Buffer; mime: string }> {
+export async function normalise(kind: AssetKind, input: Buffer): Promise<{ data: Buffer; mime: string }> {
   const ft = await fileTypeFromBuffer(input);
   if (!ft || !INPUT_MIMES.includes(ft.mime)) throw new HttpError(415, 'Use a JPEG, PNG, WebP or GIF image');
   try {
-    // sharp drops all metadata by default; no animation (first frame only).
+    // sharp drops all metadata by default; animation is kept for stickers only (first frame for everything else).
+    if (kind === 'sticker' && (ft.mime === 'image/webp' || ft.mime === 'image/gif')) {
+      const meta = await sharp(input, { animated: true, limitInputPixels: 40_000_000 }).metadata();
+      if ((meta.pages ?? 1) > 1) {
+        // frames cap keeps a crafted file from eating memory; small frames keep chat light
+        if ((meta.pages ?? 1) > 300) throw new HttpError(415, 'This animation has too many frames');
+        const anim = await sharp(input, { animated: true, limitInputPixels: 40_000_000 })
+          .resize(256, 256, { fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 70, effort: 4 })
+          .toBuffer();
+        if (anim.length > 2 * 1024 * 1024) throw new HttpError(413, 'This animation is too large');
+        return { data: anim, mime: 'image/webp' };
+      }
+    }
     const img = sharp(input, { limitInputPixels: 40_000_000 }).rotate();
     if (kind === 'avatar') {
       return { data: await img.resize(384, 384, { fit: 'cover' }).webp({ quality: 85 }).toBuffer(), mime: 'image/webp' };
@@ -109,7 +122,8 @@ async function normalise(kind: AssetKind, input: Buffer): Promise<{ data: Buffer
       .webp({ quality: 90 })
       .toBuffer();
     return { data, mime: 'image/webp' };
-  } catch {
+  } catch (e) {
+    if (e instanceof HttpError) throw e;
     throw new HttpError(415, 'This image could not be read');
   }
 }

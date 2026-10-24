@@ -1,21 +1,37 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { loadStickers, stickerSrc, type StickerList, type StickerRef } from '@/lib/chat/stickers';
 import { FOCUS } from './ui';
 import './chat.css';
 
 function Tile({ s, onPick }: { s: StickerRef; onPick: (id: string) => void }) {
+  // only tiles near the visible part of the tray load and animate (about 90 animated stickers would be heavy on a phone)
+  const ref = useRef<HTMLButtonElement>(null);
+  const [vis, setVis] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setVis(true);
+      return;
+    }
+    const io = new IntersectionObserver(([e]) => setVis(e.isIntersecting), { root: el.closest('.overflow-y-auto'), rootMargin: '150px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
     <button
+      ref={ref}
       type="button"
       onClick={() => onPick(s.id)}
       aria-label={s.emoji ? `Send sticker ${s.emoji}` : 'Send sticker'}
       className={`cv-sticker flex aspect-square items-center justify-center rounded-xl p-1 ${FOCUS}`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={stickerSrc(s.id)} alt="" loading="lazy" className="h-full w-full object-contain" />
+      {vis && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={stickerSrc(s.id)} alt="" decoding="async" draggable={false} className="h-full w-full object-contain" />
+      )}
     </button>
   );
 }
