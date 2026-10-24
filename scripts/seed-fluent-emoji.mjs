@@ -3,9 +3,9 @@
 // Needs the app running at http://localhost:3005. Idempotent: skips stickers that already exist (same pack + emoji).
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import path from 'node:path';
-import { admin, cookieHeader, session, BASE } from '../qa/helpers.mjs';
+import { admin, cookieHeader, session, BASE } from './qa/helpers.mjs';
 
-const CACHE = path.resolve('qa/fluent-cache');
+const CACHE = path.resolve('.cache/fluent');
 const RAW = 'https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const exists = (p) => access(p).then(() => true, () => false);

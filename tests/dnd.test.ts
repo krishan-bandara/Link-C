@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { checkDnd } from './dnd';
-import { dndFromRow } from './prefs';
+import { checkDnd } from '@/lib/dnd';
+import { dndFromRow } from '@/lib/prefs';
 
 describe('dnd helpers', () => {
   it('validates times', () => {

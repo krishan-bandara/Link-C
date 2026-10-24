@@ -1,5 +1,5 @@
 -- Link-C RLS tests. Run against a DEV/TEST database only, e.g.:
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/rls.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls.sql
 -- Everything runs inside a transaction that is rolled back, so nothing is kept.
 -- Any failed check raises an exception; success prints NOTICE 'ALL RLS TESTS PASSED'.
 \set ON_ERROR_STOP on

@@ -21,7 +21,7 @@ Link-C uses Supabase **Cloud** (free plan) for the database and login, so there 
 4. **Secret key**: Project Settings > API keys > create a **secret key** (starts with `sb_secret_`). Copy it into `SUPABASE_SECRET_KEY` in `.env`. Never put it in the browser or git. The URL and the `sb_publishable_...` key are public and go in the two `NEXT_PUBLIC_...` variables.
 5. **Realtime**: Project Settings > Realtime (or Realtime settings): leave "Allow public access" **OFF**. Link-C uses private channels.
 6. **Sign-in token lifetime (recommended)**: Authentication > Sessions (or JWT settings): set the access token expiry to about 300 seconds, so a disabled person's old token stops working within minutes.
-7. The database schema is already applied from `supabase/migrations/` (files 1 to 9, including the sign-up lock-down in 7, Clear chat in 8 and push in 9). For a NEW Supabase project run them in order in the SQL editor. To check the security rules, run `tests/rls.sql` against a **test** database (see README). It rolls back and changes nothing.
+7. The database schema is already applied from `supabase/migrations/` (files 1 to 9, including the sign-up lock-down in 7, Clear chat in 8 and push in 9). For a NEW Supabase project run them in order in the SQL editor. To check the security rules, run `supabase/tests/rls.sql` against a **test** database (see README). It rolls back and changes nothing.
 
 ## Part B. Cloudflare
 
@@ -162,7 +162,7 @@ Link-C signs people in with **email + password**. Nobody gets an emailed login l
 
 ## Part G. Pre-launch checklist
 
-- [ ] User A cannot read user B's conversations or media (`tests/rls.sql` passes)
+- [ ] User A cannot read user B's conversations or media (`supabase/tests/rls.sql` passes)
 - [ ] A one-time snap cannot be fetched twice (race-condition test)
 - [ ] Unopened snap deleted after 24 hours; snaps never appear in B2 or backups
 - [ ] Password policy test: short, common or name-based passwords are refused

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link-C design options</title>
+<style>
+:root{--bg:#eef6f8;--card:#fff;--ink:#12303a;--muted:#587780;--line:#d3e4e9;--a:#0aa5a8;--a2:#2b7de9;--shadow:0 8px 28px rgba(10,80,100,.12)}
+@media (prefers-color-scheme:dark){:root{--bg:#07181d;--card:#0e2830;--ink:#e6f6f8;--muted:#8fb4bc;--line:#1b4350;--shadow:0 8px 28px rgba(0,0,0,.4)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px 80px}
+h1{margin:0;padding:36px 0 6px;font-size:clamp(26px,5vw,38px);background:linear-gradient(90deg,var(--a),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin:40px 0 6px;font-size:clamp(20px,3.4vw,26px)}
+.lead{color:var(--muted);margin:0 0 14px;max-width:760px}
+.brief{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px}
+.concept{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:18px 0;box-shadow:var(--shadow)}
+.concept.sel{outline:3px solid var(--a)}
+.chead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.chead h3{margin:0;font-size:20px}
+.btn{border:0;border-radius:999px;padding:9px 18px;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--a),var(--a2));cursor:pointer;min-height:44px}
+.btn.ghost{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.cbody{display:grid;gap:18px;grid-template-columns:minmax(0,1fr);margin-top:12px}
+@media(min-width:820px){.cbody{grid-template-columns:1fr 480px}}
+.notes ul{padding-left:18px;margin:8px 0}
+.notes li{margin:4px 0;font-size:14.5px}
+.sw{display:flex;gap:6px;margin:8px 0}.sw i{width:34px;height:34px;border-radius:10px;border:1px solid rgba(0,0,0,.08)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{font-size:12px;padding:2px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+.phones{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.phone{width:226px;height:440px;border-radius:30px;border:6px solid #1b2a30;background:#fff;overflow:hidden;position:relative;display:flex;flex-direction:column;font-size:11.5px;color:#12303a}
+.ptop{padding:14px 12px 8px;font-weight:800;font-size:15px}
+.row{display:flex;gap:8px;align-items:center;padding:7px 12px}
+.av{flex:none;width:34px;height:34px;border-radius:50%}
+.row b{display:block;font-size:12px}.row span{opacity:.65;font-size:10.5px}
+.badge{margin-left:auto;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700}
+.msgs{flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.m{max-width:78%;padding:7px 10px;line-height:1.3}
+.bar{display:flex;gap:6px;padding:8px;align-items:center}
+.inp{flex:1;height:30px;border-radius:15px;padding:7px 12px;opacity:.8}
+.send{width:30px;height:30px;border-radius:50%}
+.nav{display:flex;justify-content:space-around;padding:8px 6px 10px;font-size:10px}
+.sticker{font-size:34px;line-height:1}
+.pill{display:inline-block;padding:1px 8px;border-radius:9px;font-size:10px;color:#fff}
+/* bubble styles */
+.bubbles{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.bcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.bcard h4{margin:0 0 8px}
+.bdemo{display:flex;flex-direction:column;gap:6px;background:#eaf7f8;border-radius:12px;padding:12px;color:#12303a}
+.motion{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.mo{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:14px}
+.mo b{display:block}
+.dots{display:inline-flex;gap:3px}.dots i{width:6px;height:6px;border-radius:50%;background:#0aa5a8;animation:bob 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes bob{50%{transform:translateY(-5px)}}
+.ring{width:34px;height:34px;border-radius:50%;padding:2px;background:conic-gradient(#0aa5a8,#2b7de9,#7be0c2,#0aa5a8);animation:spin 3s linear infinite;display:inline-block}
+.ring i{display:block;width:100%;height:100%;border-radius:50%;background:var(--card)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pop{display:inline-block;animation:pop 1.4s infinite;font-size:28px}
+@keyframes pop{0%,100%{transform:scale(1)}40%{transform:scale(1.35) rotate(-8deg)}}
+@media(prefers-reduced-motion:reduce){.dots i,.ring,.pop{animation:none}}
+#pick{position:sticky;bottom:10px;margin-top:30px;background:var(--card);border:2px solid var(--a);border-radius:16px;padding:12px 16px;box-shadow:var(--shadow)}
+#pick textarea{width:100%;height:56px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:8px;font:inherit}
+footer{color:var(--muted);font-size:13px;margin-top:30px}
+a{color:var(--a)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Link-C: new look, pick one</h1>
+<p class="lead">Four design directions for the chat screen and chat list. Nothing is applied yet. Every direction is playful, ocean-coloured, phone-first and animated, with the same layout rules so any of them can be built across login, home, settings and admin afterwards.</p>
+<div class="brief">
+  <span class="chip">Playful and colourful</span><span class="chip">Ocean: teal, blue, mint</span><span class="chip">Phones first</span><span class="chip">Lots of motion</span><span class="chip">Likes: Snapchat, Instagram DMs, WhatsApp</span><span class="chip">Scope: chat screen + chat list</span>
+</div>
+
+<h2>1. Pick a direction</h2>
+<p class="lead">The little phones are drawn with simple shapes, so treat them as a feel, not a final design. Tap "I pick this" on the one you like, you can also mix.</p>
+<div id="concepts"></div>
+
+<h2>2. Pick the message bubble style</h2>
+<p class="lead">Works with any direction above.</p>
+<div class="bubbles">
+  <div class="bcard"><h4>A. Gradient for me</h4>
+    <div class="bdemo"><div class="m" style="align-self:flex-start;background:#fff;border-radius:16px 16px 16px 4px">Hey! Look at this</div><div class="m" style="align-self:flex-end;color:#fff;background:linear-gradient(135deg,#0aa5a8,#2b7de9);border-radius:16px 16px 4px 16px">Wow, love it</div></div>
+    <p style="font-size:13.5px;color:var(--muted);margin:8px 0 0">Instagram feel. Sent messages are colourful, received ones plain. Easy to read.</p></div>
+  <div class="bcard"><h4>B. Soft bubbles with tails</h4>
+    <div class="bdemo"><div class="m" style="align-self:flex-start;background:#fff;border-radius:14px;position:relative">Hey! Look at this</div><div class="m" style="align-self:flex-end;background:#b8f0e0;border-radius:14px">Wow, love it</div></div>
+    <p style="font-size:13.5px;color:var(--muted);margin:8px 0 0">WhatsApp feel. Familiar to everyone, calm colours, pale mint for sent.</p></div>
+  <div class="bcard"><h4>C. Flat lines, no bubbles</h4>
+    <div class="bdemo" style="gap:8px"><div style="border-left:3px solid #2b7de9;padding-left:8px"><small style="color:#2b7de9;font-weight:800">ANNA</small><br>Hey! Look at this</div><div style="border-left:3px solid #0aa5a8;padding-left:8px"><small style="color:#0aa5a8;font-weight:800">ME</small><br>Wow, love it</div></div>
+    <p style="font-size:13.5px;color:var(--muted);margin:8px 0 0">Snapchat feel. A coloured bar and a name, clean and modern, fits more on screen.</p></div>
+</div>
+
+<h2>3. Motion ideas (you asked for lots)</h2>
+<p class="lead">All switch off automatically for people who set reduced motion on their phone.</p>
+<div class="motion">
+  <div class="mo"><b>Typing wave</b><span class="dots"><i></i><i></i><i></i></span> three bouncing dots while the other person types.</div>
+  <div class="mo"><b>Unread ring</b><span class="ring"><i></i></span> a moving colour ring around an avatar with new messages.</div>
+  <div class="mo"><b>Sticker and reaction pop</b><span class="pop">😍</span> reactions and stickers bounce in with a little spring.</div>
+  <div class="mo"><b>Send flight</b>The text lifts out of the box and lands in the chat with a soft bounce (Link-C already has a version of this).</div>
+  <div class="mo"><b>Swipe to reply</b>Springy pull on a message, a reply arrow pops at the edge.</div>
+  <div class="mo"><b>Screen slides</b>Chat list to chat slides like a card stack, back swipe follows your thumb.</div>
+</div>
+
+<h2>4. Other ideas to switch on or off</h2>
+<div class="motion">
+  <div class="mo"><b>Bottom tab bar</b>Chats, Snaps, People, Settings within thumb reach, instead of a top menu.</div>
+  <div class="mo"><b>Story-style row</b>A row of round avatars on top of the list, ring shows who sent a new snap.</div>
+  <div class="mo"><b>Big rounded cards</b>Chat list rows as soft cards with large avatars and a colour accent.</div>
+  <div class="mo"><b>Quick reaction bar</b>Long press shows six emoji above the message, tap to react.</div>
+  <div class="mo"><b>Colour per chat</b>Each chat has its own accent colour, picked by you.</div>
+  <div class="mo"><b>Light and dark with the same ocean palette</b>One tap switch, already in Link-C.</div>
+</div>
+
+<div id="pick">
+  <b>My choice</b> <span id="pickline" style="color:var(--muted)">nothing picked yet</span>
+  <textarea id="notes" placeholder="Anything to change? e.g. 'Lagoon, but bubbles flat, add tab bar'"></textarea>
+  <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="copy">Copy my choice</button><span id="copied" style="align-self:center;color:var(--muted);font-size:13px"></span></div>
+</div>
+<footer>Ideas are based on your answers, current mobile chat design patterns and Pinterest boards such as <a href="https://www.pinterest.com/ideas/chat-app-design/957098437218/">Chat App Design</a> and <a href="https://id.pinterest.com/orelystudio/mobile-chat-design/">Mobile Chat Design</a>. Pinterest could not be read automatically, so open those boards and tell me any pin you like.</footer>
+</div>
+
+<script>
+const C=[
+ {id:'A',name:'Lagoon',tag:'Instagram feel',pal:['#0aa5a8','#2b7de9','#7be0c2','#eaf9fb','#12303a'],
+  d:'Light and airy. Teal-to-blue gradient on your bubbles, soft white cards, big round avatars with colour rings.',
+  pts:['Light mint background, white cards','Gradient sent bubbles, bouncy send button','Story-style avatar row on the list','Pill-shaped composer with sticker button'],
+  tags:['Light','Gradient bubbles','Safe pick'],
+  bg:'#eaf9fb',ink:'#12303a',card:'#fff',mine:'linear-gradient(135deg,#0aa5a8,#2b7de9)',mineInk:'#fff',theirs:'#fff',br:'16px 16px 4px 16px',brT:'16px 16px 16px 4px',acc:'#0aa5a8',avs:['#0aa5a8','#2b7de9','#7be0c2','#f59e6c']},
+ {id:'B',name:'Snap Splash',tag:'Snapchat feel',pal:['#2b7de9','#00d1c1','#ffd84d','#ffffff','#0b2a3a'],
+  d:'Bold and flat. Name-and-colour-bar messages instead of bubbles, chunky cards, a splash of yellow for unread.',
+  pts:['White background, strong blue and teal','No bubbles: coloured bar and name labels','Large rounded chat cards with yellow unread dot','Bottom tab bar with big icons'],
+  tags:['Light','No bubbles','Bold'],
+  bg:'#fff',ink:'#0b2a3a',card:'#f1f8fb',mine:'transparent',mineInk:'#0b2a3a',theirs:'transparent',br:'0',brT:'0',flat:true,acc:'#2b7de9',avs:['#2b7de9','#00d1c1','#ffd84d','#ff7a8a']},
+ {id:'C',name:'Neon Reef',tag:'Dark and glowing',pal:['#00e5d0','#4f9bff','#9bffdc','#071a22','#e6f6f8'],
+  d:'Dark navy with glowing teal and blue. Glass cards, neon send button, great for night use and a private feel.',
+  pts:['Deep navy background, glass panels','Neon gradient sent bubbles with a soft glow','Glowing unread ring that pulses','Works well with the existing night-sky login'],
+  tags:['Dark','Glow','Secretive'],
+  bg:'#071a22',ink:'#e6f6f8',card:'#0f2c37',mine:'linear-gradient(135deg,#00e5d0,#4f9bff)',mineInk:'#04222a',theirs:'#10303c',br:'16px 16px 4px 16px',brT:'16px 16px 16px 4px',acc:'#00e5d0',avs:['#00e5d0','#4f9bff','#9bffdc','#b58cff']},
+ {id:'D',name:'Sea Glass',tag:'WhatsApp feel',pal:['#13b5a0','#1f8ee6','#c9f2e8','#e3f5f0','#16343a'],
+  d:'Familiar and friendly. Mint wallpaper, tailed bubbles, compact list. Easiest for new members to understand.',
+  pts:['Pale mint chat wallpaper','Tailed bubbles, pale mint for yours','Compact list with last message and time','Green-teal accents and a round send button'],
+  tags:['Light','Tailed bubbles','Familiar'],
+  bg:'#e3f5f0',ink:'#16343a',card:'#fff',mine:'#c9f2e8',mineInk:'#16343a',theirs:'#fff',br:'14px 14px 3px 14px',brT:'14px 14px 14px 3px',acc:'#13b5a0',avs:['#13b5a0','#1f8ee6','#7bd8c4','#f2a65a']}
+];
+const people=[['Anna','Look at this 😍','2'],['Dev','Voice message','1'],['Mira','See you soon','']];
+function phoneList(c){
+  const rows=people.map((p,i)=>`<div class="row" style="${c.flat?'background:'+c.card+';margin:4px 8px;border-radius:14px':(c.id==='A'?'background:'+c.card+';margin:3px 8px;border-radius:14px':'')}"><div class="av" style="background:${c.avs[i]}${c.id==='C'?';box-shadow:0 0 0 2px '+c.bg+',0 0 0 4px '+c.avs[i]:''}"></div><div><b>${p[0]}</b><span>${p[1]}</span></div>${p[2]?`<div class="badge" style="background:${c.flat?'#ffb400;color:#222':c.acc}">${p[2]}</div>`:''}</div>`).join('');
+  const story=`<div style="display:flex;gap:8px;padding:2px 12px 8px">${c.avs.map(a=>`<div style="width:34px;height:34px;border-radius:50%;background:${a};box-shadow:0 0 0 2px ${c.bg},0 0 0 4px ${c.acc}"></div>`).join('')}</div>`;
+  return `<div class="phone" style="background:${c.bg};color:${c.ink}"><div class="ptop">Chats</div>${c.id==='A'||c.id==='B'?story:''}${rows}<div style="flex:1"></div>${(c.id==='B'||c.id==='A')?`<div class="nav" style="background:${c.card}"><span>Chats</span><span>Snaps</span><span>People</span><span>Me</span></div>`:''}</div>`;
+}
+function phoneChat(c){
+  const mine=(t)=>c.flat?`<div class="m" style="align-self:stretch;border-left:3px solid ${c.acc};padding:2px 8px"><small style="color:${c.acc};font-weight:800">ME</small><br>${t}</div>`:`<div class="m" style="align-self:flex-end;background:${c.mine};color:${c.mineInk};border-radius:${c.br}">${t}</div>`;
+  const theirs=(t)=>c.flat?`<div class="m" style="align-self:stretch;border-left:3px solid ${c.avs[1]};padding:2px 8px"><small style="color:${c.avs[1]};font-weight:800">ANNA</small><br>${t}</div>`:`<div class="m" style="align-self:flex-start;background:${c.theirs};border-radius:${c.brT};${c.id==='A'?'box-shadow:0 1px 3px rgba(0,0,0,.08)':''}">${t}</div>`;
+  return `<div class="phone" style="background:${c.bg};color:${c.ink}"><div class="row" style="background:${c.card};padding:12px"><div class="av" style="width:28px;height:28px;background:${c.avs[0]}"></div><b>Anna</b><span style="margin-left:auto">online</span></div><div class="msgs">${theirs('Look at this 😍')}${mine('Wow, love it')}${theirs('<span class="sticker">🎉</span>')}${mine('Sending a snap!')}<div class="m" style="align-self:flex-start;opacity:.7"><span class="dots"><i></i><i></i><i></i></span></div></div><div class="bar" style="background:${c.card}"><div class="inp" style="background:${c.bg}">Message</div><div class="send" style="background:${c.mine==='transparent'?c.acc:c.mine}"></div></div></div>`;
+}
+let chosen=null;
+function render(){
+  document.getElementById('concepts').innerHTML=C.map(c=>`<section class="concept ${chosen===c.id?'sel':''}" id="c${c.id}"><div class="chead"><h3>${c.id}. ${c.name} <small style="color:var(--muted);font-weight:500">${c.tag}</small></h3><button class="btn ${chosen===c.id?'':'ghost'}" data-id="${c.id}">${chosen===c.id?'Picked':'I pick this'}</button></div><div class="cbody"><div class="notes"><p style="margin:8px 0">${c.d}</p><div class="sw">${c.pal.map(p=>`<i style="background:${p}" title="${p}"></i>`).join('')}</div><ul>${c.pts.map(p=>`<li>${p}</li>`).join('')}</ul><div class="tags">${c.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div></div><div class="phones">${phoneList(c)}${phoneChat(c)}</div></div></section>`).join('');
+  document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{chosen=b.dataset.id;render();update()});
+}
+function update(){const c=C.find(x=>x.id===chosen);document.getElementById('pickline').textContent=c?`Direction ${c.id} (${c.name})`:'nothing picked yet'}
+document.getElementById('copy').onclick=async()=>{
+  const c=C.find(x=>x.id===chosen);
+  const t=`Link-C design choice: ${c?`Direction ${c.id} ${c.name}`:'no direction yet'}. Notes: ${document.getElementById('notes').value||'none'}`;
+  try{await navigator.clipboard.writeText(t);document.getElementById('copied').textContent='Copied. Paste it to Claude.'}catch{document.getElementById('copied').textContent=t}
+};
+render();
+</script>
+</body>
+</html>
