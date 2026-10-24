@@ -10,6 +10,8 @@ import Avatar from '@/components/ui/Avatar';
 import AvatarViewer from '@/components/ui/AvatarViewer';
 import Skeleton from '@/components/ui/Skeleton';
 import { useMounted } from '@/components/ui/useMounted';
+import { filterConversations, type Filter } from '@/lib/conversationFilter';
+import { useLook } from '@/lib/useLook';
 import { preview, useConversations } from './ConversationsContext';
 
 export { preview };
@@ -41,7 +43,7 @@ function Skeletons() {
   );
 }
 
-function Row({ c, idx, active, typing, online, mounted, onAvatar }: { c: ConversationItem; idx: number; active: boolean; typing: boolean; online: boolean; mounted: boolean; onAvatar: (c: ConversationItem) => void }) {
+function Row({ c, idx, active, typing, online, mounted, ticks, onAvatar }: { c: ConversationItem; idx: number; active: boolean; typing: boolean; online: boolean; mounted: boolean; ticks: boolean; onAvatar: (c: ConversationItem) => void }) {
   return (
     <li data-id={c.id} className="hm-li" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
       <Link
@@ -72,7 +74,7 @@ function Row({ c, idx, active, typing, online, mounted, onAvatar }: { c: Convers
                 <span className="hm-typing truncate text-sm">typing…</span>
               ) : (
                 <>
-                  {c.lastMine && c.lastType !== 'system' && c.lastAt && (
+                  {ticks && c.lastMine && c.lastType !== 'system' && c.lastAt && (
                     c.lastRead ? <CheckCheck className="h-4 w-4 shrink-0 text-tick" aria-label="Read" /> : <Check className="h-4 w-4 shrink-0 text-muted" aria-label="Sent" />
                   )}
                   {c.lastType === 'media' && (c.lastBody === 'Voice message' ? <Mic className="h-4 w-4 shrink-0" aria-hidden /> : c.lastBody === 'Video' ? <Video className="h-4 w-4 shrink-0" aria-hidden /> : c.lastBody === 'Photo' ? <ImageIcon className="h-4 w-4 shrink-0" aria-hidden /> : <Camera className="h-4 w-4 shrink-0" aria-hidden />)}
@@ -96,15 +98,18 @@ function Row({ c, idx, active, typing, online, mounted, onAvatar }: { c: Convers
 export default function ConversationList({ activePath }: { activePath: string }) {
   const { items, typing, online, loaded } = useConversations();
   const mounted = useMounted();
-  const [q, setQ] = useState('');
+  const look = useLook();
+  const [qRaw, setQ] = useState('');
+  const [filterRaw, setFilter] = useState<Filter>('all');
+  // A switched-off search bar or pills row must not keep filtering in the background.
+  const q = look.search ? qRaw : '';
+  const filter: Filter = look.pills ? filterRaw : 'all';
   const [viewing, setViewing] = useState<ConversationItem | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const prevTops = useRef<Map<string, number>>(new Map());
 
-  const shown = useMemo(() => {
-    const n = q.trim().toLowerCase();
-    return n ? items.filter((c) => c.otherName.toLowerCase().includes(n)) : items;
-  }, [items, q]);
+  const shown = useMemo(() => filterConversations(items, q, filter, online), [items, q, filter, online]);
+  const unreadCount = useMemo(() => items.filter((c) => c.unread > 0).length, [items]);
   const order = shown.map((c) => c.id).join(',');
 
   // FLIP: when a new message moves a row to the top, slide the rows from where they were to where they are.
@@ -148,33 +153,58 @@ export default function ConversationList({ activePath }: { activePath: string })
       </div>
     );
 
+  const emptyText = q.trim()
+    ? filter === 'all'
+      ? `No one called “${q.trim()}”.`
+      : `No ${filter === 'unread' ? 'unread chats' : 'one online'} match “${q.trim()}”.`
+    : filter === 'unread'
+      ? 'No unread chats'
+      : 'No one is online';
+
   return (
     <div>
+      {(look.search || look.pills) && (
       <div className="sticky top-0 z-10 bg-app/70 px-3 pb-2 pt-3 backdrop-blur-md">
-        <div className="hm-search">
-          <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search people"
-            aria-label="Search conversations by name"
-            autoComplete="off"
-            className="min-w-0 flex-1 bg-transparent text-base text-main outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
-          />
-          {q && (
-            <button type="button" onClick={() => setQ('')} aria-label="Clear search" className="ui-icon-btn ui-icon-btn-sm">
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        {look.search && (
+          <div className="hm-search">
+            <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search people"
+              aria-label="Search conversations by name"
+              autoComplete="off"
+              className="min-w-0 flex-1 bg-transparent text-base text-main outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+            />
+            {q && (
+              <button type="button" onClick={() => setQ('')} aria-label="Clear search" className="ui-icon-btn ui-icon-btn-sm">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
+        {look.pills && (
+          <div className={`lk-pills${look.search ? ' mt-2' : ''}`} role="group" aria-label="Filter conversations">
+            {(['all', 'unread', 'online'] as const).map((f) => (
+              <button key={f} type="button" className="lk-pill" aria-pressed={filter === f} onClick={() => setFilter(f)}>
+                {f === 'all' ? 'All' : f === 'unread' ? 'Unread' : 'Online'}
+                {f === 'unread' && unreadCount > 0 && <span className="ml-1 text-xs opacity-80">{unreadCount}</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+      )}
+      <p className="sr-only" role="status" aria-live="polite">
+        {shown.length === 0 ? emptyText : `${shown.length} ${shown.length === 1 ? 'chat' : 'chats'} shown`}
+      </p>
       {shown.length === 0 ? (
-        <p className="px-6 py-8 text-center text-sm text-muted">No one called &ldquo;{q.trim()}&rdquo;.</p>
+        <p className="px-6 py-8 text-center text-sm text-muted">{emptyText}</p>
       ) : (
         <ul ref={listRef} className="relative">
           {shown.map((c, idx) => (
-            <Row key={c.id} c={c} idx={idx} active={activePath === `/c/${c.id}`} typing={!!typing[c.id]} online={!!online[c.id]} mounted={mounted} onAvatar={setViewing} />
+            <Row key={c.id} c={c} idx={idx} active={activePath === `/c/${c.id}`} typing={!!typing[c.id]} online={!!online[c.id]} mounted={mounted} ticks={look.ticks} onAvatar={setViewing} />
           ))}
         </ul>
       )}

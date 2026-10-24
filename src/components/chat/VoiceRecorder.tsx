@@ -162,7 +162,7 @@ export default function VoiceRecorder({ mime, onVoice }: { mime: string; onVoice
         }
         g.setTransform(dpr, 0, 0, dpr, 0, 0);
         g.clearRect(0, 0, w, h);
-        g.fillStyle = getComputedStyle(cv).getPropertyValue('--accent').trim() || '#6ee7f9';
+        g.fillStyle = getComputedStyle(cv).getPropertyValue('--accent').trim() || '#007AFF';
         const step = 4;
         const n = Math.floor(w / step);
         if (lv.length > n) lv.splice(0, lv.length - n);

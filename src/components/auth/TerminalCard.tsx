@@ -42,8 +42,8 @@ export function BrandMark() {
       <svg viewBox="0 0 32 32">
         <defs>
           <linearGradient id="lc-mark-g" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#6ee7f9" />
-            <stop offset="1" stopColor="#a78bfa" />
+            <stop offset="0" stopColor="var(--accent)" />
+            <stop offset="1" stopColor="var(--a2)" />
           </linearGradient>
         </defs>
         <circle cx="16" cy="16" r="12" fill="none" stroke="url(#lc-mark-g)" strokeWidth="2" />

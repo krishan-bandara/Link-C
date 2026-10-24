@@ -3,8 +3,15 @@ import { cookies, headers } from 'next/headers';
 import SwRegister from '@/components/SwRegister';
 import IdleGuard from '@/components/IdleGuard';
 import PrivacyShield from '@/components/PrivacyShield';
-import { ACCENT_COOKIE, DEFAULT_ACCENT, PACK_COOKIE, THEME_COOKIE, accentStyle, isHex, isPack, isTheme } from '@/lib/theme';
+import { ACCENT_COOKIE, DEFAULT_ACCENT, PACK_COOKIE, THEME_COOKIE, accentStyle, isHex, isPack, isTheme, safeDecode } from '@/lib/theme';
+import { LOOK_COOKIE, lookAttrs, parseLook } from '@/lib/look';
 import './globals.css';
+import './look.css';
+import './look-home.css';
+import './look-auth.css';
+import './look-admin.css';
+import './look-sheets.css';
+import './look-perf.css';
 import '@/components/ui/ui.css';
 
 export const metadata: Metadata = {
@@ -22,7 +29,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f3f6fd' },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#070b14' },
   ],
   colorScheme: 'light dark',
@@ -33,13 +40,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   await headers();
   const jar = await cookies();
   const t = jar.get(THEME_COOKIE)?.value;
-  const a = decodeURIComponent(jar.get(ACCENT_COOKIE)?.value ?? '');
+  const a = safeDecode(jar.get(ACCENT_COOKIE)?.value ?? '');
   const theme = isTheme(t) ? t : 'light';
   const pk = jar.get(PACK_COOKIE)?.value;
   const pack = isPack(pk) ? pk : undefined;
   const accent = isHex(a) ? a : DEFAULT_ACCENT;
+  const look = lookAttrs(parseLook(safeDecode(jar.get(LOOK_COOKIE)?.value ?? '')));
   return (
-    <html lang="en" data-theme={theme} data-pack={pack} style={accentStyle(accent, pack)} suppressHydrationWarning>
+    <html lang="en" data-theme={theme} data-pack={pack} {...look.attrs} style={{ ...accentStyle(accent, pack), ...look.style }} suppressHydrationWarning>
       <body className="text-main antialiased">
         {children}
         <SwRegister />

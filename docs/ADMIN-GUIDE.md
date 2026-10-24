@@ -37,6 +37,18 @@ Admin > Members > the person > **Remove**. This deletes the account and their da
 
 Admin > Stickers shows the official packs (open-licensed Fluent Emoji, with credit) and lets you turn packs on or off for everyone. People can also add their own stickers in the chat sticker picker.
 
+## Appearance (every member, you included)
+
+Each person sets their own look in **Settings > Appearance**. It is personal: it changes nothing for anyone else, and there is nothing to configure in Admin.
+
+- **Pure white glass** button: one tap resets everything to the default clean glass look.
+- **Accent colour**: the 13 Apple system colours, or a custom colour.
+- **Background**: Pure white glass, Soft pale, Vivid wallpaper, Two-tone or Plain. **Light or dark** is chosen separately.
+- **Glass strength** and **Blur** sliders.
+- **Switches**: search bar, filter pills (All, Unread, Online), read ticks in the chat list preview, and a floating glass tab bar.
+
+The choice is saved to the person's account, so it follows them to another device (this needs the database migration `20261025000024_clean_glass_look.sql` applied first).
+
 ## SMS settings
 
 Admin > SMS holds the gateway, monthly cap and quiet hours for the disguised offline alerts. See the "Known limits" part of `docs/DEPLOY.md` for the honest limits (carriers may filter messages). Always test with a real phone.

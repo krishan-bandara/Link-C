@@ -1,0 +1,313 @@
+/*
+ * Clean glass look for the signed-out and first-run screens: login, invite, welcome wizard, onboarding.
+ * Decision: on the Pure white glass look the sign-in screens go LIGHT (white glass card, soft colour glow, pill
+ * buttons with the accent gradient). The night-sky canvas adapts to a light theme by itself, and is dimmed here so it
+ * stays a whisper behind the card. On a dark theme or dark pack the existing dark atmosphere is kept and only the
+ * shapes (pill buttons, rounder cards, soft inputs) change, so contrast is never worse than before.
+ * Everything is scoped under html[data-bg]. Never write a star followed by a slash inside a comment here.
+ * Contrast: text uses --c-text and --c-muted (above 4.5 to 1 on white glass); focus rings use --c-accent-text, a darker
+ * mix of the accent (above 3 to 1 on white), because the raw accent is too pale on white.
+ */
+
+/* ---------- shared tokens (all themes) ---------- */
+html[data-bg] .lc-main {
+  --ag-ring: var(--c-accent-text, var(--accent));
+  --ag-radius: 26px;
+  --lc-field-r: 16px;
+}
+
+/* ---------- LIGHT variant: white glass ---------- */
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-main,
+html[data-bg][data-theme='system'] .lc-main {
+  --ag-glass: rgba(255, 255, 255, calc(0.5 + var(--lg-a, 0.22) * 1.2));
+  --ag-edge: rgba(255, 255, 255, 0.9);
+  --ag-line: rgba(11, 18, 32, 0.14);
+  --ag-input: rgba(255, 255, 255, 0.82);
+  --lc-faint: var(--c-muted);
+}
+/* system theme on a dark device: undo the light variables so the dark atmosphere keeps its own tokens */
+@media (prefers-color-scheme: dark) {
+  html[data-bg][data-theme='system'] .lc-main {
+    --ag-glass: var(--c-glass);
+    --ag-edge: var(--c-edge);
+    --ag-line: var(--c-edge);
+    --ag-input: color-mix(in srgb, var(--c-text) 5%, transparent);
+    --lc-faint: color-mix(in srgb, var(--c-muted) 72%, transparent);
+  }
+}
+
+/* page glow behind the card (the sky canvas stays, quieter) */
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-sky canvas,
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-glyph {
+  opacity: 0.4;
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-tick {
+  display: none;
+}
+
+/* ---------- cards (login card, welcome and onboarding cards) ---------- */
+html[data-bg] .lc-card {
+  border-radius: var(--ag-radius);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-card,
+html[data-bg][data-theme='system'] .lc-card {
+  background: var(--ag-glass);
+  border: 1px solid var(--ag-edge);
+  -webkit-backdrop-filter: blur(var(--lg-b, 24px)) saturate(1.5);
+  backdrop-filter: blur(var(--lg-b, 24px)) saturate(1.5);
+  box-shadow:
+    0 24px 60px -24px color-mix(in srgb, var(--a2) 38%, rgba(11, 18, 32, 0.28)),
+    0 2px 0 rgba(255, 255, 255, 0.9) inset;
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-card::before {
+  opacity: 0.4;
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-tb {
+  border-bottom-color: var(--ag-line);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-mark span {
+  color: var(--c-muted);
+}
+
+/* glass panels used inside the wizard (preview list, style card) */
+html[data-bg] .glass.ring-glow,
+html[data-bg] .wz-phone {
+  border-radius: 22px;
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .glass.ring-glow {
+  background: var(--ag-glass);
+  border-color: var(--ag-edge);
+}
+
+/* ---------- inputs ---------- */
+html[data-bg] .lc-input,
+html[data-bg] .ui-field {
+  border-radius: var(--lc-field-r, 16px);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-input,
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .ui-field,
+html[data-bg][data-theme='system'] .lc-input,
+html[data-bg][data-theme='system'] .ui-field {
+  background: var(--ag-input, rgba(255, 255, 255, 0.82));
+  border: 1px solid var(--ag-line, rgba(11, 18, 32, 0.14));
+  box-shadow: 0 1px 2px rgba(11, 18, 32, 0.05) inset;
+}
+html[data-bg] .lc-input:focus-visible,
+html[data-bg] .ui-field:focus-visible {
+  border-color: var(--ag-ring);
+  background: color-mix(in srgb, var(--accent) 7%, var(--ag-input, transparent));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 0 1.5px var(--ag-ring);
+}
+html[data-bg] .lc-input[aria-invalid='true'] {
+  border-color: var(--c-danger);
+}
+html[data-bg] .lc-label {
+  color: var(--c-muted);
+}
+html[data-bg] .lc-hint.warn {
+  color: #8a5a00;
+}
+html[data-bg][data-theme='dark'] .lc-hint.warn {
+  color: #ffd166;
+}
+
+/* ---------- buttons: pills with the accent gradient ---------- */
+html[data-bg] .lc-btn,
+html[data-bg] .ui-btn,
+html[data-bg] .ui-btn-ghost,
+html[data-bg] .ui-btn-outline {
+  border-radius: 9999px;
+}
+html[data-bg] .lc-btn,
+html[data-bg] .ui-btn {
+  background-image: linear-gradient(120deg, var(--accent), var(--a2));
+  box-shadow:
+    0 14px 30px -14px color-mix(in srgb, var(--a2) 80%, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.55) inset;
+}
+html[data-bg] .lc-btn:hover:not(:disabled),
+html[data-bg] .ui-btn:hover:not(:disabled) {
+  box-shadow:
+    0 18px 36px -14px color-mix(in srgb, var(--a2) 90%, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.55) inset;
+}
+html[data-bg] .lc-btn:focus-visible,
+html[data-bg] .ui-btn:focus-visible,
+html[data-bg] .ui-btn-ghost:focus-visible,
+html[data-bg] .ui-btn-outline:focus-visible,
+html[data-bg] .lc-link:focus-visible,
+html[data-bg] .lc-eye:focus-visible,
+html[data-bg] .wz-chip:focus-visible,
+html[data-bg] .wz-drop:focus-visible {
+  outline: 2px solid var(--ag-ring);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+html[data-bg] .lc-btn.busy::before {
+  border-color: rgba(6, 16, 28, 0.3);
+  border-top-color: #06101c;
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .ui-btn-outline {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: var(--ag-line);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .ui-btn-ghost:hover:not(:disabled) {
+  background: rgba(11, 18, 32, 0.06);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-link,
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-eye {
+  color: var(--c-muted);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-link:hover,
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-eye:hover {
+  color: var(--c-text);
+}
+
+/* ---------- notices, strength meter, rules ---------- */
+html[data-bg] .lc-notice {
+  border-radius: 16px;
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-bar {
+  background: rgba(11, 18, 32, 0.1);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-rules li[data-ok='true']::before {
+  box-shadow: inset 0 0 0 3px #ffffff;
+}
+html[data-bg] .lc-term {
+  border-radius: 16px;
+}
+
+/* ---------- wizard steps ---------- */
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .wz-track {
+  background: rgba(11, 18, 32, 0.12);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .wz-dot {
+  background: #ffffff;
+  border-color: rgba(11, 18, 32, 0.28);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .wz-dot[data-done='true'] {
+  background: var(--accent);
+  border-color: var(--ag-ring);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .wz-dot[data-now='true'] {
+  background: var(--accent);
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+html[data-bg] .wz-chip {
+  border-radius: 9999px;
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .wz-chip {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: var(--ag-line);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .wz-chip:hover {
+  border-color: var(--ag-ring);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .wz-drop {
+  background: rgba(255, 255, 255, 0.6);
+}
+/* the wizard "step" label has an inline light-green colour made for the dark sky; make it readable on white */
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .ui-step {
+  color: #0a7f5a !important;
+}
+
+/* ---------- DARK variant: keep the dark atmosphere, lift the faint text and accent-coloured code bits ---------- */
+html[data-bg][data-theme='dark'] .lc-main,
+html[data-bg][data-theme='dark'] .lc-card {
+  --lc-faint: color-mix(in srgb, var(--c-muted) 88%, var(--c-text));
+}
+html[data-bg][data-theme='dark'] .lc-cm b {
+  color: color-mix(in srgb, var(--a2) 55%, #ffffff);
+}
+html[data-bg][data-theme='dark'] .lc-cm::after {
+  background: color-mix(in srgb, var(--accent) 60%, #ffffff);
+}
+html[data-bg][data-theme='dark'] .glass.ring-glow dt {
+  color: color-mix(in srgb, var(--c-text) 78%, transparent);
+}
+/* white button text on a bright accent is only about 4 to 1: deepen the gradient a little in dark mode */
+html[data-bg][data-theme='dark'] .ui-btn {
+  background-image: linear-gradient(120deg, color-mix(in srgb, var(--accent) 84%, #000), color-mix(in srgb, var(--a2) 84%, #000));
+}
+html[data-bg][data-theme='dark'] .wz-track {
+  background: color-mix(in srgb, var(--c-text) 18%, transparent);
+}
+
+/* ---------- fallbacks ---------- */
+/* no backdrop-filter: make the glass nearly opaque so text never sits on the moving background */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-card,
+  html[data-bg][data-theme='system'] .lc-card,
+  html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .glass.ring-glow {
+    background: rgba(255, 255, 255, 0.94);
+  }
+  html[data-bg][data-theme='dark'] .lc-card,
+  html[data-bg][data-theme='dark'] .glass.ring-glow {
+    background: color-mix(in srgb, var(--c-panel) 94%, transparent);
+  }
+}
+/* user asked for less transparency: solid cards, no blur */
+@media (prefers-reduced-transparency: reduce) {
+  html[data-bg] .lc-card,
+  html[data-bg] .glass.ring-glow {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--c-panel);
+  }
+  html[data-bg] .lc-input,
+  html[data-bg] .ui-field,
+  html[data-bg] .ui-btn-outline,
+  html[data-bg] .wz-chip {
+    background: var(--c-panel);
+  }
+  html[data-bg] .lc-sky canvas,
+  html[data-bg] .lc-glyph {
+    opacity: 0.25;
+  }
+}
+/* forced colours: keep a visible edge on pill controls */
+@media (forced-colors: active) {
+  html[data-bg] .lc-btn,
+  html[data-bg] .ui-btn {
+    border: 1px solid ButtonText;
+  }
+  html[data-bg] .lc-card {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* ---------- light variant contrast pass (login-light) ---------- */
+/* primary button: ink comes from the look contract; both gradient stops are darkened 14 percent so white ink reaches 4.5 to 1 on blue and purple */
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-btn,
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .ui-btn {
+  color: var(--c-accent-ink, #ffffff);
+  background-image: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--accent) 86%, #000000),
+    color-mix(in srgb, var(--a2) 86%, #000000)
+  );
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-btn.busy::before {
+  border-color: color-mix(in srgb, var(--c-accent-ink, #ffffff) 35%, transparent);
+  border-top-color: var(--c-accent-ink, #ffffff);
+}
+/* code-comment label: the raw secondary accent is too pale on white */
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-cm b {
+  color: color-mix(in srgb, var(--a2) 68%, #000000);
+}
+html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-hint.warn {
+  color: #8a5a00;
+}
+/* where relative colours exist, cap the lightness of both stops so white ink always passes 4.5 to 1 (pale accents such as green too) */
+@supports (color: oklch(from red l c h)) {
+  html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-btn,
+  html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .ui-btn {
+    color: #ffffff;
+    background-image: linear-gradient(120deg, oklch(from var(--accent) min(l, 0.53) c h), oklch(from var(--a2) min(l, 0.53) c h));
+  }
+  html[data-bg]:not([data-theme='dark']):not([data-theme='system']) .lc-btn.busy::before {
+    border-color: rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+  }
+}

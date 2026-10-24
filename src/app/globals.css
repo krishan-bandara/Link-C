@@ -26,9 +26,9 @@
 }
 
 :root {
-  --accent: #6ee7f9;
-  --c-accent-ink: #04121a;
-  --a2: #a78bfa; /* second end of the cyan to violet gradient */
+  --accent: #007AFF;
+  --c-accent-ink: #ffffff;
+  --a2: #AF52DE; /* second end of the accent gradient */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -45,7 +45,7 @@
   --c-bubble-out: color-mix(in srgb, var(--accent) 22%, #ffffff);
   --c-bubble-in: #ffffff;
   --c-chat: #eaf0fb;
-  --c-accent-text: color-mix(in srgb, var(--accent) 55%, #000000);
+  --c-accent-text: color-mix(in srgb, var(--accent) 45%, #000000);
   --c-tick: #0b7fa3;
   --c-danger: #d6123a;
   --c-glass: rgba(255, 255, 255, 0.7);
@@ -63,8 +63,8 @@
   --c-bubble-out: color-mix(in srgb, var(--accent) 24%, #0f1626);
   --c-bubble-in: #141d33;
   --c-chat: #070b14;
-  --c-accent-text: var(--accent);
-  --c-tick: #6ee7f9;
+  --c-accent-text: color-mix(in srgb, var(--accent) 62%, #ffffff);
+  --c-tick: color-mix(in srgb, var(--accent) 55%, #ffffff);
   --c-danger: #ff7a8a;
   --c-glass: rgba(16, 22, 38, 0.62);
   --c-edge: rgba(255, 255, 255, 0.12);
@@ -82,8 +82,8 @@
     --c-bubble-out: color-mix(in srgb, var(--accent) 24%, #0f1626);
     --c-bubble-in: #141d33;
     --c-chat: #070b14;
-    --c-accent-text: var(--accent);
-    --c-tick: #6ee7f9;
+    --c-accent-text: color-mix(in srgb, var(--accent) 62%, #ffffff);
+    --c-tick: color-mix(in srgb, var(--accent) 55%, #ffffff);
     --c-danger: #ff7a8a;
     --c-glass: rgba(16, 22, 38, 0.62);
     --c-edge: rgba(255, 255, 255, 0.12);

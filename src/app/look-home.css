@@ -1,0 +1,226 @@
+/* Clean glass look for the Home screen: hero, stat tiles, quick chips, add-to-home hint, person cards.
+   Every rule is scoped under html[data-bg]. Reads --lg-a (glass see-through) and --lg-b (blur px) set on the html element.
+   Surfaces mix the theme panel colour (white in light, deep navy in dark), so one rule set serves light and dark.
+   A floor on the opacity keeps text readable even on the vivid and duo wallpapers. */
+
+html[data-bg] {
+  /* surface strength in percent: follows the slider, never below a readable floor */
+  --hg-card: clamp(52%, calc(var(--lg-a, 0.22) * 100% + 34%), 92%);
+  --hg-hero: clamp(60%, calc(var(--lg-a, 0.22) * 100% + 42%), 94%);
+  --hg-tile: clamp(40%, calc(var(--lg-a, 0.22) * 100% + 22%), 80%);
+  --hg-rim: rgba(255, 255, 255, 0.75);
+  --hg-shadow: rgba(20, 30, 60, 0.28);
+  --hg-blur: var(--lg-b, 24px);
+}
+html[data-bg][data-theme='dark'] {
+  --hg-rim: rgba(255, 255, 255, 0.2);
+  --hg-shadow: rgba(0, 0, 0, 0.6);
+  /* gradient text on dark glass: lift the raw accents so blue and indigo stay readable */
+  --ui-g1: color-mix(in srgb, var(--accent) 55%, #fff);
+  --ui-g2: color-mix(in srgb, var(--a2) 55%, #fff);
+}
+@media (prefers-color-scheme: dark) {
+  html[data-bg][data-theme='system'] {
+    --hg-rim: rgba(255, 255, 255, 0.2);
+    --hg-shadow: rgba(0, 0, 0, 0.6);
+    --ui-g1: color-mix(in srgb, var(--accent) 55%, #fff);
+    --ui-g2: color-mix(in srgb, var(--a2) 55%, #fff);
+  }
+}
+
+/* light theme on near-white wallpapers: a white rim would vanish, so use a faint ink edge and a crisper shadow */
+html[data-bg='white'][data-theme='light'],
+html[data-bg='pale'][data-theme='light'],
+html[data-bg='mono'][data-theme='light'] {
+  --hg-rim: color-mix(in srgb, var(--c-text) 10%, transparent);
+  --hg-shadow: rgba(20, 30, 60, 0.34);
+}
+html[data-bg='white'][data-theme='light'] .hm-chip,
+html[data-bg='white'][data-theme='light'] .hm-a2hs,
+html[data-bg='white'][data-theme='light'] .hm-card,
+html[data-bg='white'][data-theme='light'] .hm-hero,
+html[data-bg='pale'][data-theme='light'] .hm-chip,
+html[data-bg='pale'][data-theme='light'] .hm-a2hs,
+html[data-bg='pale'][data-theme='light'] .hm-card,
+html[data-bg='pale'][data-theme='light'] .hm-hero {
+  box-shadow: 0 1px 2px rgba(20, 30, 60, 0.06), 0 12px 28px -16px var(--hg-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+/* mono step labels (// good evening, 3 chats): quiet muted ink, not a coloured tint */
+html[data-bg] .hm-hero .ui-step,
+html[data-bg] section[aria-labelledby='hm-people'] .ui-step { color: var(--c-muted); }
+/* stat tiles: keep three in a row on phones without the label wrapping awkwardly */
+html[data-bg] .hm-hero .ui-stat-label { font-size: 0.6875rem; line-height: 1.2; white-space: normal; }
+
+/* ---------- shared glass surface for the home pieces ---------- */
+html[data-bg] .hm-hero,
+html[data-bg] .hm-card,
+html[data-bg] .hm-a2hs,
+html[data-bg] .hm-chip {
+  -webkit-backdrop-filter: blur(var(--hg-blur)) saturate(1.6);
+  backdrop-filter: blur(var(--hg-blur)) saturate(1.6);
+}
+html[data-bg] .hm-hero {
+  border-radius: 2rem;
+  border: 1px solid var(--hg-rim);
+  background:
+    linear-gradient(160deg, color-mix(in srgb, #fff 38%, transparent), transparent 55%),
+    color-mix(in srgb, var(--c-panel) var(--hg-hero), transparent);
+  box-shadow:
+    0 22px 50px -26px var(--hg-shadow),
+    inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent);
+}
+html[data-bg][data-theme='dark'] .hm-hero {
+  background:
+    linear-gradient(160deg, color-mix(in srgb, #fff 8%, transparent), transparent 55%),
+    color-mix(in srgb, var(--c-panel) var(--hg-hero), transparent);
+  box-shadow: 0 22px 50px -26px var(--hg-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+/* the animated aurora is quieter: a soft colour glow, not a poster */
+html[data-bg] .hm-hero .ui-aurora { --o: 0.22; }
+html[data-bg][data-theme='dark'] .hm-hero .ui-aurora { --o: 0.34; }
+html[data-bg='mono'] .hm-hero .ui-aurora { --o: 0.1; }
+
+/* greeting text: solid readable colours; the gradient name keeps its dark pair on light */
+html[data-bg] .hm-hero h1 { color: var(--c-text); }
+html[data-bg] .hm-hero p.text-muted,
+html[data-bg] .hm-hero .text-muted { color: var(--c-muted); }
+html[data-bg] .hm-hero .ui-step { color: var(--c-muted); }
+html[data-bg='vivid'] .hm-hero h1,
+html[data-bg='duo'] .hm-hero h1 { text-shadow: none; }
+
+/* ---------- stat tiles ---------- */
+html[data-bg] .hm-hero .ui-stat {
+  border-radius: 1.25rem;
+  border: 1px solid var(--hg-rim);
+  background: color-mix(in srgb, var(--c-panel) var(--hg-tile), transparent);
+  box-shadow: 0 10px 24px -18px var(--hg-shadow), inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
+}
+html[data-bg][data-theme='dark'] .hm-hero .ui-stat {
+  box-shadow: 0 10px 24px -18px var(--hg-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+html[data-bg] .hm-hero .ui-stat-value { color: var(--c-text); }
+html[data-bg] .hm-hero .ui-stat-label { color: var(--c-muted); }
+
+/* ---------- quick action chips ---------- */
+html[data-bg] .hm-chip {
+  border: 1px solid var(--hg-rim);
+  background: color-mix(in srgb, var(--c-panel) var(--hg-card), transparent);
+  color: var(--c-text);
+  box-shadow: 0 8px 20px -16px var(--hg-shadow), inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
+}
+html[data-bg][data-theme='dark'] .hm-chip { box-shadow: 0 8px 20px -16px var(--hg-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+html[data-bg] .hm-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--hg-rim));
+  box-shadow: 0 12px 26px -16px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* ---------- add to home hint ---------- */
+html[data-bg] .hm-a2hs {
+  border-radius: 1.5rem;
+  border: 1px solid var(--hg-rim);
+  background: color-mix(in srgb, var(--c-panel) var(--hg-card), transparent);
+  color: var(--c-text);
+  box-shadow: 0 12px 28px -20px var(--hg-shadow), inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
+}
+html[data-bg][data-theme='dark'] .hm-a2hs { box-shadow: 0 12px 28px -20px var(--hg-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+
+/* ---------- people grid: person cards ---------- */
+html[data-bg] .hm-card {
+  border-radius: 1.75rem;
+  border: 1px solid var(--hg-rim);
+  background:
+    linear-gradient(165deg, color-mix(in srgb, #fff 30%, transparent), transparent 50%),
+    color-mix(in srgb, var(--c-panel) var(--hg-card), transparent);
+  color: var(--c-text);
+  box-shadow: 0 14px 34px -24px var(--hg-shadow), inset 0 1px 0 color-mix(in srgb, #fff 65%, transparent);
+}
+html[data-bg][data-theme='dark'] .hm-card {
+  background:
+    linear-gradient(165deg, color-mix(in srgb, #fff 7%, transparent), transparent 50%),
+    color-mix(in srgb, var(--c-panel) var(--hg-card), transparent);
+  box-shadow: 0 14px 34px -24px var(--hg-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+html[data-bg] .hm-card:hover,
+html[data-bg] .hm-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--hg-rim));
+  box-shadow: 0 22px 44px -22px color-mix(in srgb, var(--accent) 55%, var(--hg-shadow));
+}
+html[data-bg] .hm-card:focus-visible { box-shadow: 0 0 0 2px var(--c-app), 0 0 0 4px var(--accent); }
+/* the pointer shine is softer so it reads as light on glass, not a colour wash */
+html[data-bg] .hm-card::after {
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, #fff 45%, transparent), transparent 62%);
+}
+html[data-bg][data-theme='dark'] .hm-card::after {
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%);
+}
+html[data-bg] .hm-card-foot { border-top-color: color-mix(in srgb, var(--c-text) 10%, transparent); }
+/* avatar ring and online dot sit on glass, so the dot border matches the card surface */
+html[data-bg] .hm-dot { border-color: color-mix(in srgb, var(--c-panel) 92%, transparent); }
+html[data-bg] .hm-av[data-online='true'] {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent), 0 8px 22px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* skeleton cards while loading and the empty-state sheet follow the same glass */
+html[data-bg] .hm-grid .skeleton { opacity: 0.7; }
+html[data-bg] section[aria-labelledby='hm-people'] .glass.ui-sheet {
+  border-radius: 1.75rem;
+  border: 1px solid var(--hg-rim);
+  background: color-mix(in srgb, var(--c-panel) var(--hg-card), transparent);
+  box-shadow: 0 14px 34px -24px var(--hg-shadow), inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
+  -webkit-backdrop-filter: blur(var(--hg-blur)) saturate(1.6);
+  backdrop-filter: blur(var(--hg-blur)) saturate(1.6);
+}
+
+/* section headings sit directly on the wallpaper: keep them legible on vivid and duo */
+html[data-bg] section[aria-labelledby='hm-people'] > div:first-child {
+  padding-inline: 0.25rem;
+}
+html[data-bg='vivid'] #hm-people,
+html[data-bg='duo'] #hm-people,
+html[data-bg='vivid'] section[aria-labelledby='hm-people'] .ui-step,
+html[data-bg='duo'] section[aria-labelledby='hm-people'] .ui-step {
+  display: inline-block;
+  padding: 0.15rem 0.7rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--c-panel) 70%, transparent);
+  color: var(--c-text);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* ---------- fallbacks ---------- */
+/* no backdrop-filter support: go more solid so text never sits on a busy wallpaper */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-bg] {
+    --hg-card: 88%;
+    --hg-hero: 92%;
+    --hg-tile: 78%;
+  }
+}
+/* user asks for less transparency: solid surfaces, no blur */
+@media (prefers-reduced-transparency: reduce) {
+  html[data-bg] {
+    --hg-card: 96%;
+    --hg-hero: 97%;
+    --hg-tile: 90%;
+  }
+  html[data-bg] .hm-hero,
+  html[data-bg] .hm-card,
+  html[data-bg] .hm-a2hs,
+  html[data-bg] .hm-chip,
+  html[data-bg] section[aria-labelledby='hm-people'] .glass.ui-sheet {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  html[data-bg] .hm-hero .ui-aurora { display: none; }
+}
+@media (forced-colors: active) {
+  html[data-bg] .hm-hero,
+  html[data-bg] .hm-card,
+  html[data-bg] .hm-a2hs,
+  html[data-bg] .hm-chip,
+  html[data-bg] .hm-hero .ui-stat {
+    background: Canvas;
+    border-color: CanvasText;
+  }
+}

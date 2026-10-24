@@ -1,0 +1,33 @@
+/*
+ * Performance and pack fixes, loaded after every other look file.
+ * Only the large surfaces that sit above scrolling content keep their own blur (headers, composer, tab bar, search,
+ * sheets, menus). Repeated items (rows, bubbles, cards, chips) use a plain translucent fill: the wallpaper behind them
+ * is a smooth gradient, so the blur would be invisible but costs a lot on mid-range phones.
+ */
+html[data-bg] .hm-row,
+html[data-bg] .lk-pill,
+html[data-bg] .cv-in,
+html[data-bg] .hm-card,
+html[data-bg] .hm-chip,
+html[data-bg] .ad-card,
+html[data-bg] .ad-stat,
+html[data-bg] .ad-pcard {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@media (hover: hover) and (min-width: 1024px) {
+  html[data-bg] .hm-row,
+  html[data-bg] .cv-in {
+    -webkit-backdrop-filter: var(--lk-bf);
+    backdrop-filter: var(--lk-bf);
+  }
+}
+/* rows far below the fold are not painted until they scroll near */
+html[data-bg] .hm-li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 74px;
+}
+/* the cyber pack keeps its neon edge on received bubbles */
+html[data-bg][data-pack='cyber'] .cv-in {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 14px color-mix(in srgb, var(--accent) 16%, transparent);
+}

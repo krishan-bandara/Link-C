@@ -1,5 +1,6 @@
 // Client-side helpers for the member's own profile and appearance preferences (RLS limits everything to own rows).
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { parseLook, type Look } from '@/lib/look';
 import { DEFAULT_ACCENT, isHex, isPack, isTheme, type PackId, type Theme } from '@/lib/theme';
 import { DEFAULT_WALLPAPER } from '@/lib/wallpapers';
 
@@ -13,11 +14,12 @@ export type Prefs = {
   wallpaperPreset: string;
   wallpaperAssetId: string | null;
   wizardDone: boolean;
+  look: Look;
 };
 
 export const DEFAULT_ABOUT = 'Hey there! I am using Link-C';
 
-export const PREF_COLS = 'theme,pack,accent,wallpaper_kind,wallpaper_preset,wallpaper_asset_id,wizard_done_at';
+export const PREF_COLS = 'theme,pack,accent,wallpaper_kind,wallpaper_preset,wallpaper_asset_id,wizard_done_at,look';
 
 type Row = {
   theme?: string | null;
@@ -27,6 +29,7 @@ type Row = {
   wallpaper_preset?: string | null;
   wallpaper_asset_id?: string | null;
   wizard_done_at?: string | null;
+  look?: string | null;
 };
 
 export function prefsFromRow(r: Row | null | undefined): Prefs {
@@ -38,6 +41,7 @@ export function prefsFromRow(r: Row | null | undefined): Prefs {
     wallpaperPreset: r?.wallpaper_preset || DEFAULT_WALLPAPER,
     wallpaperAssetId: r?.wallpaper_asset_id ?? null,
     wizardDone: !!r?.wizard_done_at,
+    look: parseLook(r?.look),
   };
 }
 
@@ -58,6 +62,7 @@ export async function savePrefs(
     wallpaper_kind: WallpaperKind;
     wallpaper_preset: string;
     wizard_done_at: string;
+    look: string;
   }>,
 ): Promise<boolean> {
   const { error } = await supabase

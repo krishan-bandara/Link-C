@@ -1,0 +1,176 @@
+/* Clean glass look for the owner admin panel. Every rule is scoped under html[data-bg].
+   Colour only: no sizes, paddings or layout are changed, so the phone layout fixes in admin.css stay intact.
+   Admin is dense, so the glass fill is more solid than on the chat screens (floor 0.55 plus --lg-a). */
+
+/* ---------- tokens (light) ---------- */
+html[data-bg] {
+  --ag: rgba(255, 255, 255, calc(0.55 + var(--lg-a, 0.22) * 0.5));
+  --ag-solid: rgba(255, 255, 255, 0.94);
+  --ag-soft: rgba(255, 255, 255, 0.5);
+  --ag-edge: rgba(255, 255, 255, 0.95);
+  --ag-line: rgba(15, 30, 25, 0.1);
+  --ag-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 8px 26px -10px rgba(20, 40, 35, 0.16), 0 0 0 1px rgba(20, 40, 35, 0.05);
+  --ag-pop: 0 24px 60px -16px rgba(20, 40, 35, 0.3), 0 0 0 1px rgba(20, 40, 35, 0.07);
+  --ag-blur: blur(var(--lg-b, 24px)) saturate(1.5);
+  --ag-field: rgba(255, 255, 255, 0.78);
+  --ag-hover: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.7));
+}
+/* ---------- tokens (dark) ---------- */
+html[data-bg][data-theme='dark'] {
+  --ag: rgba(255, 255, 255, calc(0.06 + var(--lg-a, 0.22) * 0.22));
+  --ag-solid: rgba(22, 28, 40, 0.94);
+  --ag-soft: rgba(255, 255, 255, 0.05);
+  --ag-edge: rgba(255, 255, 255, 0.16);
+  --ag-line: rgba(255, 255, 255, 0.12);
+  --ag-shadow: 0 1px 0 rgba(255, 255, 255, 0.14) inset, 0 8px 24px -10px rgba(0, 0, 0, 0.55);
+  --ag-pop: 0 24px 60px -16px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --ag-field: rgba(255, 255, 255, 0.07);
+  --ag-hover: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.06));
+}
+@media (prefers-color-scheme: dark) {
+  html[data-bg][data-theme='system'] {
+    --ag: rgba(255, 255, 255, calc(0.06 + var(--lg-a, 0.22) * 0.22));
+    --ag-solid: rgba(22, 28, 40, 0.94);
+    --ag-soft: rgba(255, 255, 255, 0.05);
+    --ag-edge: rgba(255, 255, 255, 0.16);
+    --ag-line: rgba(255, 255, 255, 0.12);
+    --ag-shadow: 0 1px 0 rgba(255, 255, 255, 0.14) inset, 0 8px 24px -10px rgba(0, 0, 0, 0.55);
+    --ag-pop: 0 24px 60px -16px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    --ag-field: rgba(255, 255, 255, 0.07);
+    --ag-hover: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.06));
+  }
+}
+
+/* ---------- aurora: keep it as a faint colour glow only ---------- */
+html[data-bg='white'] .ad-aurora i { opacity: 0.1; animation: none; }
+html[data-bg='white'] .ad-aurora i:nth-child(3) { opacity: 0.06; }
+html[data-bg='pale'] .ad-aurora i { opacity: 0.12; }
+html[data-bg='mono'] .ad-aurora { display: none; }
+
+/* ---------- glass surfaces ---------- */
+html[data-bg] .ad-card,
+html[data-bg] .ad-stat,
+html[data-bg] .ad-pcard,
+html[data-bg] .ad-pend,
+html[data-bg] .ad-pack,
+html[data-bg] .ad-attn-item,
+html[data-bg] .ad-invite {
+  background: var(--ag);
+  border-color: var(--ag-edge);
+  box-shadow: var(--ag-shadow);
+  -webkit-backdrop-filter: var(--ag-blur);
+  backdrop-filter: var(--ag-blur);
+}
+html[data-bg] .ad-attn-item { background: color-mix(in srgb, var(--tone) 10%, var(--ag)); border-color: color-mix(in srgb, var(--tone) 40%, var(--ag-edge)); }
+html[data-bg] .ad-invite { background: color-mix(in srgb, var(--accent) 6%, var(--ag)); }
+html[data-bg] .ad-lift:hover { box-shadow: var(--ag-shadow), 0 14px 34px -14px color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* chrome: sidebar, top bar, bottom tabs, save bar */
+html[data-bg] .ad-side,
+html[data-bg] .ad-top,
+html[data-bg] .ad-tabs,
+html[data-bg] .ad-savebar {
+  background: var(--ag);
+  border-color: var(--ag-line);
+  -webkit-backdrop-filter: var(--ag-blur);
+  backdrop-filter: var(--ag-blur);
+}
+html[data-bg] .ad-side { background: color-mix(in srgb, var(--ag-solid) 55%, var(--ag)); }
+html[data-bg] .ad-tabs { border: 1px solid var(--ag-edge); box-shadow: var(--ag-shadow), 0 12px 32px -12px rgba(20, 40, 35, 0.3); }
+html[data-bg] .ad-savebar { border: 1px solid var(--ag-edge); box-shadow: var(--ag-shadow); }
+html[data-bg] .ad-top-back:hover,
+html[data-bg] .ad-navlink:hover,
+html[data-bg] .ad-sheet-item:hover,
+html[data-bg] .ad-sheet-item[aria-current='page'],
+html[data-bg] .ad-banner-x:hover { background: var(--ag-hover); }
+html[data-bg] .ad-navlink[data-active='true'] {
+  background: color-mix(in srgb, var(--accent) 16%, var(--ag-soft));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* floating layers: menus, popovers, dialogs, banner, toasts need a firmer fill to stay readable */
+html[data-bg] .ad-sheet,
+html[data-bg] .ad-pop,
+html[data-bg] .ad-toast,
+html[data-bg] .ad-banner,
+html[data-bg] .ad-dialog {
+  background: color-mix(in srgb, var(--ag-solid) 86%, transparent);
+  border: 1px solid var(--ag-edge);
+  box-shadow: var(--ag-pop);
+  -webkit-backdrop-filter: var(--ag-blur);
+  backdrop-filter: var(--ag-blur);
+}
+html[data-bg] .ad-toast-bad { border-color: color-mix(in srgb, var(--c-danger) 55%, var(--ag-edge)); }
+html[data-bg] .ad-dialog::backdrop { background: rgba(20, 30, 28, 0.32); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+html[data-bg][data-theme='dark'] .ad-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+/* ---------- forms ---------- */
+html[data-bg] .ad-input {
+  background: var(--ag-field);
+  border-color: var(--ag-line);
+  box-shadow: inset 0 1px 2px rgba(20, 40, 35, 0.06);
+}
+html[data-bg][data-theme='dark'] .ad-input { box-shadow: none; }
+html[data-bg] .ad-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+html[data-bg] .ad-btn-ghost,
+html[data-bg] .ad-chip,
+html[data-bg] .ad-fchip {
+  background-color: var(--ag-field);
+  border-color: var(--ag-line);
+}
+html[data-bg] .sms-chip,
+html[data-bg] .mb-seg { background: var(--ag-field); border-color: var(--ag-line); }
+html[data-bg] .sms-chip[aria-current='true'] { background: color-mix(in srgb, var(--accent) 18%, var(--ag-field)); border-color: var(--accent); }
+html[data-bg] .sms-sec { background: var(--ag); border-color: var(--ag-edge); box-shadow: var(--ag-shadow); -webkit-backdrop-filter: var(--ag-blur); backdrop-filter: var(--ag-blur); }
+/* dark: badges sit on a dark base so coloured text keeps contrast over bright wallpapers (vivid, duo) */
+html[data-bg][data-theme='dark'] .ad-badge { background: rgba(8, 12, 22, 0.5); color: var(--c-text); }
+html[data-bg][data-theme='dark'] .ad-t-ok { background: color-mix(in srgb, var(--ad-green) 22%, rgba(8, 12, 22, 0.6)); color: color-mix(in srgb, var(--ad-green) 60%, #fff); }
+html[data-bg][data-theme='dark'] .ad-t-warn { background: color-mix(in srgb, var(--ad-amber) 22%, rgba(8, 12, 22, 0.6)); color: color-mix(in srgb, var(--ad-amber) 60%, #fff); }
+html[data-bg][data-theme='dark'] .ad-t-bad { background: color-mix(in srgb, var(--c-danger) 22%, rgba(8, 12, 22, 0.6)); color: color-mix(in srgb, var(--c-danger) 60%, #fff); }
+html[data-bg][data-theme='dark'] .ad-t-violet { background: color-mix(in srgb, var(--ad-violet) 24%, rgba(8, 12, 22, 0.6)); color: color-mix(in srgb, var(--ad-violet) 55%, #fff); }
+html[data-bg][data-theme='dark'] .ad-t-pink { background: color-mix(in srgb, var(--ad-pink) 22%, rgba(8, 12, 22, 0.6)); color: color-mix(in srgb, var(--ad-pink) 55%, #fff); }
+html[data-bg] .ad-btn-ghost:hover,
+html[data-bg] .ad-chip:hover { background-color: var(--ag-hover); border-color: color-mix(in srgb, var(--accent) 55%, var(--ag-line)); }
+html[data-bg] .ad-chip[aria-pressed='true'] { background-color: transparent; border-color: transparent; }
+html[data-bg] .ad-badge { background: var(--ag-soft); border-color: var(--ag-line); }
+html[data-bg] .ad-drop { background: var(--ag-soft); border-color: color-mix(in srgb, var(--accent) 35%, var(--ag-line)); }
+html[data-bg] .ad-drop:hover,
+html[data-bg] .ad-drop[data-over='true'] { background: var(--ag-hover); border-color: var(--accent); }
+html[data-bg] .ad-switch::before { background-color: color-mix(in srgb, var(--c-muted) 30%, transparent); }
+html[data-bg] .ad-switch[aria-checked='true']::before { background-color: var(--ad-green); }
+
+/* ---------- tables, lists, timelines (SMS tab, audit, member pages) ---------- */
+html[data-bg] .ad-card table { border-collapse: collapse; }
+html[data-bg] .ad-card :is(th, td) { border-color: var(--ag-line); }
+html[data-bg] .ad-card th { color: var(--c-muted); }
+html[data-bg] .ad-card tbody tr:hover { background: var(--ag-hover); }
+html[data-bg] .ad-tl-item::before { background: var(--ag-line); }
+html[data-bg] .ad-pop-sep { border-top-color: var(--ag-line); }
+html[data-bg] .ad-card hr { border-color: var(--ag-line); }
+html[data-bg] .ad-meter { background: color-mix(in srgb, var(--c-muted) 18%, transparent); }
+html[data-bg] .ad-skel,
+html[data-bg] .ad-skel-line { background-color: var(--ag-soft); }
+html[data-bg] .ad-mosaic > span,
+html[data-bg] .ad-tile { background: var(--ag-soft); border-color: var(--ag-line); }
+
+/* ---------- fallbacks ---------- */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-bg] { --ag: rgba(255, 255, 255, 0.92); }
+  html[data-bg][data-theme='dark'] { --ag: rgba(26, 32, 46, 0.94); }
+  html[data-bg] .ad-sheet, html[data-bg] .ad-pop, html[data-bg] .ad-toast, html[data-bg] .ad-banner, html[data-bg] .ad-dialog { background: var(--ag-solid); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-bg] { --ag: var(--ag-solid); --ag-blur: none; --ag-soft: color-mix(in srgb, var(--ag-solid) 92%, var(--c-muted)); --ag-field: var(--ag-solid); }
+  html[data-bg] .ad-sheet, html[data-bg] .ad-pop, html[data-bg] .ad-toast, html[data-bg] .ad-banner, html[data-bg] .ad-dialog { background: var(--ag-solid); }
+  html[data-bg] .ad-dialog::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html[data-bg] .ad-aurora { display: none; }
+}
+
+/* ---------- readability on glass (phone check): SMS log notes need more contrast than raw accent / danger ---------- */
+html[data-bg] .sms-ok { color: color-mix(in srgb, var(--ad-green, #1a9b5a) 80%, #000); }
+html[data-bg] .sms-bad { color: color-mix(in srgb, var(--c-danger) 82%, #000); }
+html[data-bg][data-theme='dark'] .sms-ok { color: var(--ad-green, #4ade80); }
+html[data-bg][data-theme='dark'] .sms-bad { color: var(--c-danger); }
