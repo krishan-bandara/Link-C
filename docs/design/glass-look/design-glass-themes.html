@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link-C glass themes</title>
+<style>
+:root{--bg:#eef2fa;--card:#fff;--ink:#17213a;--muted:#5d6b88;--line:#d9e0ef;--shadow:0 8px 28px rgba(30,50,110,.12);--g1:#18b6c8;--g2:#4f6bff}
+@media (prefers-color-scheme:dark){:root{--bg:#090e1c;--card:#131b33;--ink:#e8edfb;--muted:#92a0c4;--line:#222d4d;--shadow:0 8px 28px rgba(0,0,0,.45)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px 90px}
+h1{margin:0;padding:34px 0 6px;font-size:clamp(25px,5vw,36px);background:linear-gradient(90deg,var(--g1),var(--g2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);max-width:780px;margin:0 0 16px}
+.grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:900px){.grid{grid-template-columns:350px 1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+.panel h2{margin:0 0 10px;font-size:18px}
+.ctl{margin:0 0 15px}
+.ctl .t{display:block;font-weight:700;font-size:14px;margin-bottom:5px}
+.ctl small{color:var(--muted);display:block;font-size:12.5px;margin-top:2px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:7px 13px;min-height:40px;cursor:pointer;font-size:14px}
+.opts button.on{background:linear-gradient(90deg,var(--g1),var(--g2));color:#fff;border-color:transparent}
+.sw{display:inline-block;width:13px;height:13px;border-radius:50%;margin-right:6px;vertical-align:-2px}
+input[type=range]{width:100%}
+.colors{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.colors button{width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer}
+.colors button.on{border-color:var(--ink)}
+.colors input[type=color]{width:40px;height:36px;border:0;background:none;padding:0;cursor:pointer}
+.stage{display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+.phone{width:290px;height:580px;border-radius:40px;border:7px solid #11161f;overflow:hidden;position:relative;font-size:13.5px;color:var(--ptxt,#fff);isolation:isolate}
+.wall{position:absolute;inset:0;z-index:0;overflow:hidden}
+.blob{position:absolute;width:210px;height:210px;border-radius:50%;filter:blur(38px);opacity:.9;animation:float 14s ease-in-out infinite}
+.b1{left:-40px;top:20px;background:var(--c1)}.b2{right:-60px;top:190px;background:var(--c2);animation-delay:-5s}.b3{left:30px;bottom:-60px;background:var(--c3);animation-delay:-9s}
+@keyframes float{50%{transform:translate(28px,-34px) scale(1.12)}}
+.glass{
+  background:rgba(var(--gt),var(--ga));
+  backdrop-filter:blur(var(--gb)) saturate(var(--gs));-webkit-backdrop-filter:blur(var(--gb)) saturate(var(--gs));
+  border:1px solid rgba(255,255,255,var(--ge));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,var(--gh)),inset 0 -1px 0 rgba(0,0,0,.08),0 8px 24px rgba(0,0,0,.18);
+}
+.top{position:absolute;left:10px;right:10px;top:12px;z-index:3;padding:10px 14px;border-radius:22px;display:flex;align-items:center;gap:10px}
+.av{width:30px;height:30px;border-radius:50%;flex:none;box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.msgs{position:absolute;inset:0;z-index:2;padding:78px 12px 96px;display:flex;flex-direction:column;gap:7px;justify-content:flex-end}
+.m{max-width:78%;padding:9px 12px;line-height:1.3;border-radius:20px}
+.them{align-self:flex-start;border-bottom-left-radius:6px}
+.mine{align-self:flex-end;border-bottom-right-radius:6px;color:#fff;background:linear-gradient(135deg,var(--a1),var(--a2));border:1px solid rgba(255,255,255,.4);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 6px 16px rgba(0,0,0,.2)}
+.m .meta{display:block;font-size:9.5px;opacity:.75;text-align:right;margin-top:2px}
+.comp{position:absolute;left:10px;right:10px;bottom:12px;z-index:3;border-radius:28px;padding:7px;display:flex;gap:7px;align-items:center}
+.inp{flex:1;height:34px;border-radius:17px;padding:8px 14px;opacity:.85;background:rgba(255,255,255,.18)}
+.send{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.chips{display:flex;gap:6px;padding:0 12px 8px}
+.chip{padding:5px 12px;border-radius:999px;font-size:12px}
+.chip.on{background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff}
+.list{position:absolute;inset:0;z-index:2;padding:80px 10px 90px;display:flex;flex-direction:column;gap:7px}
+.row{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:20px}
+.row b{display:block}.row span{font-size:11.5px;opacity:.8}
+.badge{margin-left:auto;min-width:21px;height:21px;border-radius:11px;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700;background:linear-gradient(135deg,var(--a1),var(--a2))}
+.tabs{position:absolute;left:30px;right:30px;bottom:14px;z-index:3;border-radius:30px;display:flex;justify-content:space-around;padding:12px 8px;font-size:11.5px}
+.tabs .on{font-weight:800}
+.cap{text-align:center;color:var(--muted);font-size:13px;margin-top:6px}
+.dots{display:inline-flex;gap:3px}.dots i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;animation:bob 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes bob{50%{transform:translateY(-4px)}}
+.btn{border:0;border-radius:999px;padding:10px 20px;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--g1),var(--g2));cursor:pointer;min-height:44px}
+.note{margin-top:14px;padding:12px;border-radius:12px;background:var(--bg);border:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
+#pick{position:sticky;bottom:10px;margin-top:20px;background:var(--card);border:2px solid var(--g1);border-radius:16px;padding:12px 16px;box-shadow:var(--shadow)}
+#pick pre{white-space:pre-wrap;margin:6px 0;font:13px/1.45 ui-monospace,Consolas,monospace;color:var(--muted)}
+footer{color:var(--muted);font-size:13px;margin-top:24px}
+@media(prefers-reduced-motion:reduce){.blob,.dots i{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Glass themes</h1>
+<p class="lead">An iPhone-style glass look: frosted, see-through panels with a bright edge, floating over a colourful background. Pick a glass style, a colour tint and a background, then watch the chat list and chat screen. Nothing here changes the real app.</p>
+<div class="grid">
+  <div class="panel">
+    <h2>Build your theme</h2>
+    <div class="ctl"><span class="t">Glass style</span><div class="opts" id="gs"></div><small id="gdesc"></small></div>
+    <div class="ctl"><span class="t">Background</span><div class="opts" id="bg"></div></div>
+    <div class="ctl"><span class="t">Accent colour (bubbles, send button, badges)</span><div class="colors"><span id="acc" class="colors"></span><input type="color" id="cc" value="#18b6c8" aria-label="custom colour"></div></div>
+    <div class="ctl"><span class="t">Glass tint</span><div class="opts" id="tint"></div><small>Clear white, a cool blue, a warm pink, or dark smoke.</small></div>
+    <div class="ctl"><span class="t">Blur: <b id="bv"></b> px</span><input type="range" id="blur" min="4" max="36"></div>
+    <div class="ctl"><span class="t">See-through: <b id="av"></b>%</span><input type="range" id="alpha" min="8" max="60"><small>Lower = clearer glass. Higher = easier to read.</small></div>
+    <div class="ctl"><span class="t">Colour boost: <b id="sv"></b>%</span><input type="range" id="sat" min="100" max="220"></div>
+    <div class="ctl"><span class="t">Text colour</span><div class="opts" id="txt"></div></div>
+    <div class="ctl"><span class="t">Floating background lights</span><div class="opts" id="anim"></div></div>
+    <div class="note">Real-app notes: glass uses <code>backdrop-filter</code>, which works in Safari on iPhone and in Chrome on Samsung. It can slow down older phones, so the app would switch to a solid look automatically when "Reduce transparency" is on or the phone is slow. Text over glass must stay readable, so the app will check contrast.</div>
+  </div>
+  <div>
+    <div class="stage">
+      <div><div class="phone" id="pl"></div><div class="cap">Chat list</div></div>
+      <div><div class="phone" id="pc"></div><div class="cap">Chat</div></div>
+    </div>
+  </div>
+</div>
+<div id="pick"><b>My choice</b><pre id="sum"></pre><textarea id="note" style="width:100%;height:50px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:8px;font:inherit" placeholder="Anything else to change?"></textarea><div style="margin-top:6px"><button class="btn" id="copy">Copy my choice</button> <span id="done" style="color:var(--muted);font-size:13px"></span></div></div>
+<footer>Inspired by the glass look WhatsApp is rolling out on iPhone in 2026 and Apple's system style. Research notes: <code>chat-ui-research.md</code>.</footer>
+</div>
+<script>
+const GS={
+ clear:{n:'Clear',d:'Very see-through, light blur. Most "wow", least readable.',b:10,a:14,s:160,e:.5,h:.7,t:'255,255,255'},
+ frost:{n:'Frosted',d:'Milky and soft, like iPhone control centre. Good balance.',b:22,a:30,s:170,e:.4,h:.6,t:'255,255,255'},
+ tinted:{n:'Tinted',d:'Coloured glass using the tint you choose. Strong personality.',b:18,a:34,s:190,e:.45,h:.65,t:'120,200,255'},
+ crystal:{n:'Crystal',d:'Bright edges, high colour boost, a bit of shine.',b:14,a:20,s:210,e:.7,h:.9,t:'255,255,255'},
+ smoke:{n:'Smoke',d:'Dark smoked glass, great for night.',b:24,a:38,s:150,e:.25,h:.4,t:'20,24,40'}
+};
+const BG={
+ lagoon:['Lagoon','#12c2c8','#3a6bff','#7bf0d0'],
+ sunset:['Sunset','#ff8a3d','#ff3d81','#ffd36b'],
+ aurora:['Aurora','#5be7a9','#7a5cff','#2bd1ff'],
+ bloom:['Bloom','#ff6fb1','#9a6bff','#ffc2e0'],
+ midnight:['Midnight','#2a3cff','#7a1fd1','#08bdd6']
+};
+const ACC=[['#18b6c8','#4f6bff'],['#7b5cf0','#e04bd0'],['#ff8a3d','#ff3d81'],['#1fd3a3','#1f9bff']];
+const TINT={white:['White','255,255,255'],blue:['Blue','120,190,255'],pink:['Pink','255,150,200'],smoke:['Smoke','20,24,40']};
+const S={gs:'frost',bg:'lagoon',acc:0,tint:'white',blur:22,alpha:30,sat:170,txt:'#ffffff',anim:true,custom:null};
+function opts(id,obj,key,after){const el=document.getElementById(id);el.innerHTML=Object.entries(obj).map(([k,v])=>`<button data-k="${k}" class="${S[key]===k?'on':''}">${Array.isArray(v)?v[0]:v.n||v}</button>`).join('');el.querySelectorAll('button').forEach(b=>b.onclick=()=>{S[key]=b.dataset.k;if(after)after(b.dataset.k);draw()})}
+function pickGS(k){const g=GS[k];S.blur=g.b;S.alpha=g.a;S.sat=g.s;S.tint=k==='tinted'?'blue':k==='smoke'?'smoke':'white';S.txt=k==='smoke'?'#ffffff':'#ffffff'}
+function vars(){const g=GS[S.gs];const bgc=BG[S.bg];const ac=S.custom||ACC[S.acc];
+ return `--gt:${TINT[S.tint][1]};--ga:${S.alpha/100};--gb:${S.blur}px;--gs:${S.sat}%;--ge:${g.e};--gh:${g.h};--c1:${bgc[1]};--c2:${bgc[2]};--c3:${bgc[3]};--a1:${ac[0]};--a2:${ac[1]};--ptxt:${S.txt}`}
+function wall(){return `<div class="wall" style="background:linear-gradient(160deg,var(--c2),var(--c1))"><div class="blob b1" ${S.anim?'':'style="animation:none"'}></div><div class="blob b2" ${S.anim?'':'style="animation:none"'}></div><div class="blob b3" ${S.anim?'':'style="animation:none"'}></div></div>`}
+function draw(){
+  opts('gs',GS,'gs',pickGS);
+  document.getElementById('gdesc').textContent=GS[S.gs].d;
+  document.getElementById('bg').innerHTML=Object.entries(BG).map(([k,v])=>`<button data-k="${k}" class="${S.bg===k?'on':''}"><span class="sw" style="background:linear-gradient(135deg,${v[1]},${v[2]})"></span>${v[0]}</button>`).join('');
+  document.querySelectorAll('#bg button').forEach(b=>b.onclick=()=>{S.bg=b.dataset.k;draw()});
+  const ac=document.getElementById('acc');
+  ac.innerHTML=ACC.map((c,i)=>`<button data-i="${i}" class="${!S.custom&&S.acc===i?'on':''}" style="background:linear-gradient(135deg,${c[0]},${c[1]})" aria-label="accent ${i+1}"></button>`).join('');
+  ac.querySelectorAll('button').forEach(b=>b.onclick=()=>{S.custom=null;S.acc=+b.dataset.i;draw()});
+  opts('tint',TINT,'tint');
+  opts('txt',{'#ffffff':'White','#10203a':'Dark'},'txt');
+  document.getElementById('anim').innerHTML=`<button data-v="1" class="${S.anim?'on':''}">Moving</button><button data-v="0" class="${!S.anim?'on':''}">Still</button>`;
+  document.querySelectorAll('#anim button').forEach(b=>b.onclick=()=>{S.anim=b.dataset.v==='1';draw()});
+  ['blur','alpha','sat'].forEach(k=>document.getElementById(k).value=S[k]);
+  document.getElementById('bv').textContent=S.blur;document.getElementById('av').textContent=S.alpha;document.getElementById('sv').textContent=S.sat;
+  const v=vars();
+  const msgs=`<div class="m them glass">Look at this 😍<span class="meta">10:20</span></div><div class="m mine">Wow, this glass look is great<span class="meta">10:21 ✓✓</span></div><div class="m mine">Sending a snap now<span class="meta">10:22 ✓✓</span></div><div class="m them glass" style="padding:11px 13px"><span class="dots"><i></i><i></i><i></i></span></div>`;
+  const pc=document.getElementById('pc');pc.style.cssText=v;
+  pc.innerHTML=`${wall()}<div class="top glass"><div class="av" style="background:linear-gradient(135deg,var(--a1),var(--a2))"></div><b>Anna</b><span style="margin-left:auto;font-size:11px;opacity:.85">online</span></div><div class="msgs">${msgs}</div><div class="comp glass"><div class="inp">Message</div><div class="send">➤</div></div>`;
+  const people=[['Anna','Look at this 😍','2'],['Dev','Voice message','1'],['Mira','See you soon',''],['Ravi','Snap','']];
+  const rows=people.map((p,i)=>`<div class="row glass"><div class="av" style="width:40px;height:40px;background:linear-gradient(${135+i*50}deg,var(--a1),var(--a2))"></div><div><b>${p[0]}</b><span>${p[1]}</span></div>${p[2]?`<div class="badge">${p[2]}</div>`:''}</div>`).join('');
+  const pl=document.getElementById('pl');pl.style.cssText=v;
+  pl.innerHTML=`${wall()}<div class="top glass"><b style="font-size:18px">Chats</b></div><div class="list"><div class="chips"><span class="chip on">All</span><span class="chip glass">Unread</span><span class="chip glass">Snaps</span></div>${rows}</div><div class="tabs glass"><span class="on">Chats</span><span>Snaps</span><span>Me</span></div>`;
+  document.getElementById('sum').textContent=`Glass theme: ${GS[S.gs].n} style, ${BG[S.bg][0]} background, accent ${(S.custom||ACC[S.acc]).join(' to ')}, tint ${TINT[S.tint][0]}, blur ${S.blur}px, see-through ${S.alpha}%, colour boost ${S.sat}%, text ${S.txt==='#ffffff'?'white':'dark'}, background lights ${S.anim?'moving':'still'}`;
+}
+function shade(h){const n=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));const m=n.map((v,i)=>Math.max(0,Math.min(255,Math.round(v*(i===2?1.2:.8)+(i===2?20:0)))));return '#'+m.map(v=>v.toString(16).padStart(2,'0')).join('')}
+['blur','alpha','sat'].forEach(k=>document.getElementById(k).oninput=e=>{S[k]=+e.target.value;draw()});
+document.getElementById('copy').onclick=async()=>{const t='Link-C design choice: '+document.getElementById('sum').textContent+'. Notes: '+(document.getElementById('note').value||'none');try{await navigator.clipboard.writeText(t);document.getElementById('done').textContent='Copied. Paste it to Claude.'}catch{document.getElementById('done').textContent=t}};
+document.getElementById('cc').oninput=e=>{const h=e.target.value;S.custom=[h,shade(h)];draw()};
+pickGS('frost');draw();
+</script>
+</body>
+</html>

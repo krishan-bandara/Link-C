@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link-C clean glass</title>
+<style>
+:root{--bg:#f1f5f3;--card:#fff;--ink:#17261f;--muted:#5d6f66;--line:#dbe6e0;--shadow:0 8px 28px rgba(20,60,40,.12)}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1411;--card:#13201b;--ink:#e8f3ee;--muted:#93aaa0;--line:#223a31;--shadow:0 8px 28px rgba(0,0,0,.45)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px 90px}
+h1{margin:0;padding:34px 0 6px;font-size:clamp(25px,5vw,36px)}
+.lead{color:var(--muted);max-width:780px;margin:0 0 16px}
+.grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:900px){.grid{grid-template-columns:340px 1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+.panel h2{margin:0 0 10px;font-size:18px}
+.ctl{margin:0 0 15px}.ctl .t{display:block;font-weight:700;font-size:14px;margin-bottom:5px}
+.ctl small{color:var(--muted);display:block;font-size:12.5px;margin-top:2px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:7px 13px;min-height:40px;cursor:pointer;font-size:14px}
+.opts button.on{background:var(--acc);color:var(--onacc,#fff);border-color:transparent}
+.sw{display:inline-block;width:13px;height:13px;border-radius:50%;margin-right:6px;vertical-align:-2px}
+.colors{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.colors input[type=color]{width:42px;height:38px;border:0;background:none;padding:0;cursor:pointer}
+input[type=range]{width:100%}
+.tog{display:flex;gap:10px;align-items:center;min-height:38px}.tog input{width:20px;height:20px}
+.stage{display:flex;gap:20px;justify-content:center;flex-wrap:wrap}
+.cap{text-align:center;color:var(--muted);font-size:13px;margin-top:6px}
+
+/* ---------- the phone: themed by --acc ---------- */
+.phone{--acc:#34C759;--onacc:#fff;--second:#32ADE6;--acc2:color-mix(in srgb,var(--acc) 62%,#2b5cff);--tint:color-mix(in srgb,var(--acc) 16%,#fff);--tint2:color-mix(in srgb,var(--acc) 30%,#fff);--pink:#10241a;--ptxt:#10241a;--psub:rgba(16,36,26,.62);
+ width:318px;height:640px;border-radius:46px;border:8px solid #15191d;overflow:hidden;position:relative;color:var(--ptxt);isolation:isolate;font-size:14px;
+ background:radial-gradient(120% 60% at 20% 0%,var(--tint2),transparent 60%),radial-gradient(90% 50% at 100% 100%,var(--tint2),transparent 60%),var(--tint)}
+.phone.dark{--tint:color-mix(in srgb,var(--acc) 14%,#0a1210);--tint2:color-mix(in srgb,var(--acc) 26%,#0a1210);--ptxt:#eaf6f0;--psub:rgba(234,246,240,.62)}
+.glass{background:rgba(255,255,255,var(--ga,.42));backdrop-filter:blur(var(--gb,18px)) saturate(1.5);-webkit-backdrop-filter:blur(var(--gb,18px)) saturate(1.5);border:1px solid rgba(255,255,255,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -8px 16px rgba(255,255,255,.12),0 8px 22px rgba(20,50,35,.10)}
+.phone.bg-vivid{background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 70%,#fff),color-mix(in srgb,var(--acc) 85%,#000))}
+.phone.bg-duo{background:radial-gradient(120% 70% at 0% 0%,color-mix(in srgb,var(--acc) 55%,#fff),transparent 65%),radial-gradient(110% 70% at 100% 100%,color-mix(in srgb,var(--second) 55%,#fff),transparent 65%),color-mix(in srgb,var(--acc) 10%,#fff)}
+.phone.bg-white{background:radial-gradient(70% 40% at 15% 8%,color-mix(in srgb,var(--acc) 9%,#fff),transparent 70%),radial-gradient(70% 40% at 90% 95%,color-mix(in srgb,var(--second) 8%,#fff),transparent 70%),#fff}
+.phone.bg-white .glass{background:rgba(255,255,255,calc(var(--ga,.42)*1.1));border:1px solid rgba(255,255,255,.95);box-shadow:inset 0 1px 0 #fff,inset 0 -6px 14px rgba(255,255,255,.5),0 0 0 1px rgba(60,70,90,.07),0 10px 26px rgba(40,60,90,.10)}
+.phone.dark.bg-white{background:radial-gradient(70% 40% at 15% 8%,color-mix(in srgb,var(--acc) 22%,#0d1013),transparent 70%),#0d1013}
+.phone.bg-mono{background:#f2f2f7}
+.phone.dark.bg-mono{background:#000}
+.phone.dark.bg-vivid{background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 55%,#000),color-mix(in srgb,var(--acc) 30%,#000))}
+.phone.dark.bg-duo{background:radial-gradient(120% 70% at 0% 0%,color-mix(in srgb,var(--acc) 45%,#000),transparent 65%),radial-gradient(110% 70% at 100% 100%,color-mix(in srgb,var(--second) 45%,#000),transparent 65%),#05090c}
+.phone.bg-vivid .head h3,.phone.bg-vivid .status{color:#fff}
+.dark .glass{background:rgba(255,255,255,calc(var(--ga,.42)*.28));border-color:rgba(255,255,255,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 8px 22px rgba(0,0,0,.35)}
+.status{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:space-between;padding:0 26px;font-weight:700;font-size:13px;z-index:5}
+.island{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:92px;height:26px;border-radius:14px;background:#000;z-index:6}
+.head{position:absolute;top:46px;left:18px;right:18px;display:flex;align-items:center;gap:10px;z-index:4}
+.head h3{margin:0;font-size:30px;letter-spacing:-.5px;flex:1}
+.round{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:17px}
+.round.solid{background:var(--acc);color:var(--onacc);border:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 6px 14px color-mix(in srgb,var(--acc) 45%,transparent)}
+.search{position:absolute;top:100px;left:18px;right:18px;height:42px;border-radius:21px;display:flex;align-items:center;padding:0 16px;gap:10px;color:var(--psub);z-index:4}
+.pills{position:absolute;top:154px;left:18px;right:18px;display:flex;gap:7px;z-index:4;overflow:hidden}
+.pill{padding:7px 14px;border-radius:999px;font-size:13px;white-space:nowrap}
+.pill.on{background:color-mix(in srgb,var(--acc) 22%,rgba(255,255,255,.6));color:color-mix(in srgb,var(--acc) 80%,#000);border:1px solid color-mix(in srgb,var(--acc) 40%,#fff);font-weight:700}
+.cards{position:absolute;left:12px;right:12px;overflow:hidden;display:flex;flex-direction:column;gap:7px;z-index:3}
+.card{border-radius:26px;padding:10px 12px;display:flex;gap:11px;align-items:center}
+.av{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.mid{flex:1;min-width:0}.mid b{display:block;font-size:14.5px}.mid span{display:block;font-size:12.5px;color:var(--psub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk{color:var(--acc);font-weight:800}
+.right{text-align:right;font-size:11.5px;color:var(--psub);display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+.badge{min-width:21px;height:21px;border-radius:11px;background:var(--acc);color:var(--onacc);display:grid;place-items:center;font-size:11px;font-weight:700;padding:0 5px}
+.tabs{position:absolute;left:14px;right:14px;bottom:16px;border-radius:30px;display:flex;justify-content:space-around;padding:10px 4px 8px;z-index:5;font-size:10.5px;color:var(--psub)}
+.tabs div{text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px}
+.tabs i{font-style:normal;font-size:19px}
+.tabs .on{color:var(--acc);font-weight:800}
+.bar{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);width:110px;height:4px;border-radius:2px;background:rgba(0,0,0,.75);z-index:7}
+/* chat */
+.chead{position:absolute;top:46px;left:14px;right:14px;border-radius:26px;padding:8px 12px;display:flex;gap:10px;align-items:center;z-index:4}
+.msgs{position:absolute;left:0;right:0;top:112px;bottom:78px;padding:10px 14px;display:flex;flex-direction:column;gap:7px;justify-content:flex-end;overflow:hidden;z-index:2}
+.m{max-width:76%;padding:9px 13px;border-radius:22px;line-height:1.3;position:relative}
+.them{align-self:flex-start;border-bottom-left-radius:7px}
+.mine{align-self:flex-end;border-bottom-right-radius:7px;color:var(--onacc);background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 6px 14px color-mix(in srgb,var(--acc) 35%,transparent)}
+.m .meta{display:block;font-size:9.5px;opacity:.75;text-align:right;margin-top:2px}
+.sticker{font-size:44px;align-self:flex-start;line-height:1;padding:0 6px}
+.comp{position:absolute;left:12px;right:12px;bottom:16px;border-radius:30px;padding:7px;display:flex;gap:7px;align-items:center;z-index:5}
+.inp{flex:1;height:36px;border-radius:18px;padding:9px 15px;color:var(--psub);background:rgba(255,255,255,.35)}
+.dark .inp{background:rgba(255,255,255,.08)}
+.send{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--onacc);background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.dots{display:inline-flex;gap:3px}.dots i{width:6px;height:6px;border-radius:50%;background:var(--psub);animation:bob 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes bob{50%{transform:translateY(-4px)}}
+.btn{border:0;border-radius:999px;padding:10px 20px;font-weight:700;color:#fff;background:var(--acc);cursor:pointer;min-height:44px}
+#pick{position:sticky;bottom:10px;margin-top:20px;background:var(--card);border:2px solid var(--acc);border-radius:16px;padding:12px 16px;box-shadow:var(--shadow)}
+#pick pre{white-space:pre-wrap;margin:6px 0;font:13px/1.45 ui-monospace,Consolas,monospace;color:var(--muted)}
+footer{color:var(--muted);font-size:13px;margin-top:24px}
+body{--acc:#34C759;--onacc:#fff}
+@media(prefers-reduced-motion:reduce){.dots i{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Clean glass, like your WhatsApp reference</h1>
+<p class="lead">Built from the screenshot you saved (<code>whatsapp (1).webp</code>): pale tinted background, soft glass cards with a bright edge, round action buttons, a pill search bar, filter pills and a floating tab bar. Choose a colour and it recolours everything, including the gradient bubbles you liked. Nothing here changes the real app.</p>
+<div class="grid">
+  <div class="panel">
+    <h2>Make it yours</h2>
+    <div class="ctl"><span class="t">Quick preset</span><div class="opts"><button id="preset">Pure white glass</button></div><small>Clear white glass, light, blue accent. One tap.</small></div>
+    <div class="ctl"><span class="t">Colour theme</span><div class="opts" id="pal"></div></div>
+    <div class="ctl"><span class="t">Or pick any colour</span><div class="colors"><input type="color" id="cc" value="#34C759" aria-label="custom colour"><small>Everything follows this colour.</small></div></div>
+    <div class="ctl"><span class="t">Background style</span><div class="opts" id="bgs"></div><small>Like iPhone wallpapers: soft, vivid or two colours.</small></div>
+    <div class="ctl"><span class="t">Light or dark</span><div class="opts" id="mode"></div></div>
+    <div class="ctl"><span class="t">Glass strength: <b id="gv"></b>%</span><input type="range" id="gl" min="15" max="80"><small>Low shows more background. High is easier to read.</small></div>
+    <div class="ctl"><span class="t">Blur: <b id="bv"></b> px</span><input type="range" id="bl" min="4" max="34"></div>
+    <div class="ctl"><span class="t">Show on the chat list</span>
+      <label class="tog"><input type="checkbox" id="s_search" checked> Search bar</label>
+      <label class="tog"><input type="checkbox" id="s_pills" checked> Filter pills</label>
+      <label class="tog"><input type="checkbox" id="s_ticks" checked> Read ticks in the preview</label>
+      <label class="tog"><input type="checkbox" id="s_tabs" checked> Floating tab bar</label>
+    </div>
+    <div class="ctl"><span class="t">Letters or photos on avatars</span><small>Real photos show when a member sets one. This mockup uses coloured letters.</small></div>
+  </div>
+  <div>
+    <div class="stage">
+      <div><div class="phone" id="pl"></div><div class="cap">Chat list</div></div>
+      <div><div class="phone" id="pc"></div><div class="cap">Chat</div></div>
+    </div>
+  </div>
+</div>
+<div id="pick"><b>My choice</b><pre id="sum"></pre><textarea id="note" style="width:100%;height:50px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:8px;font:inherit" placeholder="Anything else to change?"></textarea><div style="margin-top:6px"><button class="btn" id="copy">Copy my choice</button> <span id="done" style="color:var(--muted);font-size:13px"></span></div></div>
+<footer>Reference image: <code>designing/whatsapp (1).webp</code>. Other files: <code>design-glass-themes.html</code>, <code>design-ideas-v2.html</code>, <code>chat-ui-research.md</code>.</footer>
+</div>
+<script>
+const PAL=[['Green','#34C759'],['Mint','#00C7BE'],['Teal','#30B0C7'],['Cyan','#32ADE6'],['Blue','#007AFF'],['Indigo','#5856D6'],['Purple','#AF52DE'],['Pink','#FF2D55'],['Red','#FF3B30'],['Orange','#FF9500'],['Yellow','#FFCC00'],['Brown','#A2845E'],['Graphite','#8E8E93']];
+const BGS=[['white','Pure white glass'],['pale','Soft pale'],['vivid','Vivid wallpaper'],['duo','Two-tone'],['mono','Plain']];
+const PAIR={'#34C759':'#32ADE6','#00C7BE':'#007AFF','#30B0C7':'#5856D6','#32ADE6':'#AF52DE','#007AFF':'#AF52DE','#5856D6':'#FF2D55','#AF52DE':'#FF2D55','#FF2D55':'#FF9500','#FF3B30':'#FFCC00','#FF9500':'#FF2D55','#FFCC00':'#34C759','#A2845E':'#FF9500','#8E8E93':'#007AFF'};
+function lum(h){const n=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4));return .2126*n[0]+.7152*n[1]+.0722*n[2]}
+const S={acc:'#34C759',bgs:'pale',mode:'light',ga:42,gb:18,search:true,pills:true,ticks:true,tabs:true};
+const people=[['Alice Johnson','See you tomorrow!','9:41 AM','2',1,'A'],['Design Team','Emma: Great work!','9:30 AM','5',0,'D'],['Family','Mom: Dinner at 7?','8:15 AM','1',0,'F'],['Mark','Thanks!','Yesterday','',1,'M'],['Emma Brown','📷 Photo','Friday','',0,'E'],['Dev','🎤 Voice message','Friday','',1,'D']];
+const hues=[0,40,80,120,160,200];
+function av(i,sz){const c=`hsl(${(parseInt(S.acc.slice(1,3),16)+hues[i]*1.4)%360} 55% 52%)`;const h=[...S.acc.slice(1)].length;return `<div class="av" style="width:${sz}px;height:${sz}px;background:linear-gradient(135deg,${c},color-mix(in srgb,${c} 70%,#fff))">${people[i][5]}</div>`}
+function draw(){
+  document.body.style.setProperty('--acc',S.acc);
+  document.getElementById('pal').innerHTML=PAL.map(p=>`<button data-c="${p[1]}" class="${S.acc===p[1]?'on':''}"><span class="sw" style="background:${p[1]}"></span>${p[0]}</button>`).join('');
+  document.querySelectorAll('#pal button').forEach(b=>b.onclick=()=>{S.acc=b.dataset.c;document.getElementById('cc').value=S.acc;draw()});
+  document.getElementById('bgs').innerHTML=BGS.map(b=>`<button data-b="${b[0]}" class="${S.bgs===b[0]?'on':''}">${b[1]}</button>`).join('');
+  document.querySelectorAll('#bgs button').forEach(b=>b.onclick=()=>{S.bgs=b.dataset.b;draw()});
+  document.getElementById('mode').innerHTML=['light','dark'].map(m=>`<button data-m="${m}" class="${S.mode===m?'on':''}">${m[0].toUpperCase()+m.slice(1)}</button>`).join('');
+  document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{S.mode=b.dataset.m;draw()});
+  document.getElementById('gv').textContent=S.ga;document.getElementById('bv').textContent=S.gb;
+  const on=lum(S.acc)>.5?'#1b1b1f':'#fff';document.body.style.setProperty('--onacc',on);const sec=PAIR[S.acc.toUpperCase()]||'#007AFF';const st=`--acc:${S.acc};--onacc:${on};--second:${sec};--ga:${S.ga/100};--gb:${S.gb}px`;
+  const top=S.search?(S.pills?190:150):(S.pills?110:100);
+  const off=(S.pills?0:-44)+(S.search?0:-52);
+  const pl=document.getElementById('pl');pl.className='phone bg-'+S.bgs+' '+(S.mode==='dark'?'dark':'');pl.style.cssText=st;
+  const cards=people.map((p,i)=>`<div class="glass card">${av(i,46)}<div class="mid"><b>${p[0]}</b><span>${S.ticks&&p[4]?'<span class="tk" style="display:inline">✓✓ </span>':''}${p[1]}</span></div><div class="right"><span>${p[2]}</span>${p[3]?`<div class="badge">${p[3]}</div>`:''}</div></div>`).join('');
+  pl.innerHTML=`<div class="status"><span>9:41</span><span>▂▄▆ ▮</span></div><div class="island"></div>
+  <div class="head"><h3>Chats</h3><div class="glass round">📷</div><div class="round solid">＋</div></div>
+  ${S.search?`<div class="glass search"><span>🔍</span>Search</div>`:''}
+  ${S.pills?`<div class="pills" style="top:${S.search?154:104}px"><span class="pill on">All</span><span class="glass pill">Unread</span><span class="glass pill">Snaps</span><span class="glass pill">Favourites</span></div>`:''}
+  <div class="cards" style="top:${(S.search?(S.pills?204:160):(S.pills?154:106))}px;bottom:${S.tabs?92:20}px">${cards}</div>
+  ${S.tabs?`<div class="glass tabs"><div><i>◎</i>Snaps</div><div><i>☎</i>Calls</div><div><i>👥</i>People</div><div class="on"><i>💬</i>Chats</div><div><i>⚙</i>Settings</div></div>`:''}<div class="bar"></div>`;
+  const pc=document.getElementById('pc');pc.className='phone bg-'+S.bgs+' '+(S.mode==='dark'?'dark':'');pc.style.cssText=st;
+  pc.innerHTML=`<div class="status"><span>9:41</span><span>▂▄▆ ▮</span></div><div class="island"></div>
+  <div class="glass chead"><span style="font-size:20px;color:var(--acc)">‹</span>${av(0,36)}<div style="flex:1"><b>Alice Johnson</b><div style="font-size:11px;color:var(--psub)">online</div></div><span>📞</span></div>
+  <div class="msgs"><div class="glass m them">Look at this 😍<span class="meta">9:20</span></div><div class="m mine">This glass look is lovely<span class="meta">9:21 ✓✓</span></div><div class="sticker">🎉</div><div class="m mine">Sending a snap now<span class="meta">9:22 ✓✓</span></div><div class="glass m them" style="padding:11px 14px"><span class="dots"><i></i><i></i><i></i></span></div></div>
+  <div class="glass comp"><div class="round" style="width:34px;height:34px;color:var(--acc)">＋</div><div class="inp">Message</div><div class="send">➤</div></div><div class="bar"></div>`;
+  document.getElementById('sum').textContent=`Clean glass (WhatsApp reference), colour ${S.acc} (${(PAL.find(p=>p[1].toLowerCase()===S.acc.toLowerCase())||['custom'])[0]}), background ${S.bgs}, ${S.mode} mode, glass strength ${S.ga}%, blur ${S.gb}px, search ${S.search?'on':'off'}, filter pills ${S.pills?'on':'off'}, ticks ${S.ticks?'on':'off'}, floating tab bar ${S.tabs?'on':'off'}, gradient bubbles on my messages`;
+}
+document.getElementById('preset').onclick=()=>{S.acc='#007AFF';S.bgs='white';S.mode='light';S.ga=22;S.gb=24;document.getElementById('gl').value=S.ga;document.getElementById('bl').value=S.gb;document.getElementById('cc').value=S.acc;draw()};
+document.getElementById('cc').oninput=e=>{S.acc=e.target.value;draw()};
+document.getElementById('gl').value=S.ga;document.getElementById('bl').value=S.gb;
+document.getElementById('gl').oninput=e=>{S.ga=+e.target.value;draw()};
+document.getElementById('bl').oninput=e=>{S.gb=+e.target.value;draw()};
+[['s_search','search'],['s_pills','pills'],['s_ticks','ticks'],['s_tabs','tabs']].forEach(([id,k])=>document.getElementById(id).onchange=e=>{S[k]=e.target.checked;draw()});
+document.getElementById('copy').onclick=async()=>{const t='Link-C design choice: '+document.getElementById('sum').textContent+'. Notes: '+(document.getElementById('note').value||'none');try{await navigator.clipboard.writeText(t);document.getElementById('done').textContent='Copied. Paste it to Claude.'}catch{document.getElementById('done').textContent=t}};
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link-C Architecture</title>
+<style>
+:root{
+  --bg:#f6f7f9;--card:#ffffff;--text:#1b1f27;--muted:#5b6472;--border:#d9dde4;
+  --blue-bg:#e6f0fb;--blue-bd:#3b82c4;--blue-tx:#0f3d6b;
+  --orange-bg:#fdf0e1;--orange-bd:#d98324;--orange-tx:#6b3c05;
+  --green-bg:#e6f5ea;--green-bd:#3a9a5b;--green-tx:#134d27;
+  --purple-bg:#eeeafb;--purple-bd:#7a62d0;--purple-tx:#2f2070;
+  --gray-bg:#eceef2;--gray-bd:#8a93a3;--gray-tx:#2b3140;
+  --red-bg:#fbe9e9;--red-bd:#cf4a4a;--red-tx:#6b1717;
+  --line:#5b6472;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151b;--card:#1b2029;--text:#e8ebf0;--muted:#a3adbb;--border:#303846;
+    --blue-bg:#13293f;--blue-bd:#5aa2e0;--blue-tx:#cfe5fa;
+    --orange-bg:#3a2810;--orange-bd:#e39a45;--orange-tx:#f9deb8;
+    --green-bg:#12301c;--green-bd:#5cc07f;--green-tx:#cdf0d9;
+    --purple-bg:#221c3d;--purple-bd:#9b86e6;--purple-tx:#e0d9fa;
+    --gray-bg:#262c37;--gray-bd:#8993a4;--gray-tx:#dde2ea;
+    --red-bg:#3a1717;--red-bd:#e07070;--red-tx:#f8d3d3;
+    --line:#a3adbb;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151b;--card:#1b2029;--text:#e8ebf0;--muted:#a3adbb;--border:#303846;
+  --blue-bg:#13293f;--blue-bd:#5aa2e0;--blue-tx:#cfe5fa;
+  --orange-bg:#3a2810;--orange-bd:#e39a45;--orange-tx:#f9deb8;
+  --green-bg:#12301c;--green-bd:#5cc07f;--green-tx:#cdf0d9;
+  --purple-bg:#221c3d;--purple-bd:#9b86e6;--purple-tx:#e0d9fa;
+  --gray-bg:#262c37;--gray-bd:#8993a4;--gray-tx:#dde2ea;
+  --red-bg:#3a1717;--red-bd:#e07070;--red-tx:#f8d3d3;
+  --line:#a3adbb;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:28px;margin:0 0 4px;font-weight:600}
+h2{font-size:21px;margin:40px 0 12px;font-weight:600}
+h3{font-size:16px;margin:0 0 6px;font-weight:600}
+p{margin:0 0 10px}
+.sub{color:var(--muted);margin-bottom:20px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.stat b{display:block;font-size:20px;font-weight:600}
+.stat span{color:var(--muted);font-size:13px}
+.diagram{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;overflow-x:auto}
+.diagram svg{display:block;width:100%;min-width:760px;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0 0;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px;border:1.5px solid}
+.flow ol{margin:0;padding-left:20px}
+.flow li{margin:3px 0;font-size:14.5px}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;border:1px solid var(--border);color:var(--muted);margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--gray-bg);font-weight:600}
+tr:last-child td{border-bottom:0}
+.tablewrap{overflow-x:auto}
+.warn{border-left:4px solid var(--red-bd);background:var(--red-bg);color:var(--red-tx);padding:10px 14px;border-radius:8px;font-size:14.5px}
+.timeline{display:grid;gap:8px}
+.week{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:start;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:14.5px}
+.week b{color:var(--blue-bd)}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;fill:var(--text)}
+svg .t{font-size:13px;font-weight:600}
+svg .s{font-size:11.5px;fill:var(--muted)}
+svg .z{font-size:12.5px;font-weight:600;fill:var(--muted)}
+svg .ln{stroke:var(--line);stroke-width:1.6;fill:none}
+svg .dash{stroke-dasharray:6 4}
+.b-blue{fill:var(--blue-bg);stroke:var(--blue-bd);stroke-width:1.5}
+.b-orange{fill:var(--orange-bg);stroke:var(--orange-bd);stroke-width:1.5}
+.b-green{fill:var(--green-bg);stroke:var(--green-bd);stroke-width:1.5}
+.b-purple{fill:var(--purple-bg);stroke:var(--purple-bd);stroke-width:1.5}
+.b-gray{fill:var(--gray-bg);stroke:var(--gray-bd);stroke-width:1.5}
+.band{fill:none;stroke:var(--border);stroke-width:1;rx:12}
+.grp{fill:none;stroke:var(--gray-bd);stroke-width:1.2;stroke-dasharray:5 4;rx:10}
+button.theme{float:right;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<button class="theme" id="theme" aria-label="Toggle light or dark theme">Theme</button>
+<h1>Link-C: process, tech and network architecture</h1>
+<p class="sub">Invite-only secure chat web app (PWA) for PC, Samsung and iPhone, self-hosted on your own Linux VM. High-level view of how it all connects.</p>
+
+<div class="grid g4">
+  <div class="card stat"><b>1 to under 50</b><span>invited users</span></div>
+  <div class="card stat"><b>0 open ports</b><span>Cloudflare Tunnel, outbound only</span></div>
+  <div class="card stat"><b>About $0-2 / month</b><span>VM, domain and Cloudflare are free</span></div>
+  <div class="card stat"><b>8 weeks</b><span>MVP, built with Claude Code</span></div>
+</div>
+
+<h2>1. Network architecture</h2>
+<div class="diagram">
+<svg viewBox="0 0 900 660" role="img" aria-labelledby="nt nd">
+<title id="nt">Link-C network architecture</title>
+<desc id="nd">Clients reach Cloudflare over HTTPS. Cloudflare passes traffic through a tunnel that the home Linux VM opens outbound. Inside the VM, a Docker network runs the Next.js app, worker, Supabase and a snaps folder, separate from n8n. The VM talks outbound to Backblaze B2, LiveKit, an SMS gateway and an email service.</desc>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--line)"/></marker>
+</defs>
+
+<rect class="band" x="10" y="8" width="880" height="96"/>
+<text class="z" x="24" y="28">Clients (any device, one responsive web app)</text>
+<rect class="b-blue" x="40" y="42" width="250" height="46" rx="8"/><text class="t" x="165" y="62" text-anchor="middle">PC browser</text><text class="s" x="165" y="78" text-anchor="middle">two-pane layout</text>
+<rect class="b-blue" x="325" y="42" width="250" height="46" rx="8"/><text class="t" x="450" y="62" text-anchor="middle">Samsung (Android) PWA</text><text class="s" x="450" y="78" text-anchor="middle">single-pane layout</text>
+<rect class="b-blue" x="610" y="42" width="250" height="46" rx="8"/><text class="t" x="735" y="62" text-anchor="middle">iPhone (Safari) PWA</text><text class="s" x="735" y="78" text-anchor="middle">single-pane, safe-area</text>
+
+<line class="ln" x1="450" y1="104" x2="450" y2="134" marker-end="url(#ar)"/>
+<text class="s" x="462" y="124">HTTPS / WSS (TLS)</text>
+
+<rect class="band" x="10" y="134" width="880" height="102"/>
+<text class="z" x="24" y="154">Cloudflare (free plan): public edge, hides your home IP</text>
+<rect class="b-orange" x="40" y="168" width="195" height="52" rx="8"/><text class="t" x="137" y="190" text-anchor="middle">DNS + HTTPS cert</text><text class="s" x="137" y="207" text-anchor="middle">your free domain</text>
+<rect class="b-orange" x="252" y="168" width="195" height="52" rx="8"/><text class="t" x="350" y="190" text-anchor="middle">WAF + rate limits</text><text class="s" x="350" y="207" text-anchor="middle">DDoS and abuse protection</text>
+<rect class="b-orange" x="464" y="168" width="195" height="52" rx="8"/><text class="t" x="561" y="190" text-anchor="middle">Access login</text><text class="s" x="561" y="207" text-anchor="middle">extra gate for /admin</text>
+<rect class="b-orange" x="676" y="168" width="184" height="52" rx="8"/><text class="t" x="768" y="190" text-anchor="middle">Tunnel endpoint</text><text class="s" x="768" y="207" text-anchor="middle">100 MB per request cap</text>
+
+<line class="ln" x1="768" y1="236" x2="768" y2="296" marker-end="url(#ar)"/>
+<text class="s" x="758" y="262" text-anchor="end">encrypted tunnel, opened</text>
+<text class="s" x="758" y="276" text-anchor="end">outbound by the VM</text>
+
+<rect class="band" x="10" y="236" width="880" height="288"/>
+<text class="z" x="24" y="256">Your Linux VM at home: firewall denies all inbound traffic</text>
+
+<rect class="b-green" x="640" y="296" width="220" height="44" rx="8"/><text class="t" x="750" y="315" text-anchor="middle">cloudflared</text><text class="s" x="750" y="331" text-anchor="middle">tunnel client</text>
+
+<rect class="grp" x="30" y="284" width="590" height="224"/>
+<text class="z" x="44" y="302">Docker network: linkc</text>
+<rect class="b-green" x="50" y="326" width="150" height="56" rx="8"/><text class="t" x="125" y="348" text-anchor="middle">Next.js app</text><text class="s" x="125" y="366" text-anchor="middle">UI + API + admin</text>
+<rect class="b-green" x="240" y="326" width="170" height="56" rx="8"/><text class="t" x="325" y="346" text-anchor="middle">Supabase</text><text class="s" x="325" y="363" text-anchor="middle">Postgres + RLS, Auth, Realtime</text>
+<rect class="b-green" x="450" y="326" width="150" height="56" rx="8"/><text class="t" x="525" y="348" text-anchor="middle">Worker</text><text class="s" x="525" y="366" text-anchor="middle">uploads, cleanup, SMS</text>
+<rect class="b-green" x="50" y="426" width="550" height="62" rx="8"/><text class="t" x="325" y="450" text-anchor="middle">/data/snaps and upload temp: encrypted files on VM disk</text><text class="s" x="325" y="468" text-anchor="middle">snaps deleted after first view or 24 h; chunks deleted after 1 h; capped at 2 GB / 3 GB</text>
+
+<path class="ln" d="M640 318 H125 V326" marker-end="url(#ar)" transform="translate(0,-2)"/>
+<text class="s" x="420" y="311">internal HTTP (app:3000)</text>
+<line class="ln" x1="200" y1="354" x2="240" y2="354" marker-end="url(#ar)"/>
+<line class="ln" x1="450" y1="354" x2="410" y2="354" marker-end="url(#ar)"/>
+<line class="ln" x1="125" y1="382" x2="125" y2="426" marker-end="url(#ar)"/>
+<line class="ln" x1="525" y1="382" x2="525" y2="426" marker-end="url(#ar)"/>
+
+<rect class="grp" x="640" y="368" width="220" height="140"/>
+<text class="z" x="654" y="386">Docker network: n8n</text>
+<rect class="b-gray" x="660" y="402" width="180" height="48" rx="8"/><text class="t" x="750" y="423" text-anchor="middle">n8n (existing)</text><text class="s" x="750" y="440" text-anchor="middle">isolated, nothing shared</text>
+<text class="s" x="750" y="474" text-anchor="middle">no shared secrets or volumes</text>
+<text class="s" x="750" y="490" text-anchor="middle">no Docker socket mounted</text>
+
+<line class="ln" x1="140" y1="524" x2="140" y2="570" marker-end="url(#ar)"/>
+<line class="ln dash" x1="360" y1="524" x2="360" y2="570" marker-end="url(#ar)"/>
+<line class="ln" x1="580" y1="524" x2="580" y2="570" marker-end="url(#ar)"/>
+<line class="ln" x1="780" y1="524" x2="780" y2="570" marker-end="url(#ar)"/>
+<text class="s" x="150" y="552">encrypted files</text>
+<text class="s" x="370" y="552">call token</text>
+<text class="s" x="590" y="552">alert SMS</text>
+<text class="s" x="790" y="552">magic-link email</text>
+
+<rect class="b-purple" x="40" y="570" width="200" height="56" rx="8"/><text class="t" x="140" y="592" text-anchor="middle">Backblaze B2</text><text class="s" x="140" y="610" text-anchor="middle">normal media + DB backups</text>
+<rect class="b-purple" x="260" y="570" width="200" height="56" rx="8"/><text class="t" x="360" y="592" text-anchor="middle">LiveKit Cloud</text><text class="s" x="360" y="610" text-anchor="middle">voice / video calls</text>
+<rect class="b-purple" x="480" y="570" width="200" height="56" rx="8"/><text class="t" x="580" y="592" text-anchor="middle">SMS gateway</text><text class="s" x="580" y="610" text-anchor="middle">generic number</text>
+<rect class="b-purple" x="700" y="570" width="160" height="56" rx="8"/><text class="t" x="780" y="592" text-anchor="middle">Email (SMTP)</text><text class="s" x="780" y="610" text-anchor="middle">Brevo or Resend free</text>
+<text class="s" x="450" y="648" text-anchor="middle">External services (outbound only). Call audio and video flow directly between devices and LiveKit, not through your VM.</text>
+</svg>
+<div class="legend">
+<span><i style="background:var(--blue-bg);border-color:var(--blue-bd)"></i>Clients</span>
+<span><i style="background:var(--orange-bg);border-color:var(--orange-bd)"></i>Cloudflare edge</span>
+<span><i style="background:var(--green-bg);border-color:var(--green-bd)"></i>Your VM (Link-C)</span>
+<span><i style="background:var(--gray-bg);border-color:var(--gray-bd)"></i>Isolated (n8n)</span>
+<span><i style="background:var(--purple-bg);border-color:var(--purple-bd)"></i>External services</span>
+</div>
+</div>
+
+<h2>2. Key network rules</h2>
+<div class="grid g3">
+  <div class="card"><h3>No inbound ports</h3><p>The VM dials out to Cloudflare. Nothing is forwarded on your router, and your home IP is never published.</p></div>
+  <div class="card"><h3>Everything over TLS</h3><p>Browser to Cloudflare uses HTTPS, and the tunnel is encrypted. Inside the VM, services talk on a private Docker network.</p></div>
+  <div class="card"><h3>n8n kept apart</h3><p>Separate Docker network, volumes and secrets, and no shared database, so a problem in one cannot reach the other.</p></div>
+</div>
+
+<h2>3. High-level processes</h2>
+<div class="grid g3 flow">
+  <div class="card"><span class="tag">Login</span><h3>Invite and magic link</h3>
+    <ol><li>Owner invites an email (and phone) in the admin panel.</li><li>Member opens the invite and requests a login link.</li><li>Link is single-use and expires in 10 minutes, with a confirm page and 6-digit code backup.</li><li>First login shows the privacy notice and SMS notice to accept.</li></ol></div>
+  <div class="card"><span class="tag">Chat</span><h3>Send a message</h3>
+    <ol><li>Browser sends over WSS through Cloudflare and the tunnel.</li><li>App validates and saves it in Postgres under Row Level Security.</li><li>Supabase Realtime pushes it to the recipient.</li><li>Delivered, read and typing states update live.</li></ol></div>
+  <div class="card"><span class="tag">Normal media</span><h3>Photo or video kept</h3>
+    <ol><li>Browser uploads in 8 MB chunks (each under Cloudflare's 100 MB cap); photo max 10 MB, video max 300 MB.</li><li>Server assembles, checks real file type, strips EXIF.</li><li>Encrypts with a per-file key (AES-256-GCM).</li><li>Stores the encrypted file in the private B2 bucket.</li><li>Viewing streams it back, decrypted, through your own domain.</li></ol></div>
+  <div class="card"><span class="tag">Snap</span><h3>One-time or timed media</h3>
+    <ol><li>Encrypted temp file on the VM only; never in B2 or backups.</li><li>Recipient opens once; server marks it viewed and issues a 30-second link.</li><li>Viewer auto-closes after 1-10 seconds, or when closed (no limit).</li><li>File is deleted right after viewing; unopened snaps are deleted after 24 hours.</li></ol></div>
+  <div class="card"><span class="tag">SMS</span><h3>Offline alert</h3>
+    <ol><li>Message arrives while the member has been offline for 2 minutes.</li><li>Worker sends one system-style SMS using the owner's template.</li><li>No more SMS until the member opens the app and goes offline again.</li><li>Daily and monthly caps apply; everything is set in the admin panel.</li></ol></div>
+  <div class="card"><span class="tag">Location and calls</span><h3>Consent-based</h3>
+    <ol><li>Owner taps Request location; the member accepts 15 min, 1 h or 8 h, or declines.</li><li>A banner shows while sharing; data is deleted after the window.</li><li>Calls: app issues a LiveKit token; audio and video go device to LiveKit.</li></ol></div>
+</div>
+
+<h2>4. Tech stack</h2>
+<div class="tablewrap"><table>
+<tr><th>Layer</th><th>Choice</th><th>Why</th></tr>
+<tr><td>Frontend</td><td>Next.js, TypeScript, Tailwind, PWA</td><td>One responsive codebase for PC and phones</td></tr>
+<tr><td>Backend</td><td>Next.js server code + background worker</td><td>No separate server to manage</td></tr>
+<tr><td>Database, auth, realtime</td><td>Self-hosted Supabase (Postgres + RLS)</td><td>Access rules enforced in the database</td></tr>
+<tr><td>Normal media and backups</td><td>Backblaze B2 (private bucket, encrypted files)</td><td>First 10 GB free, about $0.007 per GB after</td></tr>
+<tr><td>Snaps</td><td>Encrypted temp files on the VM</td><td>Real deletion, never leaves your server</td></tr>
+<tr><td>Calls</td><td>LiveKit Cloud (free tier)</td><td>Managed WebRTC; works from behind home NAT</td></tr>
+<tr><td>Edge and access</td><td>Cloudflare DNS, WAF, Tunnel, Access</td><td>Free, hides home IP, no open ports</td></tr>
+<tr><td>Email and SMS</td><td>Brevo or Resend; generic SMS gateway</td><td>Magic links; offline alerts</td></tr>
+<tr><td>CI and monitoring</td><td>GitHub Actions, Sentry free</td><td>Automated checks and error visibility</td></tr>
+</table></div>
+
+<h2>5. Security layers</h2>
+<div class="tablewrap"><table>
+<tr><th>Layer</th><th>Controls</th></tr>
+<tr><td>Edge</td><td>Cloudflare WAF and rate limits, Access login on /admin, HTTPS and security headers</td></tr>
+<tr><td>Identity</td><td>Invite-only, single-use magic links, role stored in the database, owner checks on the server</td></tr>
+<tr><td>Data</td><td>Row Level Security on every table, validated input, escaped message text, audit log without content</td></tr>
+<tr><td>Media</td><td>Real file-type checks, EXIF removal, per-file encryption, bucket-scoped B2 key, 30-second links, no public URLs</td></tr>
+<tr><td>Host</td><td>SSH keys only, firewall deny inbound, auto updates, fail2ban, pinned Docker images, n8n isolated</td></tr>
+<tr><td>Secrets and keys</td><td>Docker secrets, never in git; master encryption key copy kept offline in a password manager</td></tr>
+<tr><td>Recovery</td><td>Nightly encrypted DB backup to B2 (snaps excluded), one tested restore</td></tr>
+</table></div>
+<p></p>
+<div class="warn"><b>Honest limits:</b> a recipient can still screenshot or film a snap, and screenshot detection is best effort. Your disk is not fully encrypted, so someone with physical access to the VM could reach the database and keys. Losing the master key makes stored media unreadable.</div>
+
+<h2>6. Roadmap</h2>
+<div class="timeline">
+<div class="week"><b>Wk 1</b><span>Docker on the VM, Cloudflare Tunnel, Supabase, invite-only magic-link auth, RLS, CI, B2 bucket and key</span></div>
+<div class="week"><b>Wk 2</b><span>Profiles, conversations, realtime text chat, responsive shell</span></div>
+<div class="week"><b>Wk 3</b><span>Read receipts, typing, presence; chunked upload and B2 media pipeline; admin panel skeleton</span></div>
+<div class="week"><b>Wk 4</b><span>Snaps: temp storage, one-time and timed view, cleanup job, screenshot flag</span></div>
+<div class="week"><b>Wk 5</b><span>Voice and video calls with LiveKit</span></div>
+<div class="week"><b>Wk 6</b><span>Consent-based location, SMS alerts and admin SMS settings, real-phone delivery test</span></div>
+<div class="week"><b>Wk 7</b><span>Security review, RLS and race-condition tests, hardening, backup restore test</span></div>
+<div class="week"><b>Wk 8</b><span>Go live, monitoring, privacy notice at first login, invite the first member</span></div>
+</div>
+
+</div>
+<script>
+(function(){
+  var r=document.documentElement,b=document.getElementById('theme');
+  try{var s=localStorage.getItem('lc-theme');if(s)r.setAttribute('data-theme',s)}catch(e){}
+  b.addEventListener('click',function(){
+    var dark=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    var n=dark?'light':'dark';r.setAttribute('data-theme',n);
+    try{localStorage.setItem('lc-theme',n)}catch(e){}
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Link-C
 
-Personal, invite-only secure chat PWA: 1:1 realtime chat, photo/video sharing (normal or one-time/timed snaps), stickers and reactions, calls via LiveKit, consent-based location, offline SMS alerts, owner admin panel. Next.js 15 + TypeScript, Supabase Cloud (Postgres with RLS, Auth, Realtime), Backblaze B2, Cloudflare Tunnel.
+Personal, invite-only secure chat PWA: 1:1 realtime chat, photo/video sharing (normal or one-time/timed snaps), stickers and reactions, calls via LiveKit, consent-based location, offline SMS alerts, owner admin panel. Next.js 16 + TypeScript, Supabase Cloud (Postgres with RLS, Auth, Realtime), Backblaze B2, Cloudflare Tunnel.
 
 ## Sign-in and design
 
@@ -19,17 +19,19 @@ Personal, invite-only secure chat PWA: 1:1 realtime chat, photo/video sharing (n
 4. Set the owner password: `node --env-file=.env.local scripts/owner-set-password-link.mjs you@example.com` (set `APP_URL=http://localhost:3000`), open the link, choose a password, then sign in at `/login`.
 5. Worker (cleanup, SMS alerts): `npm run worker`.
 
-Checks: `npm run lint`, `npm run typecheck`, `npm test`. RLS tests (use a test database, never production data): `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/rls.sql`.
+Checks: `npm run lint`, `npm run typecheck`, `npm test`. RLS tests (use a test database, never production data): `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls.sql`.
 
 ## Layout
 
-- `src/` app code (pages, API routes, `lib/` crypto, storage, auth)
-- `worker/` background process: snap/upload/location cleanup, disk check, SMS alerts (`scripts/build-worker.mjs` bundles it to `dist/worker.mjs`)
-- `supabase/migrations/` database schema and RLS
-- `scripts/` secrets generator, owner link scripts, worker build
-- `tests/` vitest unit tests and `rls.sql`
+- `src/` app code: `app/` pages and API routes, `components/`, `lib/` (crypto, storage, auth, look, offline, ...)
+- `worker/` background process: snap/upload/location cleanup, disk check, storage stats, SMS alerts (`scripts/build-worker.mjs` bundles it to `dist/worker.mjs`)
+- `supabase/migrations/` database schema and RLS; `supabase/tests/rls.sql` database security tests
+- `scripts/` secrets generator, owner link scripts, worker build, emoji seed scripts; `scripts/qa/` regression scripts and helpers (need a test or local setup, see their first lines)
+- `tests/` vitest unit tests
+- `public/` static files, service worker, icons, offline page
 - `Dockerfile`, `docker-compose.yml` containers: app (published on 127.0.0.1:3005 for the existing Cloudflare Tunnel), worker
-- `docs/` guides (below)
+- `docs/` guides, reports and design files (index: [docs/README.md](docs/README.md))
+- `CLAUDE.md` project rules and status for Claude Code
 
 ## Docs
 

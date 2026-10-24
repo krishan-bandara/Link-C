@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link-C photo security flow</title>
+<style>
+:root{
+  --bg:#f5f6fb; --card:#ffffff; --ink:#1b1f33; --muted:#5d6480; --line:#dfe2ee;
+  --a:#5b5bf0; --a2:#c04bd8; --ok:#12a37a; --warn:#d98a00; --bad:#d6405a; --soft:#eef0fb;
+  --shadow:0 6px 24px rgba(40,50,110,.08);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0b0e1d; --card:#141a31; --ink:#e9ecfa; --muted:#9aa3c7; --line:#252d50; --soft:#1a2142; --shadow:0 6px 24px rgba(0,0,0,.35);
+  --a:#8c8cff; --a2:#e07bf2; --ok:#35d0a0; --warn:#f0b43a; --bad:#ff6b85}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px 64px}
+header{padding:40px 0 18px}
+h1{margin:0 0 6px;font-size:clamp(26px,5vw,40px);line-height:1.15;background:linear-gradient(90deg,var(--a),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);max-width:720px}
+h2{margin:44px 0 6px;font-size:clamp(20px,3.4vw,26px)}
+h2 .n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;font-size:15px;margin-right:10px;vertical-align:middle}
+.lead{color:var(--muted);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+/* pipeline */
+.flow{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));counter-reset:s}
+.step{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 14px 14px 14px;box-shadow:var(--shadow)}
+.step::before{counter-increment:s;content:counter(s);position:absolute;top:-11px;left:12px;background:var(--a);color:#fff;border-radius:999px;font-size:12px;font-weight:700;padding:1px 9px}
+.step h3{margin:6px 0 4px;font-size:15px}
+.step p{margin:0;font-size:13.5px;color:var(--muted)}
+.tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-top:8px}
+.t-sec{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.t-net{background:color-mix(in srgb,var(--a) 16%,transparent);color:var(--a)}
+.t-st{background:color-mix(in srgb,var(--a2) 16%,transparent);color:var(--a2)}
+/* gate */
+.gates{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.gate{border-left:4px solid var(--ok);background:var(--soft);border-radius:10px;padding:10px 12px;font-size:14px}
+.gate b{display:block}
+.gate.no{border-left-color:var(--bad)}
+.who{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:14px}
+.who div{border-radius:12px;padding:12px;font-size:14px;border:1px solid var(--line)}
+.who .y{background:color-mix(in srgb,var(--ok) 11%,var(--card))}
+.who .n2{background:color-mix(in srgb,var(--bad) 10%,var(--card))}
+.who strong{display:block;margin-bottom:2px}
+/* compare */
+.cmp{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+.col h3{margin:0 0 4px}
+.col .pill{font-size:12px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.col ul{margin:12px 0 0;padding:0;list-style:none}
+.col li{padding:7px 0 7px 26px;position:relative;border-top:1px dashed var(--line);font-size:14.5px}
+.col li::before{content:"";position:absolute;left:4px;top:13px;width:10px;height:10px;border-radius:50%;background:var(--a)}
+.col li.w::before{background:var(--warn)}
+.col li.g::before{background:var(--ok)}
+/* timeline */
+.tl{position:relative;margin:10px 0 0;padding-left:26px}
+.tl::before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:3px;border-radius:3px;background:linear-gradient(var(--a),var(--a2))}
+.ev{position:relative;margin:0 0 14px}
+.ev::before{content:"";position:absolute;left:-26px;top:5px;width:15px;height:15px;border-radius:50%;background:var(--card);border:3px solid var(--a)}
+.ev.end::before{border-color:var(--bad)}
+.ev b{display:block}
+.ev span{color:var(--muted);font-size:14px}
+.two{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.key{display:grid;gap:8px;font-size:14px}
+.row{display:flex;gap:10px;align-items:flex-start}
+.dot{flex:none;width:11px;height:11px;border-radius:50%;margin-top:7px}
+.limits li{margin:6px 0}
+code{background:var(--soft);padding:1px 6px;border-radius:6px;font-size:.88em}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin:10px 0 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+footer{margin-top:44px;color:var(--muted);font-size:13px}
+svg text{font-family:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>What happens to a photo in Link-C</h1>
+  <p class="sub">From the moment someone taps send, to who can open it, and what happens to a normal photo versus a view-once snap. Checked against the real code on 2026-10-24.</p>
+</header>
+
+<!-- 1 -->
+<h2><span class="n">1</span>Sending: the upload pipeline</h2>
+<p class="lead">Every file goes through the same seven steps. Nothing is stored until it passes all the checks.</p>
+<div class="flow">
+  <div class="step"><h3>Phone shrinks it</h3><p>Photos are reduced to 2048 px before sending. Limits: photo 10 MB, video 300 MB, voice note 25 MB.</p><span class="tag t-net">On the phone</span></div>
+  <div class="step"><h3>Logged in + in this chat</h3><p>The server checks the member is signed in, is part of the conversation, and is under the rate limit (30 uploads a minute).</p><span class="tag t-sec">Gate</span></div>
+  <div class="step"><h3>8 MB pieces over HTTPS</h3><p>Sent through the Cloudflare tunnel (no open ports on your server). Each piece is encrypted again with a temporary key while it waits.</p><span class="tag t-net">In transit</span></div>
+  <div class="step"><h3>Real type check</h3><p>The server reads the first bytes of the file. A .exe renamed to .jpg is rejected. The declared type must match the real one.</p><span class="tag t-sec">Gate</span></div>
+  <div class="step"><h3>Clean and re-encode</h3><p>Photos are rebuilt with sharp, videos and voice notes re-muxed with ffmpeg. This removes GPS, camera info and hidden data, and breaks image-bomb files.</p><span class="tag t-sec">Gate</span></div>
+  <div class="step"><h3>Encrypt with its own key</h3><p>AES-256-GCM, a fresh random key per file. That key is locked with your master key and saved in the database.</p><span class="tag t-sec">Encryption</span></div>
+  <div class="step"><h3>Store under a random name</h3><p><b>Normal:</b> private Backblaze B2 bucket. <b>Snaps:</b> only the server disk. The temporary pieces are deleted.</p><span class="tag t-st">Storage</span></div>
+</div>
+<div class="legend"><span><i style="background:var(--ok)"></i>security check</span><span><i style="background:var(--a)"></i>network</span><span><i style="background:var(--a2)"></i>storage</span></div>
+
+<!-- 2 -->
+<h2><span class="n">2</span>Viewing: who can open it?</h2>
+<p class="lead">There is no public link to any photo. Every view goes through the app, which asks the same questions each time.</p>
+<div class="card">
+  <svg viewBox="0 0 900 150" width="100%" role="img" aria-label="A request passes four checks before the file is decrypted" style="display:block">
+    <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#5b5bf0"/><stop offset="1" stop-color="#c04bd8"/></linearGradient></defs>
+    <g font-size="14" fill="currentColor" text-anchor="middle">
+      <rect x="6" y="40" width="130" height="66" rx="12" fill="none" stroke="url(#g)" stroke-width="2.5"/><text x="71" y="68">Someone asks</text><text x="71" y="88" font-size="12" opacity=".7">for a photo</text>
+      <path d="M140 73h38" stroke="url(#g)" stroke-width="2.5"/><path d="M174 67l8 6-8 6" fill="none" stroke="url(#g)" stroke-width="2.5"/>
+      <rect x="186" y="40" width="130" height="66" rx="12" fill="rgba(18,163,122,.13)" stroke="#12a37a" stroke-width="2"/><text x="251" y="68">1. Logged in?</text><text x="251" y="88" font-size="12" opacity=".7">valid session</text>
+      <path d="M320 73h28" stroke="url(#g)" stroke-width="2.5"/><path d="M344 67l8 6-8 6" fill="none" stroke="url(#g)" stroke-width="2.5"/>
+      <rect x="356" y="40" width="150" height="66" rx="12" fill="rgba(18,163,122,.13)" stroke="#12a37a" stroke-width="2"/><text x="431" y="68">2. In this chat?</text><text x="431" y="88" font-size="12" opacity=".7">database row rules (RLS)</text>
+      <path d="M510 73h28" stroke="url(#g)" stroke-width="2.5"/><path d="M534 67l8 6-8 6" fill="none" stroke="url(#g)" stroke-width="2.5"/>
+      <rect x="546" y="40" width="150" height="66" rx="12" fill="rgba(18,163,122,.13)" stroke="#12a37a" stroke-width="2"/><text x="621" y="68">3. Not deleted?</text><text x="621" y="88" font-size="12" opacity=".7">not hidden or cleared</text>
+      <path d="M700 73h28" stroke="url(#g)" stroke-width="2.5"/><path d="M724 67l8 6-8 6" fill="none" stroke="url(#g)" stroke-width="2.5"/>
+      <rect x="736" y="40" width="158" height="66" rx="12" fill="rgba(192,75,216,.13)" stroke="#c04bd8" stroke-width="2"/><text x="815" y="68">4. Unlock + stream</text><text x="815" y="88" font-size="12" opacity=".7">decrypt on the server</text>
+    </g>
+    <text x="450" y="136" text-anchor="middle" font-size="13" fill="currentColor" opacity=".7">Fail any check and the answer is "not found" (404). The file is never sent.</text>
+  </svg>
+  <div class="who">
+    <div class="y"><strong>Can see it</strong>The sender and the other person in that one chat.</div>
+    <div class="n2"><strong>Cannot see it</strong>Other members of Link-C, anyone with the file's address, anyone not logged in, search engines.</div>
+    <div class="n2"><strong>What the bucket holds</strong>Only scrambled bytes with random names. Without the key from the database it is unreadable.</div>
+  </div>
+  <p style="margin:14px 0 0;color:var(--muted);font-size:14px">The server owner (you) holds the master key, so this is <b>server-side</b> encryption, not end-to-end. That was a deliberate choice.</p>
+</div>
+
+<!-- 3 -->
+<h2><span class="n">3</span>Normal photo vs view-once snap</h2>
+<p class="lead">Same pipeline up to storage. After that the two behave very differently.</p>
+<div class="cmp">
+  <div class="card col">
+    <h3>Normal photo</h3><span class="pill">stays in the chat</span>
+    <ul>
+      <li class="g">Stored encrypted in the private B2 bucket</li>
+      <li>Both people can open it again and again</li>
+      <li>The browser may keep a private copy for up to a day</li>
+      <li class="w">The receiver <b>can download it</b> (the download button is allowed)</li>
+      <li class="g">"Delete for me" hides it for that person only</li>
+      <li class="g">"Delete for everyone" removes the file and its key for both</li>
+      <li class="g">Backed up with normal data</li>
+    </ul>
+  </div>
+  <div class="card col">
+    <h3>View-once or timed snap</h3><span class="pill">disappears</span>
+    <ul>
+      <li class="g">Stored on the server disk only. Never on B2, never in backups</li>
+      <li class="g">The sender <b>cannot</b> open their own snap</li>
+      <li class="g">Opening it is a one-time, atomic claim. Two phones cannot both win</li>
+      <li class="g">Download is blocked for snaps</li>
+      <li class="g">Image: the server deletes it right after the first send, even if the viewer's connection drops</li>
+      <li class="g">Video: playable for up to 10 minutes after opening, then deleted</li>
+      <li class="g">Never opened: deleted after 24 hours</li>
+      <li class="w">A screenshot warning is sent to the sender (best effort only)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 4 -->
+<h2><span class="n">4</span>Life of a snap, step by step</h2>
+<div class="two">
+  <div class="card">
+    <div class="tl">
+      <div class="ev"><b>Sender sends the snap</b><span>Checked, cleaned, encrypted, stored on the server disk. Expiry set to 24 hours.</span></div>
+      <div class="ev"><b>Receiver taps to open</b><span>The server flips "viewed" from empty to now, in one step. A one-time pass (token) is issued: 30 seconds for a photo, 10 minutes for a video.</span></div>
+      <div class="ev"><b>The pass is checked on every request</b><span>It only works for that file and that person. The reply is never cached (<code>no-store</code>).</span></div>
+      <div class="ev"><b>The photo is streamed, then burned</b><span>The server marks it deleted before sending, then removes the file and the key when the last byte goes out.</span></div>
+      <div class="ev end"><b>Gone</b><span>Opening again gives "This snap is no longer available" (410 or 409).</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="key">
+      <b>If nobody opens it</b>
+      <div class="row"><span class="dot" style="background:var(--warn)"></span><span>After 24 hours a background worker deletes the file and its key.</span></div>
+      <b style="margin-top:8px">If something goes wrong halfway</b>
+      <div class="row"><span class="dot" style="background:var(--warn)"></span><span>A failed upload is rolled back: the stored file and the message are removed, temporary pieces are cleaned up.</span></div>
+      <div class="row"><span class="dot" style="background:var(--warn)"></span><span>Abandoned uploads are cleared after a short time, so they cannot fill the disk.</span></div>
+      <b style="margin-top:8px">Screenshot report</b>
+      <div class="row"><span class="dot" style="background:var(--a)"></span><span>If the viewer's phone reports a screenshot, a system line appears in the chat once per view. Browsers cannot truly block or detect all screenshots.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 5 -->
+<h2><span class="n">5</span>Honest limits</h2>
+<div class="card limits">
+  <ul>
+    <li><b>Screenshots and cameras:</b> anyone who can see a photo can screenshot it, or photograph the screen with another phone. A normal photo can also be downloaded. No chat app can fully stop this.</li>
+    <li><b>Server-side encryption:</b> whoever controls the server and the master key can technically decrypt files. Keep <code>MASTER_KEY</code> private and backed up.</li>
+    <li><b>Stolen account:</b> someone with a member's password and phone sees what that member sees. Login locks for 15 minutes after 5 wrong tries, and the app logs out after 1 idle minute.</li>
+    <li><b>Review status:</b> an internal security review found 0 critical and 1 high issue (a crash from a huge crafted image, fixed). A human penetration test is still recommended.</li>
+  </ul>
+</div>
+
+<footer>Link-C &middot; media flow reviewed from <code>upload-process.ts</code>, <code>api/uploads</code>, <code>api/media/[id]/open|stream|screenshot</code> and the snap cleanup worker.</footer>
+</div>
+</body>
+</html>

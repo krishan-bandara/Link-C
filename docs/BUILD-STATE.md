@@ -1,7 +1,7 @@
 # Link-C build state (resume file)
 
 If a session is interrupted (usage limit, crash), tell Claude: "continue from docs/BUILD-STATE.md". Everything needed is here.
-Working copy: C:\dev\link-c (never in OneDrive: node_modules). Mirror (no secrets, no qa/): `Link-C\code`.
+Working copy: this repo (the old `C:\dev\link-c` copy and the OneDrive `code` mirror are dead and archived).
 Live stack: `docker compose` in C:\dev\link-c, app at http://localhost:3005. Supabase project `kjjyplcqobbojrjvlylb` (personal org), Backblaze bucket `link-c-bucket`.
 
 ## Decisions (owner, 2026-10-19)
@@ -30,7 +30,7 @@ Owner decisions pending: SMS gateway for Sri Lanka (Twilio trial is not allowed 
 1 GB DigitalOcean droplet in Bangalore/Singapore).
 
 ## Clean glass look (2026-10-25, in progress)
-Per-member appearance in Settings > Appearance, layered on top of the night-sky design above. Not yet confirmed deployed or tested on phones; design references are outside the repo (owner's OneDrive `Link-C\designing`).
+Per-member appearance in Settings > Appearance, layered on top of the night-sky design above. Not yet confirmed deployed or tested on phones; design references are in `docs/design/glass-look/`.
 - Options: 13 Apple system accent colours + custom colour; backgrounds Pure white glass (default), Soft pale, Vivid wallpaper, Two-tone, Plain; light/dark; glass strength and blur sliders; switches for search bar, filter pills (All, Unread, Online), read ticks in the chat list preview, floating glass tab bar; one-tap "Pure white glass" preset.
 - Storage: `user_prefs.look` (JSON text), migration `supabase/migrations/20261025000024_clean_glass_look.sql`, plus cookie `lc-look` so the look applies before first paint. The migration must be applied to the live DB before the column is used.
 - Code: `src/lib/look.ts` (shape, defaults, parsing), `src/lib/useLook.ts` (client hook), `src/app/look*.css` (styles).
@@ -50,7 +50,7 @@ Still to do: apply the migration, run RLS tests for the new tables and RPCs, tes
 
 ## Remaining
 1. Regression agent on the newest build (running), fix what it finds, rebuild if needed (`docker compose build && docker compose up -d`).
-2. Cleanup (owner approved): delete `node_modules`, remove qa-* accounts + B2 orphans (`node --env-file=.env qa/b2-orphans.mjs --apply`), keep real owner,
+2. Cleanup (owner approved): delete `node_modules`, remove qa-* accounts + B2 orphans (`node --env-file=.env scripts/qa/b2-orphans.mjs --apply`), keep real owner,
    real member and the six official packs. Mirror code to `Link-C\code` (no .env, no qa/, no node_modules).
-3. Owner: delete `.env` from OneDrive `Link-C\code`, deploy per docs/DEPLOY.md, rotate the Supabase secret key and Backblaze key after go-live,
+3. Owner: delete the old `.env` in the archived OneDrive copy (`archive/old-code-and-memory/code/.env`), deploy per docs/DEPLOY.md, rotate the Supabase secret key and Backblaze key after go-live,
    confirm Supabase "Allow new users to sign up" is OFF, nightly pg_dump backup (free Supabase has no restorable backups).

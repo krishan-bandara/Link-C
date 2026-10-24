@@ -8,7 +8,10 @@ data
 !.env.example
 *.tsbuildinfo
 next-env.d.ts
-qa/
+/qa/
 
 # stray QA screenshots
 shots-*.png
+
+# downloaded emoji caches for the seed scripts
+.cache/

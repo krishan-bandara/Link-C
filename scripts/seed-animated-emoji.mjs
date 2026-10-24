@@ -4,9 +4,9 @@
 // The server keeps the animation, shrinks it to 256 px and stores it encrypted like every other sticker (see normalise in src/lib/assets.ts).
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import path from 'node:path';
-import { admin, cookieHeader, session, BASE } from '../qa/helpers.mjs';
+import { admin, cookieHeader, session, BASE } from './qa/helpers.mjs';
 
-const CACHE = path.resolve('qa/noto-anim-cache');
+const CACHE = path.resolve('.cache/noto-anim');
 const URL_BASE = 'https://fonts.gstatic.com/s/e/notoemoji/latest/';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const exists = (p) => access(p).then(() => true, () => false);
