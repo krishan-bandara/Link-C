@@ -28,7 +28,8 @@ export default function EmojiPicker({ onSelect }: { onSelect: (native: string) =
         set: 'native',
         previewPosition: 'none',
         skinTonePosition: 'search',
-        autoFocus: true,
+        // on phones a focused search box would pop the keyboard up over the emoji; desktop keeps the autofocus
+        autoFocus: !window.matchMedia('(pointer: coarse)').matches,
         dynamicWidth: true,
         onEmojiSelect: (e: { native?: string }) => e.native && pick.current(e.native),
       }) as unknown as HTMLElement;

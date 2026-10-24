@@ -9,6 +9,13 @@ export const CREDITS: Credit[] = [
     url: 'https://github.com/microsoft/fluentui-emoji',
     note: 'Colourful 3D emoji used as the official sticker packs',
   },
+  {
+    name: 'Noto Emoji Animation',
+    by: 'Google',
+    license: 'CC BY 4.0',
+    url: 'https://googlefonts.github.io/noto-emoji-animation/',
+    note: 'Animated emoji used as the animated sticker packs (resized, re-encoded)',
+  },
   { name: 'emoji-mart', by: 'Missive', license: 'MIT', url: 'https://github.com/missive/emoji-mart', note: 'Emoji picker' },
   { name: 'lucide-react', by: 'Lucide Contributors', license: 'ISC', url: 'https://github.com/lucide-icons/lucide', note: 'Icons' },
   { name: 'Next.js', by: 'Vercel', license: 'MIT', url: 'https://github.com/vercel/next.js' },

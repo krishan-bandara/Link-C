@@ -149,7 +149,7 @@ export default function Composer({
     caretRef.current = caret;
     requestAnimationFrame(() => {
       if (!el) return;
-      el.setSelectionRange(caret, caret);
+      if (document.activeElement === el) el.setSelectionRange(caret, caret); // on a blurred box some browsers would refocus it (keyboard)
       resize(el);
     });
   }
@@ -163,7 +163,7 @@ export default function Composer({
     area.current?.focus();
   }
 
-  const tabCls = (on: boolean) => `cv-tab flex-1 py-2.5 text-sm font-medium ${FOCUS} ${on ? '' : 'text-muted'}`;
+  const tabCls = (on: boolean) => `cv-tab flex-1 py-3 text-sm font-medium ${FOCUS} ${on ? '' : 'text-muted'}`;
   const hasText = !!text.trim();
   const near = text.length > MAX - 300;
   const iconBtn = `cv-iconbtn mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted ${FOCUS}`;
@@ -173,7 +173,7 @@ export default function Composer({
       {panel && (
         <div
           ref={panelRef}
-          className="cv-panel flex h-[min(340px,45dvh)] flex-col overflow-hidden border-line max-md:-mx-2 max-md:mb-2 max-md:border-b md:absolute md:bottom-full md:left-2 md:z-20 md:mb-2 md:h-[420px] md:w-[352px] md:rounded-2xl md:border md:shadow-2xl"
+          className="cv-panel flex h-[min(340px,max(220px,calc(var(--app-h,100dvh)*0.45)))] flex-col overflow-hidden border-line max-md:-mx-2 max-md:mb-2 max-md:border-b md:absolute md:bottom-full md:left-2 md:z-20 md:mb-2 md:h-[min(420px,calc(var(--app-h,100dvh)-120px))] md:w-[352px] md:rounded-2xl md:border md:shadow-2xl"
         >
           <div className="cv-tabs border-b border-line" data-tab={tab} role="tablist" aria-label="Emoji or stickers">
             <button type="button" role="tab" aria-selected={tab === 'emoji'} className={tabCls(tab === 'emoji')} onClick={() => setTab('emoji')}>
@@ -255,7 +255,11 @@ export default function Composer({
         <button
           ref={toggleRef}
           type="button"
-          onClick={() => setPanel((v) => !v)}
+          onClick={() => {
+            // opening the picker hides the phone keyboard so it cannot cover the emoji; the caret is remembered by onSelect
+            if (!panel) area.current?.blur();
+            setPanel((v) => !v);
+          }}
           className={`${iconBtn} ${panel ? 'text-accent' : ''}`}
           aria-label="Emoji and stickers"
           aria-expanded={panel}
