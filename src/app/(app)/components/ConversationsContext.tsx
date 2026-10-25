@@ -116,6 +116,19 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
 
   useEffect(() => unlockAudioOnFirstTouch(), []);
 
+  // The open chat marked its messages read: clear that badge now, then let a reload confirm the real counts.
+  useEffect(() => {
+    const onRead = (e: Event) => {
+      const id = (e as CustomEvent<{ conversationId: string }>).detail?.conversationId;
+      if (!id) return;
+      setItems((cur) => cur.map((c) => (c.id === id && c.unread ? { ...c, unread: 0 } : c)));
+      clearTimeout(timer.current);
+      timer.current = setTimeout(refresh, 600);
+    };
+    window.addEventListener('lc-read', onRead);
+    return () => window.removeEventListener('lc-read', onRead);
+  }, [refresh]);
+
   // The server render already gave us the list; for an empty one double check once on the client.
   useEffect(() => {
     if (!loaded) void refresh();
@@ -148,7 +161,7 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
               cur
                 .map((c) =>
                   c.id === m.conversation_id
-                    ? { ...c, lastBody: m.body ?? null, lastType: m.type ?? null, lastAt: m.created_at ?? c.lastAt, lastMine: m.sender_id === meId, lastRead: false, unread: m.sender_id === meId ? c.unread : c.unread + 1 }
+                    ? { ...c, lastBody: m.body ?? null, lastType: m.type ?? null, lastAt: m.created_at ?? c.lastAt, lastMine: m.sender_id === meId, lastRead: false, unread: m.sender_id === meId || (c.id === m.conversation_id && window.location.pathname === `/c/${c.id}` && document.visibilityState === 'visible') ? c.unread : c.unread + 1 }
                     : c,
                 )
                 .sort((a, b) => (b.lastAt ?? '').localeCompare(a.lastAt ?? '')),
