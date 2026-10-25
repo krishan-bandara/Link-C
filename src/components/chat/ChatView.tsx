@@ -200,7 +200,9 @@ export default function ChatView({
     seenTimer.current = setTimeout(async () => {
       if (document.visibilityState !== 'visible') return;
       await supabase.rpc('mark_delivered', { conv: conversationId });
-      await supabase.rpc('mark_read', { conv: conversationId });
+      const { error } = await supabase.rpc('mark_read', { conv: conversationId });
+      // tell the chat list and home cards at once, so the unread badge does not wait for a realtime echo
+      if (!error) window.dispatchEvent(new CustomEvent('lc-read', { detail: { conversationId } }));
     }, 150);
   }, [supabase, conversationId]);
 
