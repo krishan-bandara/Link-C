@@ -5,7 +5,7 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { allowLeave } from '@/lib/idle-client';
 
 /**
- * Tells the server we are online: every 30 s while visible, and immediately on focus / becoming visible.
+ * Tells the server we are online: every 10 s while visible (well inside the 30 s minimum "offline after" of the SMS alert), and immediately on focus / becoming visible.
  * It is also how a person whose login was disabled (or whose session ended) is sent out of an open tab: the server
  * answers 401, and we leave to the login page with the right explanation.
  */
@@ -33,7 +33,7 @@ export default function Heartbeat() {
       }
     };
     void beat();
-    const t = setInterval(beat, 30_000);
+    const t = setInterval(beat, 10_000);
     const onVisible = () => void beat();
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);

@@ -47,15 +47,21 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
 
   const { data: key } = await adminClient()
     .from('media_keys')
-    .select('storage,object_key,wrapped_key,plaintext_size')
+    .select('storage,object_key,wrapped_key,plaintext_size,preview_object_key,preview_wrapped_key,preview_size')
     .eq('media_id', id)
     .maybeSingle();
   if (!key) throw new HttpError(410, 'This media is no longer available');
-  const size = Number(key.plaintext_size);
+
+  // ?v=preview: HD photos have a lighter copy for the chat bubble; everything else serves the full file.
+  const usePreview =
+    new URL(req.url).searchParams.get('v') === 'preview' && !snap && !!key.preview_object_key && !!key.preview_wrapped_key && !!key.preview_size;
+  const objectKey = usePreview ? (key.preview_object_key as string) : key.object_key;
+  const wrappedKey = usePreview ? (key.preview_wrapped_key as string) : key.wrapped_key;
+  const size = Number(usePreview ? key.preview_size : key.plaintext_size);
 
   const range = parseRange(req.headers.get('range'), size);
   const headers: Record<string, string> = {
-    'Content-Type': item.mime,
+    'Content-Type': usePreview ? 'image/webp' : item.mime,
     'Accept-Ranges': 'bytes',
     'Cache-Control': 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
@@ -75,7 +81,7 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   if (range) headers['Content-Range'] = `bytes ${start}-${end}/${size}`;
 
   const store = storeFor(key.storage as 'b2' | 'local', item.mode as 'normal' | 'once' | 'timed');
-  const gen = decryptRange((s, e) => store.getRange(key.object_key, s, e), unwrapKey(key.wrapped_key), size, start, end);
+  const gen = decryptRange((s, e) => store.getRange(objectKey, s, e), unwrapKey(wrappedKey), size, start, end);
   // View once means once: an image snap is burned after the first request, whether or not it used a Range header.
   const burnAfter = snap && item.kind === 'image';
   if (burnAfter) {

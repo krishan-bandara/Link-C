@@ -73,9 +73,12 @@ const toMs = (v: string | number | Date | null | undefined): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+/** At most this many SMS per offline period; after that nothing more is sent until the person opens the app again. */
+export const MAX_SMS_PER_PERIOD = 3;
+
 /**
  * Is the next SMS due? step 0: now. step 1: step2Minutes after the first SMS.
- * step >= 2: repeatMinutes after the previous successful SMS.
+ * step 2: repeatMinutes after the previous successful SMS (SMS 3, the last one). step >= 3: never (MAX_SMS_PER_PERIOD).
  * Never within retrySpacingMs of the last attempt (a future lastAttemptAt = deferred). Missing/invalid dates fail closed.
  */
 export function smsDue(o: {
@@ -91,7 +94,7 @@ export function smsDue(o: {
   const { nowMs } = o;
   if (!Number.isFinite(nowMs)) return false;
   const step = o.step ?? 0;
-  if (!Number.isInteger(step) || step < 0) return false;
+  if (!Number.isInteger(step) || step < 0 || step >= MAX_SMS_PER_PERIOD) return false;
   const spacing = o.retrySpacingMs ?? 60_000;
   if (o.lastAttemptAt !== null && o.lastAttemptAt !== undefined && o.lastAttemptAt !== '') {
     const att = toMs(o.lastAttemptAt);

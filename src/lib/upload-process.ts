@@ -4,6 +4,7 @@ import { mkdir, open, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileTypeFromBuffer } from 'file-type';
 import sharp from 'sharp';
+import { makeHdPreview } from '@/lib/image-preview';
 import { decryptChunk, encryptFile, newFileKey, unwrapKey, wrapKey } from '@/lib/crypto';
 import { adminClient } from '@/lib/supabase/admin';
 import { snapStore, mediaStore } from '@/lib/storage';
@@ -128,6 +129,7 @@ export async function processUpload(sessionId: string): Promise<void> {
     // 3. strip metadata
     let cleanPath = rawPath;
     let finalMime: string = detected;
+    let previewPath: string | null = null; // HD photos in chat get a lighter preview for the bubble
     if (kind === 'image') {
       cleanPath = path.join(dir, 'clean');
       try {
@@ -142,6 +144,10 @@ export async function processUpload(sessionId: string): Promise<void> {
               ? img.gif()
               : img.webp({ quality: 90 })
         ).toFile(cleanPath);
+        if (s.mode === 'normal') {
+          const p = path.join(dir, 'preview');
+          if (await makeHdPreview(cleanPath, p)) previewPath = p;
+        }
       } catch {
         throw new Reject('This image could not be read');
       }
@@ -178,6 +184,18 @@ export async function processUpload(sessionId: string): Promise<void> {
     stored = { name: store.name, del: () => store.delete(objectKey) };
     await store.put(objectKey, encPath);
 
+    let preview: { objectKey: string; wrappedKey: string; size: number } | null = null;
+    if (previewPath) {
+      const previewKey = newFileKey();
+      const previewEnc = path.join(dir, 'preview-enc');
+      const previewSize = await encryptFile(previewPath, previewEnc, previewKey);
+      const previewObjectKey = randomBytes(24).toString('base64url');
+      const mainDel = stored.del;
+      stored = { name: store.name, del: async () => { await mainDel(); await store.delete(previewObjectKey); } };
+      await store.put(previewObjectKey, previewEnc);
+      preview = { objectKey: previewObjectKey, wrappedKey: wrapKey(previewKey), size: previewSize };
+    }
+
     // 5. database rows (upload session id doubles as media id)
     const { data: msg, error: mErr } = await db
       .from('messages')
@@ -196,6 +214,7 @@ export async function processUpload(sessionId: string): Promise<void> {
       mime: finalMime,
       size_bytes: plainSize,
       mode: s.mode,
+      hd: !!preview,
       timer_seconds: s.mode === 'timed' ? s.timer_seconds : null,
       expires_at: snap ? new Date(Date.now() + SNAP_TTL_HOURS * 3600_000).toISOString() : null,
     });
@@ -206,6 +225,9 @@ export async function processUpload(sessionId: string): Promise<void> {
       object_key: objectKey,
       wrapped_key: wrapKey(fileKey),
       plaintext_size: plainSize,
+      preview_object_key: preview?.objectKey ?? null,
+      preview_wrapped_key: preview?.wrappedKey ?? null,
+      preview_size: preview?.size ?? null,
     });
     if (kErr) throw new Error('key insert failed');
 

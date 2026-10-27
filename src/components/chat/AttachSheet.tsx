@@ -7,7 +7,7 @@ import { FOCUS } from './ui';
 import './chat.css';
 import { useDialogFocus } from './useDialogFocus';
 
-export type AttachChoice = { mode: UploadMode; timerSeconds: number | null };
+export type AttachChoice = { mode: UploadMode; timerSeconds: number | null; hd: boolean };
 
 const TIMES: (number | null)[] = [1, 2, 3, 5, 10, null];
 
@@ -23,6 +23,9 @@ export default function AttachSheet({
   const dlg = useDialogFocus<HTMLDivElement>();
   const [mode, setMode] = useState<UploadMode>('normal');
   const [timer, setTimer] = useState<number | null>(5);
+  const [hd, setHd] = useState(false);
+  // HD only applies to ordinary photos kept in the chat (not snaps, not GIFs or video).
+  const canHd = mode === 'normal' && (file.type === 'image/jpeg' || file.type === 'image/png');
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && onCancel();
@@ -86,9 +89,23 @@ export default function AttachSheet({
             ))}
           </div>
         )}
+        {canHd && (
+          <button
+            type="button"
+            onClick={() => setHd(!hd)}
+            aria-pressed={hd}
+            className={`cv-option flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left ${FOCUS} ${hd ? '' : 'border-line hover:bg-panel-2'}`}
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded border border-current text-[9px] font-bold leading-none text-accent">HD</span>
+            <span>
+              <span className="block text-sm font-medium">Send in HD</span>
+              <span className="block text-xs text-muted">{hd ? 'Sharper photo, bigger upload' : 'Off: standard quality, faster'}</span>
+            </span>
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => onSend({ mode, timerSeconds: mode === 'timed' ? timer : null })}
+          onClick={() => onSend({ mode, timerSeconds: mode === 'timed' ? timer : null, hd: canHd && hd })}
           className={`cv-primary w-full rounded-xl py-3 text-sm font-semibold ${FOCUS}`}
           autoFocus
         >

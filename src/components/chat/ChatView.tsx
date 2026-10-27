@@ -509,7 +509,7 @@ export default function ChatView({
 
   function startUpload(file: File, c: AttachChoice) {
     setSheetFile(null);
-    const o: UploadOpts = { conversationId, mode: c.mode, timerSeconds: c.timerSeconds, replyTo: replyTo?.id ?? null };
+    const o: UploadOpts = { conversationId, mode: c.mode, timerSeconds: c.timerSeconds, replyTo: replyTo?.id ?? null, hd: c.hd };
     setReplyTo(null);
     launchUpload(file, file.name, o);
   }
