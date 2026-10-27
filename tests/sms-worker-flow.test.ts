@@ -69,12 +69,15 @@ function addMember(id: string, from: string, phone: string | null, withPresence 
   rows('messages').push({ id: `m-${id}`, conversation_id: `c-${id}`, sender_id: from, read_at: null, type: 'text', created_at: new Date(Date.now() - 2 * MIN).toISOString() });
   if (withPresence) rows('presence_state').push({ user_id: id, last_seen_at: new Date(Date.now() - 60_000).toISOString(), sms_step: 0, sms_sent_this_period: false, last_sms_at: null, sms_first_at: null, sms_last_sent_at: null });
 }
-// Same write as src/app/api/presence/route.ts
+// Same writes as src/app/api/presence/route.ts: mark the person online and delete all their per-chat SMS rows.
 function heartbeat(id: string) {
   const p = rows('presence_state').find((r) => r.user_id === id)!;
   Object.assign(p, { last_seen_at: new Date().toISOString(), sms_sent_this_period: false, push_sent_this_period: false, sms_step: 0, sms_first_at: null, sms_last_sent_at: null, last_sms_at: null });
+  fakeDb().tables['sms_chat_state'] = rows('sms_chat_state').filter((r) => r.user_id !== id);
 }
-const pres = (id: string) => rows('presence_state').find((r) => r.user_id === id)!;
+const EMPTY = { step: 0, first_at: null, last_sent_at: null, last_attempt_at: null };
+/** SMS state of a person's chat (default: their seeded chat `c-<id>`); a missing row counts as step 0. */
+const st = (id: string, conv = `c-${id}`) => rows('sms_chat_state').find((r) => r.user_id === id && r.conversation_id === conv) ?? EMPTY;
 const logs = (status?: string) => rows('sms_log').filter((r) => !status || r.provider_status === status);
 
 async function advance(totalMs: number) {
@@ -102,16 +105,16 @@ afterEach(() => {
 });
 
 describe('SMS escalation schedule', () => {
-  it('sends SMS 1 at once, SMS 2 after 10 min, then every 19 min, never twice for one step', async () => {
+  it('sends SMS 1 at once, SMS 2 after 10 min, SMS 3 19 min later, then stops (3 SMS maximum)', async () => {
     seed();
     await startWorker();
-    await advance(50 * MIN);
+    await advance(120 * MIN);
     const at = gw().sent.map((s) => Math.round((s.at - T0) / 1000));
-    expect(at).toEqual([0, 10 * 60, 29 * 60, 48 * 60]);
-    expect(gw().sent.map((s) => s.text)).toEqual(['T1', 'T2', 'T3', 'T3']);
+    expect(at).toEqual([0, 10 * 60, 29 * 60]);
+    expect(gw().sent.map((s) => s.text)).toEqual(['T1', 'T2', 'T3']);
     expect(gw().sent.every((s) => s.to === PHONE)).toBe(true);
-    expect(gw().attempts.length).toBe(4); // exactly one gateway call per step
-    expect(pres(A).sms_step).toBe(4);
+    expect(gw().attempts.length).toBe(3); // exactly one gateway call per step
+    expect(st(A).step).toBe(3);
   });
 
   it('a heartbeat resets the sequence; going offline again restarts at SMS 1', async () => {
@@ -120,7 +123,7 @@ describe('SMS escalation schedule', () => {
     await advance(12 * MIN); // SMS 1 and SMS 2 sent
     expect(gw().sent.length).toBe(2);
     heartbeat(A);
-    expect(pres(A).sms_step).toBe(0);
+    expect(st(A).step).toBe(0);
     await advance(40_000); // still "online" (under 45 s)
     expect(gw().sent.length).toBe(2);
     await advance(10_000); // offline again, same unread message: new period starts with SMS 1
@@ -136,9 +139,9 @@ describe('SMS escalation schedule', () => {
     gw().onSend = () => heartbeat(A);
     await startWorker();
     await advance(10_000);
-    expect(pres(A).sms_step).toBe(0);
-    expect(pres(A).sms_first_at).toBeNull();
-    expect(pres(A).sms_last_sent_at).toBeNull();
+    expect(st(A).step).toBe(0);
+    expect(st(A).first_at).toBeNull();
+    expect(st(A).last_sent_at).toBeNull();
   });
 
   it('users are independent: one heartbeat does not reset another person', async () => {
@@ -173,6 +176,53 @@ describe('SMS escalation schedule', () => {
   });
 });
 
+describe('per chat: at most 3 SMS for each chat', () => {
+  const addChat = (id: string, from: string, convId: string) => {
+    rows('conversations').push({ id: convId, user_a: id, user_b: from });
+    rows('messages').push({ id: `m-${convId}`, conversation_id: convId, sender_id: from, read_at: null, type: 'text', created_at: new Date(Date.now() - MIN).toISOString() });
+  };
+
+  it('two chats with unread messages each get their own 3 SMS, then nothing more', async () => {
+    seed();
+    addChat(A, 'user-c', 'c2');
+    await startWorker();
+    await advance(120 * MIN);
+    expect(gw().sent.length).toBe(6);
+    expect(st(A, `c-${A}`).step).toBe(3);
+    expect(st(A, 'c2').step).toBe(3);
+    await advance(600 * MIN);
+    expect(gw().sent.length).toBe(6); // new rounds only after the person opens the app
+  });
+
+  it('a new message in the same chat after its 3 SMS sends nothing; a message in another chat starts its own round at once', async () => {
+    seed();
+    await startWorker();
+    await advance(60 * MIN);
+    expect(gw().sent.length).toBe(3);
+    rows('messages').push({ id: 'm-new', conversation_id: `c-${A}`, sender_id: B, read_at: null, type: 'text', created_at: new Date().toISOString() });
+    await advance(60 * MIN);
+    expect(gw().sent.length).toBe(3); // same thread: still stopped
+    addChat(A, 'user-c', 'c2');
+    await advance(10_000);
+    expect(gw().sent.length).toBe(4);
+    expect(gw().sent[3].text).toBe('T1'); // the other chat begins with SMS 1
+    expect(st(A, `c-${A}`).step).toBe(3);
+  });
+
+  it('after the person opens the app and goes offline again, every chat gets a fresh round', async () => {
+    seed();
+    await startWorker();
+    await advance(60 * MIN);
+    expect(gw().sent.length).toBe(3);
+    heartbeat(A);
+    expect(rows('sms_chat_state').filter((r) => r.user_id === A).length).toBe(0);
+    await advance(2 * MIN);
+    expect(gw().sent.length).toBe(4);
+    await advance(60 * MIN);
+    expect(gw().sent.length).toBe(6);
+  });
+});
+
 describe('caps (only http 2% rows count)', () => {
   const logRow = (user: string, status: string, ago: number) =>
     rows('sms_log').push({ id: ++fakeDb().seq, user_id: user, kind: 'alert', provider_status: status, sent_at: new Date(Date.now() - ago).toISOString() });
@@ -185,8 +235,8 @@ describe('caps (only http 2% rows count)', () => {
     await advance(5 * MIN);
     expect(gw().attempts.length).toBe(0);
     expect(logs('cap reached').length).toBe(1); // not written every tick
-    expect(Date.parse(pres(A).last_sms_at) - Date.now()).toBeGreaterThan(0); // deferred into the future
-    expect(pres(A).sms_step).toBe(0);
+    expect(Date.parse(st(A).last_attempt_at as string) - Date.now()).toBeGreaterThan(0); // deferred into the future
+    expect(st(A).step).toBe(0);
     await advance(6 * MIN);
     expect(logs('cap reached').length).toBe(2); // looked again after about 10 minutes
     expect(gw().attempts.length).toBe(0);
@@ -254,16 +304,15 @@ describe('gateway failures', () => {
     await startWorker();
     await advance(4 * MIN + 30_000);
     expect(gw().attempts.map((t) => Math.round((t - T0) / 1000))).toEqual([0, 120, 240]);
-    expect(pres(A).sms_step).toBe(0);
-    expect(pres(A).sms_first_at).toBeNull();
-    expect(pres(A).sms_last_sent_at).toBeNull();
-    expect(pres(A).sms_sent_this_period).toBe(false);
+    expect(st(A).step).toBe(0);
+    expect(st(A).first_at).toBeNull();
+    expect(st(A).last_sent_at).toBeNull();
     expect(logs('http 500').length).toBe(3);
     gw().mode = 'ok';
     await advance(2 * MIN);
     expect(gw().sent.length).toBe(1);
     expect(Math.round((gw().sent[0].at - T0) / 1000)).toBe(360);
-    expect(pres(A).sms_step).toBe(1);
+    expect(st(A).step).toBe(1);
     // SMS 2 is 10 min after the SUCCESSFUL first SMS
     await advance(9 * MIN);
     expect(gw().sent.length).toBe(1);
@@ -279,7 +328,7 @@ describe('gateway failures', () => {
     await advance(2 * MIN + 10_000);
     expect(gw().attempts.length).toBe(2);
     expect(logs('error send failed').length).toBe(2);
-    expect(pres(A).sms_step).toBe(0);
+    expect(st(A).step).toBe(0);
     gw().mode = 'ok';
     await advance(2 * MIN);
     expect(gw().sent.length).toBe(1);
@@ -291,7 +340,7 @@ describe('gateway failures', () => {
     await startWorker();
     await advance(20 * MIN);
     expect(gw().attempts.map((t) => Math.round((t - T0) / 1000))).toEqual([0, 120, 240, 360, 480]);
-    expect(pres(A).sms_step).toBe(0);
+    expect(st(A).step).toBe(0);
     await advance(17 * MIN);
     expect(gw().attempts.length).toBe(5); // still waiting (480 s + 30 min = 2280 s)
     gw().mode = 'ok';
@@ -320,9 +369,9 @@ describe('gateway failures', () => {
     await startWorker();
     await advance(10_000);
     expect(gw().attempts.length).toBe(1);
-    expect(pres(A).sms_step).toBe(0);
-    expect(pres(A).sms_first_at).toBeNull();
-    expect(pres(A).sms_last_sent_at).toBeNull();
+    expect(st(A).step).toBe(0);
+    expect(st(A).first_at).toBeNull();
+    expect(st(A).last_sent_at).toBeNull();
   });
 });
 
@@ -334,7 +383,7 @@ describe('claim and crash safety', () => {
     await advance(9 * MIN + 30_000);
     expect(gw().sent.length).toBe(1);
     expect(gw().attempts.length).toBe(1);
-    expect(pres(A).sms_step).toBe(1);
+    expect(st(A).step).toBe(1);
     await advance(MIN);
     expect(gw().sent.map((x) => x.text)).toEqual(['T1', 'T2']); // and only one for step 2 as well
   });
@@ -343,7 +392,7 @@ describe('claim and crash safety', () => {
     seed();
     gw().mode = 'hang';
     let stepDuringSend = -1;
-    gw().onSend = () => { stepDuringSend = pres(A).sms_step; };
+    gw().onSend = () => { stepDuringSend = st(A).step; };
     await startWorker();
     await advance(5_000);
     expect(gw().attempts.length).toBe(1);
@@ -428,8 +477,8 @@ describe('muted chats and Do-not-disturb', () => {
     await startWorker();
     await advance(9 * MIN + 30_000);
     expect(gw().attempts.length).toBe(0);
-    expect(pres(A).sms_step).toBe(0);
-    expect(pres(A).last_sms_at).toBeNull();
+    expect(st(A).step).toBe(0);
+    expect(st(A).last_attempt_at).toBeNull();
     expect(logs().length).toBe(0);
     await advance(MIN);
     expect(gw().sent.map((s) => s.text)).toEqual(['T1']); // a single alert, no burst

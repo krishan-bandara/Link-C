@@ -2,7 +2,7 @@ import { shrinkImage } from './shrink';
 import { removePending, savePending } from './pending-uploads';
 
 export type UploadMode = 'normal' | 'once' | 'timed';
-export type UploadOpts = { conversationId: string; mode: UploadMode; timerSeconds: number | null; replyTo?: string | null };
+export type UploadOpts = { conversationId: string; mode: UploadMode; timerSeconds: number | null; replyTo?: string | null; hd?: boolean };
 export type UploadProgress = { phase: 'uploading' | 'processing'; sent: number; total: number };
 
 export class UploadError extends Error {}
@@ -79,7 +79,7 @@ async function runUpload(
   setId: (id: string) => void,
 ): Promise<{ uploadId: string }> {
   const resuming = !!hooks.resume;
-  const file = resuming ? original : await shrinkImage(original as File);
+  const file = resuming ? original : await shrinkImage(original as File, opts.hd);
   let uploadId: string;
   let chunkSize: number;
   let totalChunks: number;

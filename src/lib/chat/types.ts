@@ -21,6 +21,7 @@ export type Media = {
   mime: string;
   size_bytes: number;
   mode: 'normal' | 'once' | 'timed';
+  hd?: boolean;
   timer_seconds: number | null;
   viewed_at: string | null;
   deleted_at: string | null;
@@ -45,7 +46,7 @@ export type LocationShare = {
 
 export const MSG_COLS = 'id,conversation_id,sender_id,body,type,sticker_id,reply_to,created_at,delivered_at,read_at,edited_at';
 export const MEDIA_COLS =
-  'id,message_id,conversation_id,sender_id,kind,mime,size_bytes,mode,timer_seconds,viewed_at,deleted_at,expires_at,created_at';
+  'id,message_id,conversation_id,sender_id,kind,mime,size_bytes,mode,hd,timer_seconds,viewed_at,deleted_at,expires_at,created_at';
 export const SHARE_COLS =
   'id,conversation_id,requested_by,sharer_id,status,duration_minutes,expires_at,last_lat,last_lng,last_accuracy,last_at,created_at';
 

@@ -133,8 +133,10 @@ async function diskCheck() {
 }
 
 // ---------------------------------------------------------------- (e) SMS alerts
+// One candidate = one person with unread messages in one chat. Each chat has its own round of at most 3 SMS.
 type SmsCand = {
   user_id: string;
+  conversation_id: string;
   first_unread: string;
   step: number;
   sms_first_at: string | null;
@@ -149,26 +151,25 @@ async function traceFailure(userId: string, status: string, periodStartedAt: str
   if (error) logErr('sms_log insert', new Error(error.message));
 }
 
-const EPOCH = '1970-01-01T00:00:00.000Z';
-
-/** A presence row must exist before it can be updated. A new row looks long offline (not "seen just now"). Existing rows are untouched. */
-async function ensurePresenceRow(userId: string) {
+/** The per-chat SMS state row must exist before it can be updated. Existing rows are untouched. */
+async function ensureChatRow(userId: string, conversationId: string) {
   const { error } = await adminClient()
-    .from('presence_state')
-    .upsert({ user_id: userId, last_seen_at: EPOCH }, { onConflict: 'user_id', ignoreDuplicates: true });
-  if (error) logErr('presence row', new Error(error.message));
+    .from('sms_chat_state')
+    .upsert({ user_id: userId, conversation_id: conversationId }, { onConflict: 'user_id,conversation_id', ignoreDuplicates: true });
+  if (error) logErr('sms chat row', new Error(error.message));
 }
 
 /**
- * Stops this person being a due candidate for `ms` milliseconds. last_sms_at is also the retry-spacing marker: writing it
- * `ms - 60 s` into the future blocks the next attempt until `ms` from now. A heartbeat clears it again.
+ * Stops this chat being a due candidate for `ms` milliseconds. last_attempt_at is also the retry-spacing marker: writing it
+ * `ms - 60 s` into the future blocks the next attempt until `ms` from now. A heartbeat deletes the row, which clears it again.
  */
-async function deferPerson(userId: string, ms: number) {
-  await ensurePresenceRow(userId);
+async function deferChat(userId: string, conversationId: string, ms: number) {
+  await ensureChatRow(userId, conversationId);
   const { error } = await adminClient()
-    .from('presence_state')
-    .update({ last_sms_at: new Date(Date.now() + Math.max(0, ms - 60_000)).toISOString() })
-    .eq('user_id', userId);
+    .from('sms_chat_state')
+    .update({ last_attempt_at: new Date(Date.now() + Math.max(0, ms - 60_000)).toISOString() })
+    .eq('user_id', userId)
+    .eq('conversation_id', conversationId);
   if (error) logErr('defer sms', new Error(error.message));
 }
 
@@ -207,9 +208,9 @@ async function smsAlerts() {
   const dailyCap = capValue(st.daily_cap, 75);
   const monthlyCap = capValue(st.monthly_cap, 300);
 
-  const { data: cands, error: cerr } = await db.rpc('sms_candidates_v2', { p_offline_seconds: offlineSeconds });
+  const { data: cands, error: cerr } = await db.rpc('sms_candidates_v3', { p_offline_seconds: offlineSeconds });
   if (cerr) throw new Error(cerr.message);
-  // Muted chats are already excluded by sms_candidates_v2. People inside their Do-not-disturb hours are skipped WITHOUT touching
+  // Muted chats are already excluded by sms_candidates_v3. People inside their Do-not-disturb hours are skipped WITHOUT touching
   // step, last attempt or caps: they stay candidates, and one alert follows when the quiet hours end (if still unread and offline).
   const dnd = await loadDnd(((cands ?? []) as SmsCand[]).map((c) => c.user_id));
   const nowDate = new Date();
@@ -252,7 +253,7 @@ async function smsAlerts() {
 
     if (capReached({ sentToday, sentThisMonth, dailyCap, monthlyCap })) {
       await traceFailure(c.user_id, 'cap reached', c.first_unread); // visible in Admin > SMS, written at most every ~10 minutes
-      await deferPerson(c.user_id, 10 * 60_000);
+      await deferChat(c.user_id, c.conversation_id, 10 * 60_000);
       continue;
     }
 
@@ -263,34 +264,40 @@ async function smsAlerts() {
       const why = prof?.phone_enc ? 'error phone unreadable' : 'error no phone';
       logErr('send sms', new Error(why));
       await traceFailure(c.user_id, why, c.first_unread);
-      await deferPerson(c.user_id, 10 * 60_000);
+      await deferChat(c.user_id, c.conversation_id, 10 * 60_000);
       continue;
     }
 
-    // CLAIM AND ADVANCE in one atomic update. It only matches if nothing changed since the candidate list was read: same step, same
-    // last attempt time (so a second worker cannot also claim it) and the person is still offline. Advancing before the send means
+    // CLAIM AND ADVANCE this chat's row in one atomic update. It only matches if nothing changed since the candidate list was read:
+    // same step and same last attempt time (so a second worker cannot also claim it). Advancing before the send means
     // a crash or a failed follow-up write can never repeat the SMS; a definite send failure rolls the step back below.
-    await ensurePresenceRow(c.user_id);
+    await ensureChatRow(c.user_id, c.conversation_id);
     const claimAt = new Date().toISOString();
     let claim = db
-      .from('presence_state')
+      .from('sms_chat_state')
       .update({
-        last_sms_at: claimAt,
-        sms_sent_this_period: true,
-        sms_step: step + 1,
-        sms_last_sent_at: claimAt,
-        ...(step === 0 ? { sms_first_at: claimAt } : {}),
+        last_attempt_at: claimAt,
+        step: step + 1,
+        last_sent_at: claimAt,
+        ...(step === 0 ? { first_at: claimAt } : {}),
       })
       .eq('user_id', c.user_id)
-      .eq('sms_step', step)
-      .lt('last_seen_at', new Date(Date.now() - offlineSeconds * 1000).toISOString());
-    claim = c.last_sms_at ? claim.eq('last_sms_at', c.last_sms_at) : claim.is('last_sms_at', null);
+      .eq('conversation_id', c.conversation_id)
+      .eq('step', step);
+    claim = c.last_sms_at ? claim.eq('last_attempt_at', c.last_sms_at) : claim.is('last_attempt_at', null);
     const { data: claimed, error: claimErr } = await claim.select('user_id');
     if (claimErr) {
       logErr('sms claim', new Error(claimErr.message));
       continue;
     }
-    if (!claimed?.length) continue; // someone else took it, or the person came back online
+    if (!claimed?.length) continue; // someone else took it, or the person came back online and the heartbeat reset it
+
+    // The person may have come back between the candidate list and the claim: then undo the claim and send nothing.
+    const { data: seen } = await db.from('presence_state').select('last_seen_at').eq('user_id', c.user_id).maybeSingle();
+    if (seen?.last_seen_at && Date.parse(seen.last_seen_at as string) > Date.now() - offlineSeconds * 1000) {
+      await db.from('sms_chat_state').delete().eq('user_id', c.user_id).eq('conversation_id', c.conversation_id);
+      continue;
+    }
 
     let res: { ok: boolean; status: string };
     try {
@@ -313,18 +320,14 @@ async function smsAlerts() {
       continue;
     }
 
-    // Definite failure: undo the advance (unless the person came back meanwhile: a heartbeat reset wins) and back off.
+    // Definite failure: undo the advance (unless the person came back meanwhile: the heartbeat's reset wins) and back off.
     const { error: rbErr } = await db
-      .from('presence_state')
-      .update({
-        sms_step: step,
-        sms_last_sent_at: c.sms_last_sent_at,
-        sms_first_at: c.sms_first_at,
-        sms_sent_this_period: step > 0,
-      })
+      .from('sms_chat_state')
+      .update({ step, last_sent_at: c.sms_last_sent_at, first_at: c.sms_first_at })
       .eq('user_id', c.user_id)
-      .eq('sms_step', step + 1)
-      .eq('sms_last_sent_at', claimAt);
+      .eq('conversation_id', c.conversation_id)
+      .eq('step', step + 1)
+      .eq('last_sent_at', claimAt);
     if (rbErr) logErr('sms rollback', new Error(rbErr.message));
     const { count: failCount } = await db
       .from('sms_log')
@@ -333,7 +336,7 @@ async function smsAlerts() {
       .eq('user_id', c.user_id)
       .not('provider_status', 'like', 'http 2%')
       .gte('sent_at', agoIso(3600_000));
-    await deferPerson(c.user_id, (failCount ?? 0) >= 5 ? 30 * 60_000 : 2 * 60_000);
+    await deferChat(c.user_id, c.conversation_id, (failCount ?? 0) >= 5 ? 30 * 60_000 : 2 * 60_000);
   }
 }
 

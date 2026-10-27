@@ -3,8 +3,8 @@ import { capReached, smsDue, smsTextFor } from '../worker/helpers';
 
 const MIN = 60_000;
 const T0 = Date.parse('2026-10-22T10:00:00Z');
-const S2 = 10;
-const REP = 19;
+const S2 = 5;
+const REP = 10;
 
 type State = { step: number; first: number | null; last: number | null; attempt: number | null };
 const due = (s: State, now: number, extra: Partial<Parameters<typeof smsDue>[0]> = {}) =>
@@ -45,14 +45,18 @@ describe('smsDue basics', () => {
   });
   it('step 1 waits step2Minutes from the first SMS', () => {
     const s = { step: 1, first: T0, last: T0, attempt: T0 };
-    expect(due(s, T0 + 10 * MIN - 1)).toBe(false);
-    expect(due(s, T0 + 10 * MIN)).toBe(true);
+    expect(due(s, T0 + 5 * MIN - 1)).toBe(false);
+    expect(due(s, T0 + 5 * MIN)).toBe(true);
   });
-  it('step 2 and later wait repeatMinutes from the previous SMS', () => {
-    for (const step of [2, 3, 4, 9, 50]) {
-      const s = { step, first: T0, last: T0 + 100 * MIN, attempt: T0 + 100 * MIN };
-      expect(due(s, T0 + 119 * MIN - 1)).toBe(false);
-      expect(due(s, T0 + 119 * MIN)).toBe(true);
+  it('step 2 (SMS 3) waits repeatMinutes from the previous SMS', () => {
+    const s = { step: 2, first: T0, last: T0 + 100 * MIN, attempt: T0 + 100 * MIN };
+    expect(due(s, T0 + 110 * MIN - 1)).toBe(false);
+    expect(due(s, T0 + 110 * MIN)).toBe(true);
+  });
+  it('never sends a 4th SMS: from step 3 on nothing is due', () => {
+    for (const step of [3, 4, 9, 50]) {
+      const s = { step, first: T0, last: T0, attempt: T0 };
+      expect(due(s, T0 + 999 * MIN)).toBe(false);
     }
   });
   it('honours custom settings', () => {
@@ -114,33 +118,31 @@ describe('fail closed', () => {
 });
 
 describe('whole timelines', () => {
-  it('SMS at 0, 10, 29, 48, 67 with no heartbeat', () => {
-    expect(simulate({ minutes: 70 })).toEqual([0, 10, 29, 48, 67]);
+  it('exactly 3 SMS (at 0, 5 and 15 minutes) with no heartbeat, then silence', () => {
+    expect(simulate({ minutes: 600 })).toEqual([0, 5, 15]);
   });
   it('a heartbeat after SMS 2 resets: the next SMS is immediate (step 0) and the clock restarts', () => {
-    expect(simulate({ minutes: 60, heartbeatAt: [15] })).toEqual([0, 10, 15, 25, 44]);
+    expect(simulate({ minutes: 60, heartbeatAt: [15] })).toEqual([0, 5, 15, 20, 30]);
   });
   it('a heartbeat before SMS 2 restarts at step 0', () => {
-    expect(simulate({ minutes: 30, heartbeatAt: [5] })).toEqual([0, 5, 15]);
+    expect(simulate({ minutes: 30, heartbeatAt: [5] })).toEqual([0, 5, 10, 20]);
   });
   it('a failed first attempt retries after exactly one minute, then follows from the real send', () => {
-    expect(simulate({ minutes: 35, failAt: [0] })).toEqual([1, 11, 30]);
+    expect(simulate({ minutes: 35, failAt: [0] })).toEqual([1, 6, 16]);
   });
   it('a failed SMS 2 retries after one minute; SMS 3 is measured from the successful SMS 2', () => {
-    expect(simulate({ minutes: 35, failAt: [10] })).toEqual([0, 11, 30]);
+    expect(simulate({ minutes: 35, failAt: [5] })).toEqual([0, 6, 16]);
   });
   it('failed attempts do not advance the step (never skips)', () => {
     const sent = simulate({ minutes: 40, failAt: [0, 1, 2] });
     expect(sent[0]).toBe(3);
-    expect(sent[1]).toBe(13);
+    expect(sent[1]).toBe(8);
   });
   it('after the cap is hit it defers and sends nothing more', () => {
-    expect(simulate({ minutes: 120, dailyCap: 3 })).toEqual([0, 10, 29]);
+    expect(simulate({ minutes: 120, dailyCap: 2 })).toEqual([0, 5]);
   });
-  it('steps well beyond 3 keep a steady 19 minute rhythm', () => {
-    const sent = simulate({ minutes: 600 });
-    for (let i = 2; i < sent.length; i++) expect(sent[i] - sent[i - 1]).toBe(19);
-    expect(sent.length).toBeGreaterThan(25);
+  it('a person who opens the app and goes offline again gets a fresh round of 3', () => {
+    expect(simulate({ minutes: 600, heartbeatAt: [100] })).toEqual([0, 5, 15, 100, 105, 115]);
   });
 });
 

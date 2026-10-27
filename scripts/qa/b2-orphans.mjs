@@ -6,9 +6,9 @@ const db = admin();
 const s3 = new S3Client({ endpoint: process.env.B2_ENDPOINT, region: process.env.B2_REGION, credentials: { accessKeyId: process.env.B2_KEY_ID, secretAccessKey: process.env.B2_APP_KEY }, forcePathStyle: true });
 const known = new Set();
 for (const t of ['media_keys', 'user_assets']) {
-  const { data, error } = await db.from(t).select('object_key,storage').eq('storage', 'b2');
+  const { data, error } = await db.from(t).select(t === 'media_keys' ? 'object_key,preview_object_key,storage' : 'object_key,storage').eq('storage', 'b2');
   if (error) throw error;
-  for (const r of data) known.add(r.object_key);
+  for (const r of data) { known.add(r.object_key); if (r.preview_object_key) known.add(r.preview_object_key); }
 }
 let all = [], km, vm;
 do {

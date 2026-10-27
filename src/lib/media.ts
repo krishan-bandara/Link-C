@@ -83,11 +83,13 @@ export async function deleteMediaBlobs(mediaId: string) {
   const { data: item } = await db.from('media_items').select('mode').eq('id', mediaId).maybeSingle();
   const { data: key } = await db
     .from('media_keys')
-    .select('storage,object_key')
+    .select('storage,object_key,preview_object_key')
     .eq('media_id', mediaId)
     .maybeSingle();
   if (key && item) {
-    await storeFor(key.storage as 'b2' | 'local', item.mode as 'normal' | 'once' | 'timed').delete(key.object_key);
+    const store = storeFor(key.storage as 'b2' | 'local', item.mode as 'normal' | 'once' | 'timed');
+    await store.delete(key.object_key);
+    if (key.preview_object_key) await store.delete(key.preview_object_key);
   }
   if (key) {
     const { error } = await db.from('media_keys').delete().eq('media_id', mediaId);

@@ -67,7 +67,8 @@ function MediaBody({
         {media.kind === 'image' ? (
           <button type="button" onClick={() => onZoom(media)} className={`relative block w-64 max-w-full overflow-hidden rounded-xl ${loaded ? '' : 'cv-media-ph min-h-48'} ${FOCUS}`} aria-label="View image" data-swipeok>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" draggable={false} loading="lazy" onLoad={() => { setLoaded(true); onMediaLoad(); }} onError={() => setLoaded(true)} className={`pointer-events-none max-h-72 w-full select-none rounded-xl object-cover ${loaded ? 'cv-img-in' : 'opacity-0'}`} />
+            <img src={media.hd ? `${src}?v=preview` : src} alt="" draggable={false} loading="lazy" onLoad={() => { setLoaded(true); onMediaLoad(); }} onError={() => setLoaded(true)} className={`pointer-events-none max-h-72 w-full select-none rounded-xl object-cover ${loaded ? 'cv-img-in' : 'opacity-0'}`} />
+            {media.hd && <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold leading-none tracking-wide text-white backdrop-blur-sm">HD</span>}
           </button>
         ) : (
           <>

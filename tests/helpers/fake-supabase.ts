@@ -41,6 +41,12 @@ function defaults(table: string, row: Row): Row {
     r.sms_first_at ??= null;
     r.sms_last_sent_at ??= null;
   }
+  if (table === 'sms_chat_state') {
+    r.step ??= 0;
+    r.first_at ??= null;
+    r.last_sent_at ??= null;
+    r.last_attempt_at ??= null;
+  }
   if (table === 'sms_log') {
     r.id ??= ++fakeDb().seq;
     r.sent_at ??= now;
@@ -137,7 +143,8 @@ class Q implements PromiseLike<Result> {
         return { data: null, error: null };
       }
       case 'upsert': {
-        const ex = t.find((r) => r[this.conflict] === this.payload[this.conflict]);
+        const cols = this.conflict.split(','); // composite keys such as 'user_id,conversation_id'
+        const ex = t.find((r) => cols.every((c) => r[c] === this.payload[c]));
         if (!ex) t.push(defaults(this.table, this.payload));
         else if (!this.ignoreDup) Object.assign(ex, this.payload);
         return { data: null, error: null };
@@ -149,8 +156,8 @@ class Q implements PromiseLike<Result> {
   }
 }
 
-/** Same rules as public.sms_candidates_v2 (supabase/migrations/20261025000027_quiet_alerts.sql). */
-function smsCandidatesV2(offlineSeconds: number): Row[] {
+/** Same rules as public.sms_candidates_v3 (supabase/migrations/20261027000031_sms_per_chat.sql): one row per (recipient, chat). */
+function smsCandidatesV3(offlineSeconds: number): Row[] {
   const cutoff = Date.now() - offlineSeconds * 1000;
   const groups = new Map<string, Row>();
   for (const m of rows('messages')) {
@@ -166,17 +173,20 @@ function smsCandidatesV2(offlineSeconds: number): Row[] {
     const p = rows('presence_state').find((x) => x.user_id === rid);
     const seen = p?.last_seen_at == null ? -Infinity : Date.parse(p.last_seen_at);
     if (!(seen < cutoff)) continue;
-    const g = groups.get(rid);
+    const key = `${rid}|${m.conversation_id}`;
+    const g = groups.get(key);
     if (g) {
       if (Date.parse(m.created_at) < Date.parse(g.first_unread)) g.first_unread = m.created_at;
     } else {
-      groups.set(rid, {
+      const s = rows('sms_chat_state').find((x) => x.user_id === rid && x.conversation_id === m.conversation_id);
+      groups.set(key, {
         user_id: rid,
+        conversation_id: m.conversation_id,
         first_unread: m.created_at,
-        step: p?.sms_step ?? 0,
-        sms_first_at: p?.sms_first_at ?? null,
-        sms_last_sent_at: p?.sms_last_sent_at ?? null,
-        last_sms_at: p?.last_sms_at ?? null,
+        step: s?.step ?? 0,
+        sms_first_at: s?.first_at ?? null,
+        sms_last_sent_at: s?.last_sent_at ?? null,
+        last_sms_at: s?.last_attempt_at ?? null,
       });
     }
   }
@@ -192,7 +202,7 @@ export function makeFakeClient() {
       return q;
     },
     rpc: async (fn: string, args: { p_offline_seconds: number }): Promise<Result> => {
-      if (fn === 'sms_candidates_v2') return { data: smsCandidatesV2(args.p_offline_seconds), error: null };
+      if (fn === 'sms_candidates_v3') return { data: smsCandidatesV3(args.p_offline_seconds), error: null };
       if (fn === 'push_candidates') return { data: [], error: null };
       return { data: null, error: { message: `unknown rpc ${fn}` } };
     },
