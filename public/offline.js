@@ -6,7 +6,7 @@
   'use strict';
   var DB_NAME = 'linkc-offline';
   var IDLE_MS = 60000; // keep in sync with IDLE_MS in src/lib/idle.ts
-  var MAX_AGE_MS = 14 * 24 * 3600 * 1000; // keep in sync with CACHE_MAX_AGE_MS in src/lib/offline/logic.ts
+  var MAX_AGE_MS = 24 * 3600 * 1000; // viewer shows data saved in the last 24 h only (stricter than the app cache's 14 days)
   var ACTIVE_KEY = 'lc-last-active'; // written by IdleGuard while the app is used
   var STORES = ['meta', 'convs', 'msgs', 'outbox'];
   var app = document.getElementById('app');

@@ -62,16 +62,12 @@ export default function SnapViewer({ snap, onClose }: { snap: OpenedSnap; onClos
       }
       if (e.key === 'Escape') close();
     };
-    const onVis = () => document.visibilityState === 'hidden' && flag();
+    // Plain blur / visibilitychange are NOT flagged: calls, the notification shade and app switching fire them too.
     document.addEventListener('keydown', onKey);
     document.addEventListener('keyup', onKey);
-    document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('blur', flag);
     return () => {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('keyup', onKey);
-      document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('blur', flag);
     };
   }, [id, close]);
 

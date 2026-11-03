@@ -7,6 +7,7 @@
 // only removed after a confirmed response. (A client-supplied id + unique index would make this exact; see the report.)
 import type { supabaseBrowser } from '@/lib/supabase/browser';
 import { MSG_COLS, type Msg } from '@/lib/chat/types';
+import { isActiveUserConfirmed } from './cache';
 import { dbAll, dbDelete, dbGet, dbPut } from './db';
 import { OUTBOX_MAX, OUTBOX_MAX_AGE_MS, backoffMs, classifyError, findDuplicate, pickNext, sortOutbox, type OutboxItem } from './logic';
 import { reportNetworkFailure, reportNetworkOk } from './status';
@@ -155,6 +156,7 @@ async function doFlush(supabase: Client, userId: string): Promise<void> {
 /** Sends what is due, in order. Safe to call often and from several tabs at once (one flush at a time). */
 export async function flushOutbox(supabase: Client, userId: string): Promise<void> {
   if (flushing || typeof navigator === 'undefined' || !navigator.onLine) return;
+  if (!isActiveUserConfirmed(userId)) return; // wait until the cache owner is confirmed (a different person's queue is wiped first)
   flushing = true;
   try {
     const locks = (navigator as Navigator & { locks?: LockManager }).locks;

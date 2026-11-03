@@ -86,6 +86,7 @@ export function smsDue(o: {
   firstSentAt: string | number | Date | null | undefined;
   lastSentAt: string | number | Date | null | undefined;
   lastAttemptAt: string | number | Date | null | undefined;
+  firstUnreadAt?: string | number | Date | null;
   nowMs: number;
   step2Minutes: number;
   repeatMinutes: number;
@@ -102,14 +103,25 @@ export function smsDue(o: {
     if (nowMs - att < spacing) return false;
   }
   if (step === 0) return true;
+  // A claimed step always writes its time, but if it is missing (older row) fall back to the last attempt, then the first unread
+  // time, so the chat is never stuck forever.
+  const fallback = toMs(o.lastAttemptAt) ?? toMs(o.firstUnreadAt);
   if (step === 1) {
-    const first = toMs(o.firstSentAt);
+    const first = toMs(o.firstSentAt) ?? toMs(o.lastSentAt) ?? fallback;
     if (first === null || !(o.step2Minutes > 0)) return false;
     return nowMs >= first + o.step2Minutes * 60_000;
   }
-  const last = toMs(o.lastSentAt);
+  const last = toMs(o.lastSentAt) ?? fallback;
   if (last === null || !(o.repeatMinutes > 0)) return false;
   return nowMs >= last + o.repeatMinutes * 60_000;
+}
+
+/**
+ * True when the gateway outcome is unknown (timeout, dropped connection, unexpected throw): the SMS may have been delivered, so the
+ * claimed step must NOT be rolled back (at most once). Explicit rejections (HTTP non-2xx, "gateway rejected", pre-send errors) are not ambiguous.
+ */
+export function smsAmbiguous(status: string): boolean {
+  return status === 'error timeout' || status === 'error connection' || status === 'error request failed' || status === 'error send failed';
 }
 
 /** Text for this SMS: member override > step text > default text. */

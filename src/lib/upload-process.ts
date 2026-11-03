@@ -4,7 +4,7 @@ import { mkdir, open, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileTypeFromBuffer } from 'file-type';
 import sharp from 'sharp';
-import { makeHdPreview } from '@/lib/image-preview';
+import { ImageLimitError, MAX_IMAGE_PIXELS, assertImageWithinLimits, makeHdPreview } from '@/lib/image-preview';
 import { decryptChunk, encryptFile, newFileKey, unwrapKey, wrapKey } from '@/lib/crypto';
 import { adminClient } from '@/lib/supabase/admin';
 import { snapStore, mediaStore } from '@/lib/storage';
@@ -23,6 +23,8 @@ import {
   workDir,
   type UploadSession,
 } from '@/lib/media';
+
+sharp.cache(false);
 
 class Reject extends Error {}
 
@@ -125,6 +127,8 @@ export async function processUpload(sessionId: string): Promise<void> {
     const kind = declaredKind;
     const limit = (kind === 'audio' ? AUDIO_MAX_MB : kind === 'image' ? st?.photo_max_mb : st?.video_max_mb) ?? 10;
     const maxBytes = Number(limit) * 1024 * 1024;
+    // Cheap size check before any decoding or re-encoding.
+    if (total > maxBytes) throw new Reject(`File is too large (max ${limit} MB)`);
 
     // 3. strip metadata
     let cleanPath = rawPath;
@@ -133,9 +137,10 @@ export async function processUpload(sessionId: string): Promise<void> {
     if (kind === 'image') {
       cleanPath = path.join(dir, 'clean');
       try {
+        await assertImageWithinLimits(rawPath);
         // Re-encoding drops EXIF/GPS and any comment blocks (GIF too); animation is kept for WebP and GIF.
         const animated = detected === 'image/webp' || detected === 'image/gif';
-        const img = sharp(rawPath, { animated, limitInputPixels: 40_000_000, failOn: 'error' }).rotate();
+        const img = sharp(rawPath, { animated, limitInputPixels: MAX_IMAGE_PIXELS, failOn: 'error' }).rotate();
         await (detected === 'image/jpeg'
           ? img.jpeg({ quality: 90 })
           : detected === 'image/png'
@@ -148,7 +153,8 @@ export async function processUpload(sessionId: string): Promise<void> {
           const p = path.join(dir, 'preview');
           if (await makeHdPreview(cleanPath, p)) previewPath = p;
         }
-      } catch {
+      } catch (e) {
+        if (e instanceof ImageLimitError) throw new Reject(e.message);
         throw new Reject('This image could not be read');
       }
     } else if (kind === 'video') {
@@ -238,11 +244,19 @@ export async function processUpload(sessionId: string): Promise<void> {
     if (!(e instanceof Reject)) console.error('upload processing failed', e instanceof Error ? e.message : e);
     try {
       await stored?.del();
+    } catch {
+      /* best effort */
+    }
+    try {
       if (messageId) await db.from('messages').delete().eq('id', messageId); // cascades media rows
     } catch {
       /* best effort */
     }
-    await db.from('upload_sessions').update({ status: 'failed' }).eq('id', sessionId);
+    try {
+      await db.from('upload_sessions').update({ status: 'failed' }).eq('id', sessionId);
+    } catch {
+      /* best effort */
+    }
   } finally {
     await cleanupUploadSession(sessionId).catch(() => {});
   }

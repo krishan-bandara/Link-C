@@ -21,7 +21,7 @@ Link-C uses Supabase **Cloud** (free plan) for the database and login, so there 
 4. **Secret key**: Project Settings > API keys > create a **secret key** (starts with `sb_secret_`). Copy it into `SUPABASE_SECRET_KEY` in `.env`. Never put it in the browser or git. The URL and the `sb_publishable_...` key are public and go in the two `NEXT_PUBLIC_...` variables.
 5. **Realtime**: Project Settings > Realtime (or Realtime settings): leave "Allow public access" **OFF**. Link-C uses private channels.
 6. **Sign-in token lifetime (recommended)**: Authentication > Sessions (or JWT settings): set the access token expiry to about 300 seconds, so a disabled person's old token stops working within minutes.
-7. The database schema is already applied from `supabase/migrations/` (files 1 to 9, including the sign-up lock-down in 7, Clear chat in 8 and push in 9). For a NEW Supabase project run them in order in the SQL editor. To check the security rules, run `supabase/tests/rls.sql` against a **test** database (see README). It rolls back and changes nothing.
+7. The database schema is already applied from `supabase/migrations/` (files 1 to 33, in order; they include the sign-up lock-down, Clear chat, push, SMS and the later features). For a NEW Supabase project run them in order in the SQL editor. To check the security rules, run `supabase/tests/rls.sql` against a **test** database (see README). It rolls back and changes nothing.
 
 ## Part B. Cloudflare
 
@@ -107,10 +107,10 @@ Link-C uses Supabase **Cloud** (free plan) for the database and login, so there 
    sudo apt install -y ufw
    sudo ufw default deny incoming
    sudo ufw default allow outgoing
-   sudo ufw allow from 192.168.0.0/16 to any port 22 proto tcp   # SSH from your home network only; adjust
+   sudo ufw allow 22/tcp   # SSH: key-only (step 8); also restrict the source in the Oracle security list
    sudo ufw enable
    ```
-8. **SSH keys only**: copy your public key to the VM (`ssh-copy-id`), then in `/etc/ssh/sshd_config` set `PasswordAuthentication no` and `PermitRootLogin no`, and `sudo systemctl restart ssh`. Test a second login before closing the first.
+8. **SSH keys only** (Oracle VM: your key was set when the VM was created, so there is no `ssh-copy-id` need; add more keys to `~/.ssh/authorized_keys`). Also restrict port 22 to your own IP in the Oracle Cloud security list (VCN > Security List > ingress rule for TCP 22), and leave no other inbound rule open. Then, to be sure: copy your public key to the VM (`ssh-copy-id`), then in `/etc/ssh/sshd_config` set `PasswordAuthentication no` and `PermitRootLogin no`, and `sudo systemctl restart ssh`. Test a second login before closing the first.
 9. **fail2ban and automatic updates**:
    ```
    sudo apt install -y fail2ban unattended-upgrades
@@ -135,6 +135,10 @@ Link-C uses Supabase **Cloud** (free plan) for the database and login, so there 
     - Schedule: `sudo crontab -e` then `30 2 * * * /usr/local/bin/linkc-backup.sh`.
     - Snaps are never backed up (they are temporary on purpose). **Test one restore** into a scratch Supabase project before you rely on this.
     - Keep your `MASTER_KEY` copy too: the database holds encrypted phone numbers and SMS credentials that need it.
+
+## Part E2. One-step deploy from your PC
+
+`scripts/deploy.ps1` commits (after showing `git status --short` and asking `y`; add `-Yes` to skip), pushes, then SSHes to the VM: `git pull`, `chown` of `data`, `docker compose up -d --build --force-recreate`, `docker image prune -f`, a health check and the deployed commit id. It needs `.env.deploy` (git-ignored) with `LINKC_SSH_HOST` and `LINKC_SSH_KEY`, and the server must already be in your `known_hosts` (connect once by hand and accept the fingerprint). Docker logs are rotated by compose (10 MB x 3 per container).
 
 ## Part F. First login (owner) and how sign-in works
 

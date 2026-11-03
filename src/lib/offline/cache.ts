@@ -9,6 +9,7 @@ type ConvRecord = { userId: string; savedAt: number; items: ConversationItem[] }
 type MsgRecord = { userId: string; savedAt: number; messages: Msg[] };
 
 let activeUser: string | null = null;
+let confirmedUser: string | null = null; // set only after setActiveUser stored the owner marker
 let epoch = 0; // bumped by every wipe, so a save that started before a logout cannot write afterwards
 
 /** Binds the cache to the signed-in person. Data of a different person is wiped first. Call once when the app opens. */
@@ -17,15 +18,28 @@ export async function setActiveUser(userId: string): Promise<void> {
   const stored = await dbGet<string>('meta', 'user');
   if (e !== epoch) return;
   if (stored && stored !== userId) await clearOfflineData();
-  if (await dbPut('meta', userId, 'user')) activeUser = userId;
+  if (await dbPut('meta', userId, 'user')) {
+    activeUser = userId;
+    confirmedUser = userId;
+  }
   void prune();
+}
+
+/** True once setActiveUser has confirmed this person owns the cache (used before sending queued messages). */
+export function isActiveUserConfirmed(userId: string): boolean {
+  return confirmedUser === userId;
 }
 
 /** Deletes ALL offline data (cached chats, queued messages, owner marker). Safe to call at any time. */
 export async function clearOfflineData(): Promise<void> {
   epoch += 1;
   activeUser = null;
-  await dbClearAll();
+  confirmedUser = null;
+  try {
+    await dbClearAll();
+  } catch {
+    /* never reject */
+  }
   try {
     window.dispatchEvent(new Event('lc-offline-cleared'));
   } catch {

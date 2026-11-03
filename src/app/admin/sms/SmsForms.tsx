@@ -42,21 +42,21 @@ export function SmsSettingsForm({ v }: { v: SmsFormValues }) {
           <div className="sms-sec-body">
             <div className="sms-two">
               <Field label="SMS 1: offline after (s)" hint="Min 30 (the app reports online every 10 s).">
-                <input name="offline_after_seconds" type="number" min={30} defaultValue={v.offline_after_seconds} className={inputCls} />
+                <input name="offline_after_seconds" type="number" min={30} max={86400} defaultValue={v.offline_after_seconds} className={inputCls} />
               </Field>
               <Field label="SMS 2 after SMS 1 (minutes)" hint="Recommended 5.">
                 <input name="step2_after_minutes" type="number" min={1} max={1440} defaultValue={v.step2_after_minutes} className={inputCls} />
               </Field>
             </div>
-            <Field label="SMS 3 after SMS 2 (minutes)" hint="Recommended 10. SMS 3 is the last one: at most 3 SMS per offline period, then none until they open the app.">
+            <Field label="SMS 3 delay (minutes after SMS 2)" hint="Recommended 10. SMS 3 is the last one: at most 3 SMS per offline period, then none until they open the app.">
               <input name="repeat_every_minutes" type="number" min={1} max={1440} defaultValue={v.repeat_every_minutes} className={inputCls} />
             </Field>
             <div className="sms-two">
               <Field label="SMS per day (all members together)" hint="One shared count for everyone, resets at midnight. Default 75.">
-                <input name="daily_cap" type="number" min={0} defaultValue={v.daily_cap} className={inputCls} />
+                <input name="daily_cap" type="number" min={0} max={1000} defaultValue={v.daily_cap} className={inputCls} />
               </Field>
               <Field label="SMS per month (all members together)" hint="Keep it above 31 times the daily count.">
-                <input name="monthly_cap" type="number" min={0} defaultValue={v.monthly_cap} className={inputCls} />
+                <input name="monthly_cap" type="number" min={0} max={100000} defaultValue={v.monthly_cap} className={inputCls} />
               </Field>
             </div>
             <div className="sms-two">

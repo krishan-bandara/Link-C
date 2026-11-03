@@ -11,7 +11,7 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
 
   const { data: item } = await supabase
     .from('media_items')
-    .select('id,sender_id,conversation_id,mode')
+    .select('id,sender_id,conversation_id,mode,viewed_at')
     .eq('id', id)
     .maybeSingle();
   if (!item || item.mode === 'normal') throw new HttpError(404, 'Not found');
@@ -29,7 +29,18 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   if (!ev) throw new HttpError(403, 'Not allowed');
   if (ev.screenshot_flag) return NextResponse.json({ ok: true }); // already reported: one notice per view
 
-  await db.from('view_events').update({ screenshot_flag: true }).eq('id', ev.id);
+  // The snap view must be active: opened, and within the longest viewing window (video 10 min) plus slack.
+  const openedAt = item.viewed_at ? new Date(item.viewed_at as string).getTime() : 0;
+  if (!openedAt || Date.now() - openedAt > 11 * 60_000) throw new HttpError(403, 'Not allowed');
+
+  // Atomic flag: only the request that flips false -> true posts the notice.
+  const { data: flipped } = await db
+    .from('view_events')
+    .update({ screenshot_flag: true })
+    .eq('id', ev.id)
+    .eq('screenshot_flag', false)
+    .select('id');
+  if (!flipped?.length) return NextResponse.json({ ok: true });
   await db.from('messages').insert({
     conversation_id: item.conversation_id,
     sender_id: user.id,

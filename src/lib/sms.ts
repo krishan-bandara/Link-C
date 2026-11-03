@@ -53,8 +53,8 @@ export async function getSmsSettingsPublic(): Promise<SmsSettingsPublic> {
   return {
     ...base,
     // Older databases may lack the newer columns until the latest migration is applied.
-    repeat_every_minutes: base.repeat_every_minutes ?? 19,
-    step2_after_minutes: base.step2_after_minutes ?? 10,
+    repeat_every_minutes: base.repeat_every_minutes ?? 10,
+    step2_after_minutes: base.step2_after_minutes ?? 5,
     hasCredentials: !!credentials_enc,
   };
 }
@@ -115,6 +115,8 @@ export async function sendSms(opts: {
   } catch {
     return fail('error credentials');
   }
+
+  if (!creds.apiKey) return fail('error credentials');
 
   const values: Values = {
     to: opts.to,

@@ -25,9 +25,16 @@ export function openDb(): Promise<IDBDatabase | null> {
           };
           resolve(db);
         };
-        req.onerror = () => resolve(null);
-        req.onblocked = () => resolve(null);
+        req.onerror = () => {
+          dbp = null;
+          resolve(null);
+        };
+        req.onblocked = () => {
+          dbp = null;
+          resolve(null);
+        };
       } catch {
+        dbp = null;
         resolve(null);
       }
     });

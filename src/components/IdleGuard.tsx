@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { IDLE_MS, PING_EVERY_MS, WARN_BEFORE_MS } from '@/lib/idle';
+import { clearOfflineData } from '@/lib/offline/cache';
 import { allowLeave, isHeld, reportActivity } from '@/lib/idle-client';
 
 const SHARED_KEY = 'lc-last-active'; // shared between tabs, so activity in one tab keeps the others signed in
@@ -79,6 +80,11 @@ export default function IdleGuard() {
         await supabaseBrowser().auth.signOut({ scope: 'local' });
         await fetch('/api/activity', { method: 'DELETE', credentials: 'same-origin' });
       } finally {
+        try {
+          await Promise.race([clearOfflineData(), new Promise<void>((r) => setTimeout(r, 1500))]);
+        } catch {
+          /* never block the sign-out */
+        }
         allowLeave();
         window.location.replace('/login?reason=idle'); // full reload clears every in-memory state
       }

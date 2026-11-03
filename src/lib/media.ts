@@ -88,8 +88,18 @@ export async function deleteMediaBlobs(mediaId: string) {
     .maybeSingle();
   if (key && item) {
     const store = storeFor(key.storage as 'b2' | 'local', item.mode as 'normal' | 'once' | 'timed');
-    await store.delete(key.object_key);
-    if (key.preview_object_key) await store.delete(key.preview_object_key);
+    // Idempotent: a missing object is treated as already deleted so a retry after a partial failure completes.
+    const del = async (k: string) => {
+      try {
+        await store.delete(k);
+      } catch (e) {
+        const code = (e as { code?: string; name?: string; $metadata?: { httpStatusCode?: number } } | null) ?? {};
+        if (code.code === 'ENOENT' || code.name === 'NoSuchKey' || code.name === 'NotFound' || code.$metadata?.httpStatusCode === 404) return;
+        throw e;
+      }
+    };
+    await del(key.object_key);
+    if (key.preview_object_key) await del(key.preview_object_key);
   }
   if (key) {
     const { error } = await db.from('media_keys').delete().eq('media_id', mediaId);

@@ -53,8 +53,9 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   if (!key) throw new HttpError(410, 'This media is no longer available');
 
   // ?v=preview: HD photos have a lighter copy for the chat bubble; everything else serves the full file.
+  const sp = new URL(req.url).searchParams;
   const usePreview =
-    new URL(req.url).searchParams.get('v') === 'preview' && !snap && !!key.preview_object_key && !!key.preview_wrapped_key && !!key.preview_size;
+    sp.get('v') === 'preview' && sp.get('download') !== '1' && !snap && !!key.preview_object_key && !!key.preview_wrapped_key && !!key.preview_size;
   const objectKey = usePreview ? (key.preview_object_key as string) : key.object_key;
   const wrappedKey = usePreview ? (key.preview_wrapped_key as string) : key.wrapped_key;
   const size = Number(usePreview ? key.preview_size : key.plaintext_size);
@@ -63,7 +64,7 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   const headers: Record<string, string> = {
     'Content-Type': usePreview ? 'image/webp' : item.mime,
     'Accept-Ranges': 'bytes',
-    'Cache-Control': 'private, no-store',
+    'Cache-Control': usePreview && !snap ? 'private, max-age=3600' : 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
     'Content-Disposition': 'inline',
   };
@@ -95,7 +96,17 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
     if (!claimed?.length) throw new HttpError(410, 'This media is no longer available');
   }
   const burn = () =>
-    void deleteMediaBlobs(id).catch((e) => console.error('snap cleanup failed', e instanceof Error ? e.message : e));
+    void (async () => {
+      for (let i = 1; i <= 3; i++) {
+        try {
+          await deleteMediaBlobs(id);
+          return;
+        } catch (e) {
+          console.error(`snap cleanup failed (media ${id}, attempt ${i}/3)`, e instanceof Error ? e.message : e);
+          if (i < 3) await new Promise((r) => setTimeout(r, 300 * i));
+        }
+      }
+    })();
   const onAbort = () => void gen.return(undefined);
   req.signal.addEventListener('abort', onAbort, { once: true });
 

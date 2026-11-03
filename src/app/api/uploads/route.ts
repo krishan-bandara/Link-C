@@ -15,6 +15,20 @@ const Body = z.object({
   replyTo: z.string().uuid().nullable().optional(),
 });
 
+// Per-user in-process lock so two simultaneous requests cannot both pass the quota check before either inserts.
+const userLocks = new Map<string, Promise<unknown>>();
+async function withUserLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = userLocks.get(key) ?? Promise.resolve();
+  const run = prev.catch(() => {}).then(fn);
+  const tail = run.catch(() => {});
+  userLocks.set(key, tail);
+  try {
+    return await run;
+  } finally {
+    if (userLocks.get(key) === tail) userLocks.delete(key);
+  }
+}
+
 export const POST = handle(async (req: Request) => {
   const { user, supabase } = await requireUser();
   if (!rateLimit(`upl:${user.id}`, 30, 60_000)) throw new HttpError(429, 'Too many uploads, slow down');
@@ -39,6 +53,7 @@ export const POST = handle(async (req: Request) => {
   const maxMb = kind === 'audio' ? AUDIO_MAX_MB : kind === 'image' ? st.photo_max_mb : st.video_max_mb;
   if (b.size > maxMb * 1024 * 1024) throw new HttpError(413, `File is too large (max ${maxMb} MB)`);
 
+  return withUserLock(user.id, async () => {
   const { data: active } = await db
     .from('upload_sessions')
     .select('user_id,total_size,status,created_at,last_chunk_at')
@@ -52,8 +67,9 @@ export const POST = handle(async (req: Request) => {
   if (rows.filter((r) => r.user_id === user.id && live(r)).length >= st.max_inflight_uploads) {
     throw new HttpError(429, 'Too many uploads in progress, please wait');
   }
-  const used = rows.reduce((n, r) => n + Number(r.total_size), 0);
-  if (used + b.size > st.temp_cap_mb * 1024 * 1024) {
+  // Processing writes raw + clean + preview + encrypted copies, so each byte uploaded costs about 3 bytes of disk.
+  const used = rows.reduce((n, r) => n + Number(r.total_size) * 3, 0);
+  if (used + b.size * 3 > st.temp_cap_mb * 1024 * 1024) {
     throw new HttpError(429, 'Server is busy with other uploads, try again shortly');
   }
 
@@ -77,4 +93,5 @@ export const POST = handle(async (req: Request) => {
     .single();
   if (error || !data) throw new Error('could not create upload');
   return NextResponse.json({ uploadId: data.id, chunkSize: CHUNK_SIZE, totalChunks });
+  });
 });

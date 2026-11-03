@@ -56,6 +56,8 @@ export default function SettingsClient({
 }) {
   const router = useRouter();
   const { toast, node } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const [name, setName] = useState(initial.name);
   const [about, setAbout] = useState(initial.about);
   const [avatar, setAvatar] = useState(initial.avatar);
@@ -150,7 +152,12 @@ export default function SettingsClient({
       pendingDnd.current = null;
       if (dndTimer.current) clearTimeout(dndTimer.current);
       dndTimer.current = null;
-      void savePrefs(supabaseBrowser(), userId, { dnd_from: next.from, dnd_to: next.to });
+      void savePrefs(supabaseBrowser(), userId, { dnd_from: next.from, dnd_to: next.to }).then(
+        (ok) => {
+          if (!ok) toastRef.current('Could not save. Try again.', true);
+        },
+        () => toastRef.current('Could not save. Try again.', true),
+      );
     };
     const onVis = () => {
       if (document.visibilityState === 'hidden') flush();
@@ -185,7 +192,12 @@ export default function SettingsClient({
     pendingDnd.current = next;
     dndTimer.current = setTimeout(() => {
       pendingDnd.current = null;
-      void savePref({ dnd_from: next.from, dnd_to: next.to });
+      void savePref({ dnd_from: next.from, dnd_to: next.to }).then((ok) => {
+        if (!ok) {
+          setDnd(prev);
+          announceDnd(prev);
+        }
+      });
     }, 500);
   }
 

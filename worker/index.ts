@@ -8,7 +8,7 @@ import { pushConfigured, sendPush, type PushSub } from '@/lib/push';
 import { dataDir, snapStore } from '@/lib/storage';
 import { adminClient } from '@/lib/supabase/admin';
 import { storageStatsStep } from './storage-stats';
-import { agoIso, alertAllowed, capReached, dayStart, diskUsedRatio, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
+import { agoIso, alertAllowed, capReached, dayStart, diskUsedRatio, isQuietHours, monthStart, smsAmbiguous, smsDue, smsTextFor } from './helpers';
 
 export { capReached, dayStart, isQuietHours, monthStart, smsDue, smsTextFor } from './helpers';
 
@@ -202,9 +202,9 @@ async function smsAlerts() {
   }
   if (quiet) return;
 
-  const step2Minutes = positive(st.step2_after_minutes, 10);
-  const repeatMinutes = positive(st.repeat_every_minutes, 19);
-  const offlineSeconds = Math.max(30, positive(st.offline_after_seconds, 45));
+  const step2Minutes = positive(st.step2_after_minutes, 5);
+  const repeatMinutes = positive(st.repeat_every_minutes, 10);
+  const offlineSeconds = Math.max(30, positive(st.offline_after_seconds, 30));
   const dailyCap = capValue(st.daily_cap, 75);
   const monthlyCap = capValue(st.monthly_cap, 300);
 
@@ -214,18 +214,22 @@ async function smsAlerts() {
   // step, last attempt or caps: they stay candidates, and one alert follows when the quiet hours end (if still unread and offline).
   const dnd = await loadDnd(((cands ?? []) as SmsCand[]).map((c) => c.user_id));
   const nowDate = new Date();
-  const due = ((cands ?? []) as SmsCand[]).filter((c) =>
-    alertAllowed({ dnd: dnd.get(c.user_id), now: nowDate }) &&
-    smsDue({
-      step: c.step ?? 0,
-      firstSentAt: c.sms_first_at,
-      lastSentAt: c.sms_last_sent_at,
-      lastAttemptAt: c.last_sms_at,
-      nowMs: Date.now(),
-      step2Minutes,
-      repeatMinutes,
-    }),
-  );
+  // Fairness: earlier steps first (a new chat's SMS 1 before someone's SMS 3), then the oldest unread message.
+  const due = ((cands ?? []) as SmsCand[])
+    .filter((c) =>
+      alertAllowed({ dnd: dnd.get(c.user_id), now: nowDate }) &&
+      smsDue({
+        step: c.step ?? 0,
+        firstSentAt: c.sms_first_at,
+        lastSentAt: c.sms_last_sent_at,
+        lastAttemptAt: c.last_sms_at,
+        firstUnreadAt: c.first_unread,
+        nowMs: Date.now(),
+        step2Minutes,
+        repeatMinutes,
+      }),
+    )
+    .sort((a, b) => (a.step ?? 0) - (b.step ?? 0) || (Date.parse(a.first_unread) || 0) - (Date.parse(b.first_unread) || 0));
   if (!due.length) return;
 
   // Only successful sends count toward the caps; failed attempts do not. If a count cannot be read, send nothing (fail closed).
@@ -236,7 +240,15 @@ async function smsAlerts() {
     .like('provider_status', 'http 2%')
     .gte('sent_at', monthStart(new Date(), TZ));
   if (mErr) throw new Error(mErr.message);
-  let sentThisMonth = monthCount ?? 0;
+  // A timed-out send may still have been delivered, so it counts toward the pool like a success.
+  const { count: monthTimeouts, error: mtErr } = await db
+    .from('sms_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('kind', 'alert')
+    .eq('provider_status', 'error timeout')
+    .gte('sent_at', monthStart(new Date(), TZ));
+  if (mtErr) throw new Error(mtErr.message);
+  let sentThisMonth = (monthCount ?? 0) + (monthTimeouts ?? 0);
 
   // The daily count is ONE shared pool for all members together (an umbrella), counted per calendar day in the local time zone.
   const { count: todayCount, error: tErr } = await db
@@ -246,13 +258,24 @@ async function smsAlerts() {
     .like('provider_status', 'http 2%')
     .gte('sent_at', dayStart(new Date(), TZ));
   if (tErr) throw new Error(tErr.message);
-  let sentToday = todayCount ?? 0;
+  const { count: todayTimeouts, error: ttErr } = await db
+    .from('sms_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('kind', 'alert')
+    .eq('provider_status', 'error timeout')
+    .gte('sent_at', dayStart(new Date(), TZ));
+  if (ttErr) throw new Error(ttErr.message);
+  let sentToday = (todayCount ?? 0) + (todayTimeouts ?? 0);
 
+  const capTraced = new Set<string>(); // 'cap reached' is written once per person per tick
   for (const c of due) {
     const step = c.step ?? 0;
 
     if (capReached({ sentToday, sentThisMonth, dailyCap, monthlyCap })) {
-      await traceFailure(c.user_id, 'cap reached', c.first_unread); // visible in Admin > SMS, written at most every ~10 minutes
+      if (!capTraced.has(c.user_id)) {
+        capTraced.add(c.user_id);
+        await traceFailure(c.user_id, 'cap reached', c.first_unread); // visible in Admin > SMS, at most every ~10 minutes per chat
+      }
       await deferChat(c.user_id, c.conversation_id, 10 * 60_000);
       continue;
     }
@@ -320,21 +343,37 @@ async function smsAlerts() {
       continue;
     }
 
-    // Definite failure: undo the advance (unless the person came back meanwhile: the heartbeat's reset wins) and back off.
-    const { error: rbErr } = await db
-      .from('sms_chat_state')
-      .update({ step, last_sent_at: c.sms_last_sent_at, first_at: c.sms_first_at })
-      .eq('user_id', c.user_id)
-      .eq('conversation_id', c.conversation_id)
-      .eq('step', step + 1)
-      .eq('last_sent_at', claimAt);
-    if (rbErr) logErr('sms rollback', new Error(rbErr.message));
+    // Unknown outcome (timeout, dropped connection): the gateway may have delivered it. Keep the advance (at most once), count it
+    // against the pool, and do not retry this step.
+    if (smsAmbiguous(res.status)) {
+      sentThisMonth++;
+      sentToday++;
+      continue;
+    }
+
+    // Definite rejection: undo the advance (unless the person came back meanwhile: the heartbeat's reset wins) and back off.
+    // If the undo itself errors, try once more.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { error: rbErr } = await db
+        .from('sms_chat_state')
+        .update({ step, last_sent_at: c.sms_last_sent_at, first_at: c.sms_first_at })
+        .eq('user_id', c.user_id)
+        .eq('conversation_id', c.conversation_id)
+        .eq('step', step + 1)
+        .eq('last_sent_at', claimAt);
+      if (!rbErr) break;
+      logErr('sms rollback', new Error(rbErr.message));
+    }
+    // Backoff counts only real gateway failures, not our own bookkeeping rows.
     const { count: failCount } = await db
       .from('sms_log')
       .select('id', { count: 'exact', head: true })
       .eq('kind', 'alert')
       .eq('user_id', c.user_id)
       .not('provider_status', 'like', 'http 2%')
+      .not('provider_status', 'like', 'cap reached')
+      .not('provider_status', 'like', 'error no phone')
+      .not('provider_status', 'like', 'error phone unreadable')
       .gte('sent_at', agoIso(3600_000));
     await deferChat(c.user_id, c.conversation_id, (failCount ?? 0) >= 5 ? 30 * 60_000 : 2 * 60_000);
   }
