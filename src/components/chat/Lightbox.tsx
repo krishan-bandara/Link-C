@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
 import './chat.css';
 import { useDialogFocus } from './useDialogFocus';
 
 export default function Lightbox({ src, onSave, onClose }: { src: string; onSave: () => void; onClose: () => void }) {
   const dlg = useDialogFocus<HTMLDivElement>();
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', esc);
@@ -31,8 +32,27 @@ export default function Lightbox({ src, onSave, onClose }: { src: string; onSave
           <X className="h-5 w-5" />
         </button>
       </div>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" onClick={(e) => e.stopPropagation()} />
+      {state === 'loading' && (
+        <div role="status" aria-live="polite" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
+          <span className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" aria-hidden />
+          <span className="text-sm">Loading photo...</span>
+        </div>
+      )}
+      {state === 'error' ? (
+        <p role="alert" className="rounded-lg bg-black/60 px-4 py-3 text-sm text-white" onClick={(e) => e.stopPropagation()}>
+          Could not load the full photo. Close and try again.
+        </p>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt="Photo"
+          className={`max-h-full max-w-full rounded-lg object-contain shadow-2xl transition-opacity duration-300 ${state === 'ready' ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setState('ready')}
+          onError={() => setState('error')}
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
     </div>
   );
 }

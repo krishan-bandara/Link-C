@@ -19,7 +19,7 @@ export default function OfflineBanner({ userId }: { userId: string }) {
   const queued = items.filter((i) => i.status === 'queued').length;
 
   useEffect(() => {
-    void setActiveUser(userId);
+    void setActiveUser(userId).then(() => flushOutbox(supabaseBrowser(), userId));
   }, [userId]);
 
   // Privacy: logout buttons dispatch 'lc-logout'; idle logout, ended sessions and sign-outs elsewhere show up as SIGNED_OUT.

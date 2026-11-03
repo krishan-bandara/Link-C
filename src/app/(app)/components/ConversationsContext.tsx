@@ -69,8 +69,8 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
   dndRef.current = dnd;
 
   const loadPrefs = useCallback(async () => {
-    const { data } = await supabaseBrowser().from('chat_prefs').select('conversation_id,muted_until,starred').eq('user_id', meId);
-    if (!data) return;
+    const { data, error } = await supabaseBrowser().from('chat_prefs').select('conversation_id,muted_until,starred').eq('user_id', meId);
+    if (error || !data) return; // keep the current settings when the reload fails
     const next: Record<string, ChatPref> = {};
     for (const r of data as { conversation_id: string; muted_until: string | null; starred: boolean }[]) next[r.conversation_id] = { mutedUntil: r.muted_until, starred: !!r.starred };
     setPrefs(next);
@@ -108,10 +108,15 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
     [savePref],
   );
 
+  const reqId = useRef(0);
   const refresh = useCallback(async () => {
+    const mine = ++reqId.current;
     const next = await loadConversations(supabaseBrowser(), meId).catch(() => null);
-    if (next) setItems(next);
-    setLoaded(true);
+    if (mine !== reqId.current) return; // a newer refresh started: ignore this older answer
+    if (next) {
+      setItems(next);
+      setLoaded(true);
+    }
   }, [meId]);
 
   useEffect(() => unlockAudioOnFirstTouch(), []);
@@ -169,9 +174,19 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
           }
           schedule();
         })
-        .subscribe();
+        .subscribe((status) => {
+          // (re)connected: catch up on anything missed; on failure the library retries and we refresh again when it is back
+          if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            schedule();
+            if (status === 'SUBSCRIBED') void loadPrefs();
+          }
+        });
     })();
-    const vis = () => document.visibilityState === 'visible' && schedule();
+    const vis = () => {
+      if (document.visibilityState !== 'visible') return;
+      schedule();
+      void loadPrefs();
+    };
     document.addEventListener('visibilitychange', vis);
     return () => {
       cancelled = true;
@@ -179,7 +194,7 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
       document.removeEventListener('visibilitychange', vis);
       if (ch) void supabase.removeChannel(ch);
     };
-  }, [meId, refresh]);
+  }, [meId, refresh, loadPrefs]);
 
   // Typing + presence: one private broadcast channel per conversation, shared with the open chat.
   // The key is sorted so that a reorder (new message moves a row up) does not tear the channels down.

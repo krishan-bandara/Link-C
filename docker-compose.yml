@@ -7,7 +7,7 @@ x-hardening: &hardening
   restart: unless-stopped
   read_only: true
   tmpfs:
-    - /tmp
+    - /tmp:size=64m,noexec,nosuid
     - /app/.next/cache
   security_opt:
     - no-new-privileges:true
@@ -15,6 +15,11 @@ x-hardening: &hardening
     - ALL
   networks:
     - linkc_net
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 services:
   app:

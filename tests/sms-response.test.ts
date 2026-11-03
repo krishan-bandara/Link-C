@@ -34,4 +34,13 @@ describe('gatewayRejected', () => {
     expect(gatewayRejected('{"status":"succ')).toBe(false);
     expect(gatewayRejected('{"status":"error","mess')).toBe(true);
   });
+  it('inspects code, status_code, errors and nested data', () => {
+    expect(gatewayRejected('{"code":401}')).toBe(true);
+    expect(gatewayRejected('{"status_code":"500"}')).toBe(true);
+    expect(gatewayRejected('{"errors":["x"]}')).toBe(true);
+    expect(gatewayRejected('{"errors":[]}')).toBe(false);
+    expect(gatewayRejected('{"data":{"error":"bad"}}')).toBe(true);
+    expect(gatewayRejected('{"data":{"status":"failed"}}')).toBe(true);
+    expect(gatewayRejected('{"status":"success","code":200}')).toBe(false);
+  });
 });

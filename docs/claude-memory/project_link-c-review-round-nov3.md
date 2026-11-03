@@ -1,0 +1,17 @@
+---
+name: project-link-c-review-round-nov3
+description: "2026-11-03: 20 review agents + 11 fix agents over SMS/HD/offline/snaps/uploads/deploy; migrations 32+33 written NOT applied; nothing committed or deployed"
+metadata:
+  type: project
+---
+
+On 2026-11-03 the owner asked for a parallel review (20 read-only agents) then fixes (11 agents, one owner per file). Result: tsc clean, 33 test files / 331 tests pass; changes are UNCOMMITTED in the working tree and NOT deployed. Migrations 32 and 33 are written but NOT applied to the live DB (the claude.ai Supabase connector was not signed in; owner must run /mcp and sign in to the personal link-c account, then Claude applies them).
+
+**Migration 32** (`20261103000032_sms_schedule_values.sql`): sets Admin SMS values 30 s / 5 / 10 min but only overwrites the OLD defaults (45, 8 or 10, 19), plus new column defaults. `src/lib/sms.ts` fallbacks now 5 / 10; worker fallbacks 30 s / 5 / 10.
+**Migration 33** (`20261103000033_member_tools_hardening.sql`): clear_chat, hide_message, set_chat_mute, set_chat_star, edit_message require an active user; past mute time = unmuted; no-op edit keeps edited_at. New RLS tests appended to `supabase/tests/rls.sql` were NOT run (assumptions about auth.sessions / user_prefs columns need a test DB).
+
+**Code fixed:** worker (timeout/network error is no longer rolled back = at-most-once, backoff counts only gateway failures, null-date SMS rows no longer stuck, fairness order); presence rate limit 60/min + heartbeat back-off; server-side 4096 px / 300 frame image limits, cleanup try blocks; iPhone-safe HD shrink (12 MP cap); photo bubble/Lightbox labels + retry; admin SMS validation (quiet range both-or-none, monthly >= daily, no reset link for other owners); sms-response checks more error keys; offline wipe awaited on logout/idle/login page, 24 h viewer max age, outbox waits for user confirmation; snap blob delete retry, atomic screenshot notice, preview not served for download; upload disk cap x3, 2 concurrent processUpload, 4 chunk requests per user (in-process, single instance only); chat list refresh on reconnect and out-of-order guard; deploy.ps1 (confirm prompt, strict ssh, chown before up, health check), compose log limits, .dockerignore/.gitignore.
+
+**Left open (owner decisions):** login lock keyed only on email (anyone can lock the owner out; email+IP would weaken brute-force protection); video snap token still replayable for 10 min; client_id column for offline duplicate safety; Admin look/accessibility review agent never ran (concurrency limit); lightbox does not show the blurred preview underneath; HD bubble layout shift (needs width/height stored at upload); screenshot flag no longer fires on blur alone.
+
+See [[project-link-c-sms-schedule]], [[project-link-c-hd-photos]], [[project-link-c-deploy-script]].

@@ -44,6 +44,8 @@ function MediaBody({
   onSaveMedia: (m: Media) => void;
   onMediaLoad: () => void;
 }) {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setTry] = useState(0); // bumped on retry so the browser refetches
   const [loaded, setLoaded] = useState(false); // the grey placeholder box is only needed until the picture is there
   if (!media) return <div className="cv-media-ph h-48 w-64 max-w-full rounded-xl" role="status" aria-label="Loading media" />;
   if (media.mode === 'normal') {
@@ -65,11 +67,18 @@ function MediaBody({
     return (
       <div className="group/media relative">
         {media.kind === 'image' ? (
-          <button type="button" onClick={() => onZoom(media)} className={`relative block w-64 max-w-full overflow-hidden rounded-xl ${loaded ? '' : 'cv-media-ph min-h-48'} ${FOCUS}`} aria-label="View image" data-swipeok>
+          failed ? (
+            <button type="button" onClick={() => { setFailed(false); setLoaded(false); setTry((n) => n + 1); }} className={`flex h-48 w-64 max-w-full flex-col items-center justify-center gap-1 rounded-xl bg-panel-2/60 px-3 text-center text-sm text-muted ${FOCUS}`} data-swipeok>
+              <span>Could not load.</span>
+              <span className="font-medium text-accent">Tap to retry</span>
+            </button>
+          ) : (
+          <button type="button" onClick={() => onZoom(media)} className={`relative block w-64 max-w-full overflow-hidden rounded-xl ${loaded ? '' : 'cv-media-ph min-h-48'} ${FOCUS}`} aria-label={media.hd ? 'View HD photo' : 'View image'} data-swipeok>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={media.hd ? `${src}?v=preview` : src} alt="" draggable={false} loading="lazy" onLoad={() => { setLoaded(true); onMediaLoad(); }} onError={() => setLoaded(true)} className={`pointer-events-none max-h-72 w-full select-none rounded-xl object-cover ${loaded ? 'cv-img-in' : 'opacity-0'}`} />
-            {media.hd && <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold leading-none tracking-wide text-white backdrop-blur-sm">HD</span>}
+            <img key={attempt} src={`${media.hd ? `${src}?v=preview` : src}${attempt ? `${media.hd ? '&' : '?'}r=${attempt}` : ''}`} alt="Photo" draggable={false} loading="lazy" onLoad={() => { setLoaded(true); onMediaLoad(); }} onError={() => { setLoaded(true); setFailed(true); }} className={`pointer-events-none max-h-72 w-full select-none rounded-xl object-cover ${loaded ? 'cv-img-in' : 'opacity-0'}`} />
+            {media.hd && <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[11px] font-bold leading-none tracking-wide text-white backdrop-blur-sm">HD</span>}
           </button>
+          )
         ) : (
           <>
             <video

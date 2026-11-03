@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { clearOfflineData } from '@/lib/offline/cache';
 import AuthShell from '@/components/auth/AuthShell';
 import PasswordField from '@/components/auth/PasswordField';
 import TerminalLog, { type LogLine } from '@/components/auth/TerminalLog';
@@ -12,6 +13,10 @@ const mask = (e: string) => `${e.charAt(0)}***${e.slice(e.indexOf('@'))}`;
 const emit = (name: string) => window.dispatchEvent(new CustomEvent(name));
 
 export default function LoginForm({ notice }: { notice: string }) {
+  // nobody is signed in on the login page: remove any saved chats / queued messages left on this device
+  useEffect(() => {
+    void clearOfflineData();
+  }, []);
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

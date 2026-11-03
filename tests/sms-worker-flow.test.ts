@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeDb, resetFakeDb, rows } from './helpers/fake-supabase';
 
-type Gw = { mode: 'ok' | 'fail' | 'throw' | 'hang'; sent: { at: number; to: string; text: string }[]; attempts: number[]; onSend?: () => void };
+type Gw = { mode: 'ok' | 'fail' | 'throw' | 'hang' | 'timeout'; sent: { at: number; to: string; text: string }[]; attempts: number[]; onSend?: () => void };
 const G = globalThis as unknown as { __gw?: Gw };
 const gw = (): Gw => (G.__gw ??= { mode: 'ok', sent: [], attempts: [] });
 
@@ -23,7 +23,7 @@ vi.mock('@/lib/sms', async () => {
       g.onSend?.();
       if (g.mode === 'hang') await new Promise(() => {}); // simulates the process dying mid-send
       if (g.mode === 'throw') throw new Error('boom');
-      const status = g.mode === 'ok' ? 'http 200' : 'http 500';
+      const status = g.mode === 'ok' ? 'http 200' : g.mode === 'timeout' ? 'error timeout' : 'http 500';
       h.rows('sms_log').push({
         id: ++h.fakeDb().seq, user_id: o.userId, kind: o.kind, provider_status: status,
         period_started_at: o.periodStartedAt ?? null, sent_at: new Date().toISOString(),
@@ -51,7 +51,10 @@ const A = 'user-a';
 const B = 'user-b';
 const PHONE = '+94771234567';
 
-function seed(opts: { settings?: Record<string, unknown>; phone?: string | null; offlineSince?: boolean } = {}) {
+// The three timings the owner sets in Admin > SMS: 30 s / +5 min / +10 min.
+const NEW = { offline_after_seconds: 30, step2_after_minutes: 5, repeat_every_minutes: 10 };
+
+function seed(opts: { settings?: Record<string, unknown>; phone?: string | null; offlineSince?: boolean; seenAgoMs?: number } = {}) {
   resetFakeDb();
   const g = gw();
   g.mode = 'ok'; g.sent = []; g.attempts = []; g.onSend = undefined;
@@ -60,14 +63,14 @@ function seed(opts: { settings?: Record<string, unknown>; phone?: string | null;
     repeat_every_minutes: 19, daily_cap: 10, monthly_cap: 300, quiet_start: null, quiet_end: null,
     template_text: 'T1', template_step2: 'T2', template_step3: 'T3', ...opts.settings,
   });
-  addMember(A, B, opts.phone === undefined ? PHONE : opts.phone, opts.offlineSince !== false);
+  addMember(A, B, opts.phone === undefined ? PHONE : opts.phone, opts.offlineSince !== false, opts.seenAgoMs ?? 60_000);
 }
 // Member `id` has one unread message from `from`; presence row says they were last seen 60 s ago (offline).
-function addMember(id: string, from: string, phone: string | null, withPresence = true) {
+function addMember(id: string, from: string, phone: string | null, withPresence = true, seenAgoMs = 60_000) {
   rows('profiles').push({ id, login_disabled: false, sms_alerts_enabled: true, phone_enc: phone, sms_template: null });
   rows('conversations').push({ id: `c-${id}`, user_a: id, user_b: from });
   rows('messages').push({ id: `m-${id}`, conversation_id: `c-${id}`, sender_id: from, read_at: null, type: 'text', created_at: new Date(Date.now() - 2 * MIN).toISOString() });
-  if (withPresence) rows('presence_state').push({ user_id: id, last_seen_at: new Date(Date.now() - 60_000).toISOString(), sms_step: 0, sms_sent_this_period: false, last_sms_at: null, sms_first_at: null, sms_last_sent_at: null });
+  if (withPresence) rows('presence_state').push({ user_id: id, last_seen_at: new Date(Date.now() - seenAgoMs).toISOString(), sms_step: 0, sms_sent_this_period: false, last_sms_at: null, sms_first_at: null, sms_last_sent_at: null });
 }
 // Same writes as src/app/api/presence/route.ts: mark the person online and delete all their per-chat SMS rows.
 function heartbeat(id: string) {
@@ -104,8 +107,35 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('SMS escalation schedule', () => {
-  it('sends SMS 1 at once, SMS 2 after 10 min, SMS 3 19 min later, then stops (3 SMS maximum)', async () => {
+describe('SMS escalation schedule (new default 30 s / +5 / +10 min)', () => {
+  const expectNewSchedule = () => {
+    const at = gw().sent.map((s) => Math.round((s.at - T0) / 1000));
+    expect(at.length).toBe(3);
+    expect(at[0]).toBeGreaterThanOrEqual(30);
+    expect(at[0]).toBeLessThanOrEqual(35); // ~30 s (5 s ticks)
+    expect(at[1] - at[0]).toBeGreaterThanOrEqual(300);
+    expect(at[1] - at[0]).toBeLessThanOrEqual(305); // ~5:30
+    expect(at[2] - at[1]).toBeGreaterThanOrEqual(600);
+    expect(at[2] - at[1]).toBeLessThanOrEqual(605); // ~15:30
+    expect(gw().sent.map((s) => s.text)).toEqual(['T1', 'T2', 'T3']);
+    expect(gw().attempts.length).toBe(3);
+  };
+
+  it('settings 30 s / 5 / 10: SMS at ~30 s, ~5:30, ~15:30, then stops', async () => {
+    seed({ settings: NEW, seenAgoMs: 0 });
+    await startWorker();
+    await advance(120 * MIN);
+    expectNewSchedule();
+  });
+
+  it('with no overrides in the settings the worker defaults are 30 s / +5 / +10 min', async () => {
+    seed({ settings: { offline_after_seconds: null, step2_after_minutes: null, repeat_every_minutes: null }, seenAgoMs: 0 });
+    await startWorker();
+    await advance(120 * MIN);
+    expectNewSchedule();
+  });
+
+  it('custom admin values (45 s / 10 / 19): SMS 1 at once, SMS 2 after 10 min, SMS 3 19 min later, then stops (3 SMS maximum)', async () => {
     seed();
     await startWorker();
     await advance(120 * MIN);
@@ -207,6 +237,27 @@ describe('per chat: at most 3 SMS for each chat', () => {
     expect(gw().sent.length).toBe(4);
     expect(gw().sent[3].text).toBe('T1'); // the other chat begins with SMS 1
     expect(st(A, `c-${A}`).step).toBe(3);
+  });
+
+  it('chat A already used its 3 SMS, chat B is new: only chat B sends, starting with SMS 1', async () => {
+    seed({ settings: NEW });
+    rows('sms_chat_state').push({ user_id: A, conversation_id: `c-${A}`, step: 3, first_at: new Date(Date.now() - 20 * MIN).toISOString(), last_sent_at: new Date(Date.now() - 5 * MIN).toISOString(), last_attempt_at: new Date(Date.now() - 5 * MIN).toISOString() });
+    addChat(A, 'user-c', 'c2');
+    await startWorker();
+    await advance(60 * MIN);
+    expect(gw().sent.map((s) => s.text)).toEqual(['T1', 'T2', 'T3']);
+    expect(st(A, `c-${A}`).step).toBe(3);
+    expect(st(A, 'c2').step).toBe(3);
+  });
+
+  it('a person who keeps sending heartbeats for 5 minutes gets no SMS', async () => {
+    seed({ settings: NEW, seenAgoMs: 0 });
+    await startWorker();
+    for (let t = 0; t < 5 * MIN; t += 5000) {
+      heartbeat(A);
+      await vi.advanceTimersByTimeAsync(5000);
+    }
+    expect(gw().attempts.length).toBe(0);
   });
 
   it('after the person opens the app and goes offline again, every chat gets a fresh round', async () => {
@@ -321,17 +372,43 @@ describe('gateway failures', () => {
     expect(gw().sent[1].text).toBe('T2');
   });
 
-  it('a thrown gateway error is logged ("error send failed"), rolled back and retried after 2 minutes', async () => {
+  it('a thrown gateway error is logged ("error send failed") but NOT rolled back (it may have been delivered): no retry of SMS 1', async () => {
     seed();
     gw().mode = 'throw';
     await startWorker();
-    await advance(2 * MIN + 10_000);
-    expect(gw().attempts.length).toBe(2);
-    expect(logs('error send failed').length).toBe(2);
-    expect(st(A).step).toBe(0);
+    await advance(5 * MIN);
+    expect(gw().attempts.length).toBe(1);
+    expect(logs('error send failed').length).toBe(1);
+    expect(st(A).step).toBe(1);
     gw().mode = 'ok';
-    await advance(2 * MIN);
-    expect(gw().sent.length).toBe(1);
+    await advance(6 * MIN); // SMS 2 follows the normal schedule (10 min after the claimed SMS 1)
+    expect(gw().sent.map((s) => s.text)).toEqual(['T2']);
+  });
+
+  it('a timeout does not roll back the claimed step, counts toward the daily pool, and SMS 1 is not repeated', async () => {
+    seed();
+    gw().mode = 'timeout';
+    await startWorker();
+    await advance(5 * MIN);
+    expect(gw().attempts.length).toBe(1);
+    expect(logs('error timeout').length).toBe(1);
+    expect(st(A).step).toBe(1);
+    expect(st(A).first_at).not.toBeNull();
+    // 9 more timeouts today would fill the 10-SMS pool: pre-fill 9 rows of timeouts (the 10th is the one above)
+    for (let i = 0; i < 9; i++) rows('sms_log').push({ id: ++fakeDb().seq, user_id: B, kind: 'alert', provider_status: 'error timeout', sent_at: new Date().toISOString() });
+    gw().mode = 'ok';
+    await advance(6 * MIN);
+    expect(gw().sent.length).toBe(0); // pool (10) used up by timeouts
+    expect(logs('cap reached').length).toBeGreaterThan(0);
+  });
+
+  it('backoff ignores "cap reached" / "error no phone" rows: after a gateway failure the retry comes after 2 minutes', async () => {
+    seed();
+    for (let i = 0; i < 6; i++) rows('sms_log').push({ id: ++fakeDb().seq, user_id: A, kind: 'alert', provider_status: i % 2 ? 'cap reached' : 'error no phone', sent_at: new Date(Date.now() - MIN).toISOString() });
+    gw().mode = 'fail';
+    await startWorker();
+    await advance(2 * MIN + 10_000);
+    expect(gw().attempts.map((t) => Math.round((t - T0) / 1000))).toEqual([0, 120]);
   });
 
   it('5 failures within an hour: backs off 30 minutes instead of 2', async () => {
@@ -437,6 +514,31 @@ describe('quiet hours', () => {
     await advance(MIN);
     expect(gw().sent.length).toBe(1);
     expect(gw().sent[0].text).toBe('T1');
+  });
+
+  it('quiet-range catch-up with 30 s / 5 / 10: one SMS when the range ends, then 5 and 10 min spacing', async () => {
+    seed({ settings: { ...NEW, quiet_start: '11:30:00', quiet_end: '11:40:00' } });
+    await startWorker();
+    await advance(9 * MIN + 30_000);
+    expect(gw().attempts.length).toBe(0);
+    await advance(MIN);
+    expect(gw().sent.map((s) => s.text)).toEqual(['T1']); // a single catch-up, no burst
+    const t1 = gw().sent[0].at;
+    await advance(30 * MIN);
+    expect(gw().sent.map((s) => s.text)).toEqual(['T1', 'T2', 'T3']);
+    expect(Math.round((gw().sent[1].at - t1) / 1000)).toBeGreaterThanOrEqual(300);
+    expect(Math.round((gw().sent[1].at - t1) / 1000)).toBeLessThanOrEqual(305);
+    expect(Math.round((gw().sent[2].at - gw().sent[1].at) / 1000)).toBeGreaterThanOrEqual(600);
+    expect(Math.round((gw().sent[2].at - gw().sent[1].at) / 1000)).toBeLessThanOrEqual(605);
+  });
+
+  it('quiet-range catch-up: nothing is sent if the message was read during the range', async () => {
+    seed({ settings: { ...NEW, quiet_start: '11:30:00', quiet_end: '11:40:00' } });
+    await startWorker();
+    await advance(5 * MIN);
+    rows('messages')[0].read_at = new Date().toISOString();
+    await advance(30 * MIN);
+    expect(gw().attempts.length).toBe(0);
   });
 
   it('quiet hours crossing midnight (22:00 -> 07:00) block a 23:00 local start', async () => {

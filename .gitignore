@@ -15,3 +15,8 @@ shots-*.png
 
 # downloaded emoji caches for the seed scripts
 .cache/
+
+# private keys and certificates
+*.key
+*.pem
+*.p12

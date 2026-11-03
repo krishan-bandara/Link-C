@@ -170,6 +170,10 @@ export async function revokeInvite(_prev: State, fd: FormData): Promise<State> {
 export async function resetPasswordLink(_prev: State, fd: FormData): Promise<State> {
   return owned(async (ownerId) => {
     const memberId = uuid.parse(fd.get('memberId'));
+    if (memberId !== ownerId) {
+      const { data: tp } = await adminClient().from('profiles').select('role').eq('id', memberId).maybeSingle();
+      if (tp?.role === 'owner') throw new UserError('An owner password cannot be reset from here');
+    }
     const { data } = await adminClient().auth.admin.getUserById(memberId);
     const email = data.user?.email?.toLowerCase();
     if (!email) throw new UserError('Member not found');
@@ -329,15 +333,24 @@ const smsSchema = z.object({
   headers_template: z.string().max(2000),
   sender_id: z.string().trim().max(40),
   template_text: z.string().trim().min(1, 'SMS text is required').max(160, 'SMS text max 160 characters'),
-  offline_after_seconds: z.coerce.number().int().min(30, 'Offline delay must be at least 30 seconds').max(86400),
+  offline_after_seconds: z.coerce.number({ message: 'SMS 1 delay must be a number (30 to 86400 seconds)' }).int('SMS 1 delay must be a whole number').min(30, 'SMS 1 delay must be at least 30 seconds').max(86400, 'SMS 1 delay can be at most 86400 seconds'),
   step2_after_minutes: z.coerce.number().int().min(1, 'SMS 2 delay: 1 to 1440 minutes').max(1440, 'SMS 2 delay: 1 to 1440 minutes'),
-  repeat_every_minutes: z.coerce.number().int().min(1, 'Repeat delay: 1 to 1440 minutes').max(1440, 'Repeat delay: 1 to 1440 minutes'),
+  repeat_every_minutes: z.coerce.number().int().min(1, 'SMS 3 delay: 1 to 1440 minutes').max(1440, 'SMS 3 delay: 1 to 1440 minutes'),
   template_step2: z.string().trim().max(160, 'SMS 2 text max 160 characters'),
   template_step3: z.string().trim().max(160, 'SMS 3 and later text max 160 characters'),
-  daily_cap: z.coerce.number().int().min(0).max(1000),
-  monthly_cap: z.coerce.number().int().min(0).max(100000),
+  daily_cap: z.coerce.number({ message: 'SMS per day must be a number (0 to 1000)' }).int('SMS per day must be a whole number').min(0, 'SMS per day: 0 to 1000').max(1000, 'SMS per day: 0 to 1000'),
+  monthly_cap: z.coerce.number({ message: 'SMS per month must be a number (0 to 100000)' }).int('SMS per month must be a whole number').min(0, 'SMS per month: 0 to 100000').max(100000, 'SMS per month: 0 to 100000'),
   quiet_start: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, 'Quiet hours: use HH:MM (00:00 to 23:59)'),
   quiet_end: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, 'Quiet hours: use HH:MM (00:00 to 23:59)'),
+}).superRefine((v, ctx) => {
+  if (!!v.quiet_start !== !!v.quiet_end) {
+    ctx.addIssue({ code: 'custom', path: ['quiet_end'], message: 'Quiet hours: set both times, or leave both empty' });
+  } else if (v.quiet_start && v.quiet_start === v.quiet_end) {
+    ctx.addIssue({ code: 'custom', path: ['quiet_end'], message: 'Quiet hours: start and end must be different' });
+  }
+  if (v.monthly_cap < v.daily_cap) {
+    ctx.addIssue({ code: 'custom', path: ['monthly_cap'], message: 'SMS per month must be at least the SMS per day' });
+  }
 });
 
 function requireFreshLogin(user: { last_sign_in_at?: string }, what: string) {

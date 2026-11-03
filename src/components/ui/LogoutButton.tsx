@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { supabaseBrowser } from '@/lib/supabase/browser';
+import { clearOfflineData } from '@/lib/offline/cache';
 import ConfirmDialog from '@/components/chat/ConfirmDialog';
 
 /** Logs out after an "Are you sure?" confirmation. Use the hook to attach it to any trigger. */
@@ -18,6 +19,11 @@ export function useLogout() {
     try {
       await supabaseBrowser().auth.signOut();
     } finally {
+      try {
+        await Promise.race([clearOfflineData(), new Promise<void>((r) => setTimeout(r, 1500))]);
+      } catch {
+        /* never block the logout */
+      }
       router.replace('/login');
       router.refresh();
     }

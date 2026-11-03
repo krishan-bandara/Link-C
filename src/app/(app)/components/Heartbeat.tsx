@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { allowLeave } from '@/lib/idle-client';
+import { clearOfflineData } from '@/lib/offline/cache';
 
 /**
  * Tells the server we are online: every 10 s while visible (well inside the 30 s minimum "offline after" of the SMS alert), and immediately on focus / becoming visible.
@@ -12,10 +13,25 @@ import { allowLeave } from '@/lib/idle-client';
 export default function Heartbeat() {
   useEffect(() => {
     let left = false;
+    let skip = 0; // beats to skip (back-off)
+    let delay = 1; // current back-off, in beats (max 6 = 60 s)
     const beat = async () => {
       if (left || document.visibilityState !== 'visible') return;
+      if (skip > 0) {
+        skip -= 1;
+        return;
+      }
       try {
         const res = await fetch('/api/presence', { method: 'POST', keepalive: true });
+        if (res.ok) {
+          delay = 1;
+          return;
+        }
+        if (res.status === 429 || res.status >= 500) {
+          skip = delay;
+          delay = Math.min(delay * 2, 6);
+          return;
+        }
         if (res.status !== 401 || left) return;
         left = true;
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -26,6 +42,11 @@ export default function Heartbeat() {
         }
         await supabaseBrowser().auth.signOut({ scope: 'local' }).catch(() => {});
         await fetch('/api/activity', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+        try {
+          await Promise.race([clearOfflineData(), new Promise<void>((r) => setTimeout(r, 1500))]);
+        } catch {
+          /* best effort */
+        }
         allowLeave();
         window.location.replace('/login?reason=ended');
       } catch {

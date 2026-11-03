@@ -200,7 +200,8 @@ export default function ChatView({
     seenTimer.current = setTimeout(async () => {
       if (document.visibilityState !== 'visible') return;
       await supabase.rpc('mark_delivered', { conv: conversationId });
-      const { error } = await supabase.rpc('mark_read', { conv: conversationId });
+      let { error } = await supabase.rpc('mark_read', { conv: conversationId });
+      if (error) ({ error } = await supabase.rpc('mark_read', { conv: conversationId })); // retry once
       // tell the chat list and home cards at once, so the unread badge does not wait for a realtime echo
       if (!error) window.dispatchEvent(new CustomEvent('lc-read', { detail: { conversationId } }));
     }, 150);
@@ -418,10 +419,11 @@ export default function ChatView({
 
   async function saveEdit(id: string, body: string): Promise<void> {
     const m = messages.find((x) => x.id === id);
-    setEditingId(null); // leave edit mode and clear the box either way
-    if (!m || validEditText(body, m.body) === null) return; // unchanged: nothing to save
+    if (!m || validEditText(body, m.body) === null) return setEditingId(null); // unchanged: nothing to save
     const { data, error } = await supabase.rpc('edit_message', { msg: id, new_body: body.trim() });
+    // on failure stay in edit mode so the typed text is kept and can be retried
     if (error) return flash(editErrorText(error.message));
+    setEditingId(null);
     upsertMsg({ ...m, body: body.trim(), edited_at: typeof data === 'string' ? data : new Date().toISOString() });
   }
 

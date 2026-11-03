@@ -263,5 +263,95 @@ delete from public.messages where id = '00000000-0000-0000-0000-0000000000f3';
 select pg_temp.assert(pg_temp.cnt('select 1 from public.message_hides where message_id = ''00000000-0000-0000-0000-0000000000f3''') = 0,
   'hides did not cascade on delete for everyone');
 
+-- ---------------------------------------------------------------- member tools (migrations 26, 29, 33)
+-- helper: true when running q raises any error whose message contains the given text
+create function pg_temp.raises(q text, part text) returns boolean language plpgsql as $$
+begin
+  execute q;
+  return false;
+exception when others then
+  return sqlerrm like '%' || part || '%';
+end $$;
+
+-- fixtures: an old message from A (older than the 15 minute edit window), A's prefs row, two sessions for A and one for B
+insert into public.messages (id, conversation_id, sender_id, body, type, created_at) values
+  ('00000000-0000-0000-0000-0000000000f5', '00000000-0000-0000-0000-00000000c0a1', '00000000-0000-0000-0000-0000000000a1', 'old text', 'text', now() - interval '20 minutes');
+insert into public.user_prefs (user_id) values ('00000000-0000-0000-0000-0000000000a1') on conflict (user_id) do nothing;
+insert into auth.sessions (id, user_id) values
+  ('00000000-0000-0000-0000-0000000005a1', '00000000-0000-0000-0000-0000000000a1'),
+  ('00000000-0000-0000-0000-0000000005a2', '00000000-0000-0000-0000-0000000000a1'),
+  ('00000000-0000-0000-0000-0000000005b1', '00000000-0000-0000-0000-0000000000b1');
+
+-- chat prefs: A mutes + stars the chat; an expired mute time counts as unmuted
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+select public.set_chat_mute('00000000-0000-0000-0000-00000000c0a1', now() + interval '1 hour');
+select public.set_chat_star('00000000-0000-0000-0000-00000000c0a1', true);
+select pg_temp.assert(pg_temp.visible('select 1 from public.chat_prefs where muted_until is not null and starred') = 1, 'A mute/star was not saved');
+select public.set_chat_mute('00000000-0000-0000-0000-00000000c0a1', now() - interval '1 minute');
+select pg_temp.assert(pg_temp.visible('select 1 from public.chat_prefs where muted_until is null and starred') = 1, 'past mute time was not treated as unmute');
+select pg_temp.assert(pg_temp.denied($q$insert into public.chat_prefs (user_id, conversation_id, starred) values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000c0a1', true)$q$), 'A wrote chat_prefs directly');
+
+-- B cannot read A's chat_prefs; B's own star does not touch A's row
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000b1","role":"authenticated"}', true);
+select pg_temp.assert(pg_temp.visible('select 1 from public.chat_prefs') = 0, 'B reads A chat_prefs');
+select public.set_chat_star('00000000-0000-0000-0000-00000000c0a1', false);
+select pg_temp.assert(pg_temp.visible('select 1 from public.chat_prefs') = 1, 'B should see only its own chat_prefs row');
+select pg_temp.assert(pg_temp.visible('select 1 from public.chat_prefs where user_id = ''00000000-0000-0000-0000-0000000000a1''') = 0, 'B sees A chat_prefs row');
+
+-- outsider C cannot mute, star or clear a chat it is not in
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+select pg_temp.assert(pg_temp.raises($q$select public.set_chat_mute('00000000-0000-0000-0000-00000000c0a1', 'infinity')$q$, 'not allowed'), 'C muted a chat it is not in');
+select pg_temp.assert(pg_temp.raises($q$select public.set_chat_star('00000000-0000-0000-0000-00000000c0a1', true)$q$, 'not allowed'), 'C starred a chat it is not in');
+select pg_temp.assert(pg_temp.raises($q$select public.clear_chat('00000000-0000-0000-0000-00000000c0a1')$q$, 'not allowed'), 'C cleared a chat it is not in');
+
+-- edit message: B cannot edit A's message; A cannot edit after 15 minutes; A can edit a fresh one; same text keeps edited_at
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000b1","role":"authenticated"}', true);
+select pg_temp.assert(pg_temp.raises($q$select public.edit_message('00000000-0000-0000-0000-0000000000f1', 'hacked')$q$, 'not allowed'), 'B edited A message');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+select pg_temp.assert(pg_temp.raises($q$select public.edit_message('00000000-0000-0000-0000-0000000000f5', 'too late')$q$, 'edit window closed'), 'edit after 15 minutes was allowed');
+select public.edit_message('00000000-0000-0000-0000-0000000000f1', 'hello bob (edited)');
+do $$
+declare t1 timestamptz; t2 timestamptz;
+begin
+  select edited_at into t1 from public.messages where id = '00000000-0000-0000-0000-0000000000f1';
+  if t1 is null then raise exception 'RLS TEST FAILED: edit did not set edited_at'; end if;
+  t2 := public.edit_message('00000000-0000-0000-0000-0000000000f1', 'hello bob (edited)');
+  if t2 is distinct from t1 then raise exception 'RLS TEST FAILED: unchanged edit moved edited_at'; end if;
+end $$;
+select pg_temp.assert(pg_temp.visible('select 1 from public.messages where id = ''00000000-0000-0000-0000-0000000000f1'' and body = ''hello bob (edited)''') = 1, 'edit was not saved');
+
+-- sessions: A sees only its own two sessions and cannot revoke B's
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated","session_id":"00000000-0000-0000-0000-0000000005a1"}', true);
+select pg_temp.assert(pg_temp.cnt('select 1 from public.list_my_sessions()') = 2, 'A should list exactly its own 2 sessions');
+select pg_temp.assert(pg_temp.cnt('select 1 from public.list_my_sessions() where id = ''00000000-0000-0000-0000-0000000005b1''') = 0, 'A lists B session');
+select public.revoke_my_session('00000000-0000-0000-0000-0000000005b1'); -- silently deletes nothing
+reset role;
+select pg_temp.assert(pg_temp.cnt('select 1 from auth.sessions where id = ''00000000-0000-0000-0000-0000000005b1''') = 1, 'A revoked B session');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated","session_id":"00000000-0000-0000-0000-0000000005a1"}', true);
+select public.revoke_my_session('00000000-0000-0000-0000-0000000005a2');
+select pg_temp.assert(pg_temp.cnt('select 1 from public.list_my_sessions()') = 1, 'A could not revoke its own other session');
+
+-- user_prefs: B cannot update A's row (RLS filters it to 0 rows)
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000b1","role":"authenticated"}', true);
+do $$
+declare n integer;
+begin
+  update public.user_prefs set theme = 'dark' where user_id = '00000000-0000-0000-0000-0000000000a1';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'RLS TEST FAILED: B updated A user_prefs'; end if;
+end $$;
+select pg_temp.assert(pg_temp.visible('select 1 from public.user_prefs where user_id = ''00000000-0000-0000-0000-0000000000a1''') = 0, 'B reads A user_prefs');
+
+-- server-only tables and functions: a signed-in member gets nothing / is refused
+select pg_temp.assert(pg_temp.visible('select 1 from public.storage_stats') = 0, 'authenticated reads storage_stats');
+select pg_temp.assert(pg_temp.visible('select 1 from public.sms_chat_state') = 0, 'authenticated reads sms_chat_state');
+select pg_temp.assert(pg_temp.denied('select * from public.push_candidates(30)'), 'authenticated ran push_candidates');
+select pg_temp.assert(pg_temp.denied('select * from public.sms_candidates_v2(30)'), 'authenticated ran sms_candidates_v2');
+select pg_temp.assert(pg_temp.denied('select * from public.sms_candidates_v3(30)'), 'authenticated ran sms_candidates_v3');
+select pg_temp.assert(pg_temp.raises('select * from public.admin_member_health()', 'not allowed'), 'non-owner ran admin_member_health');
+reset role;
+
 do $$ begin raise notice 'ALL RLS TESTS PASSED'; end $$;
 ROLLBACK;

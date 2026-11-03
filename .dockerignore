@@ -8,3 +8,9 @@ data
 .git
 .github
 *.log
+.cache
+docs
+tests
+*.key
+*.pem
+.env.deploy
