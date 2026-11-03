@@ -3,6 +3,6 @@
 - [Link-C HD photos](project_link-c-hd-photos.md) - Oct 26: per-photo HD toggle (4096 px), server-made 1280 px preview, migration 30 applied Oct 27, untested on phone
 - [Link-C SMS schedule](project_link-c-sms-schedule.md) - Oct 27: max 3 SMS per chat (0, +5, +10 min, reset on app open, migration 31 applied Oct 27), first after 30 s, admin no-SMS time range, heartbeat 10 s; supersedes the repeat-every-19-min rule
 - [Link-C deploy script](project_link-c-deploy-script.md) - Oct 29: `scripts/deploy.ps1 "msg"` = commit + git push + SSH deploy (app + worker); host/key in git-ignored .env.deploy; untested
-- [Link-C review round Nov 3](project_link-c-review-round-nov3.md) - Nov 3: 20 review + 11 fix agents (SMS worker, HD, offline wipe, snaps, uploads, deploy script); migrations 32+33 written NOT applied (Supabase connector not signed in), committed locally 4f59b3b, NOT pushed/deployed; open decisions listed
+- [Link-C review round Nov 3](project_link-c-review-round-nov3.md) - Nov 3: 20 review + 11 fix agents (SMS worker, HD, offline wipe, snaps, uploads, deploy script); pushed 4f59b3b, deployed, migrations 32+33 APPLIED Nov 3 (SMS now 30 s/5/10); server git pull needs ssh config fix; open decisions listed
 - [Beginner builder](user_beginner-builder.md) - beginner dev, wants plain explanations, grill-me questions, security and low cost
 - [Use parallel agents](feedback_use-parallel-agents.md) - split big builds across agents; keep Link-C separate from Softlogic accounts
