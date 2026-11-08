@@ -22,4 +22,8 @@ Owner asked (2026-11-08) whether Claude could "hack" the live app. Declined to s
 
 Everything else reviewed came back clean: IDOR, SQL injection, XSS, SSRF, CORS, realtime channel RLS, push subscription ownership, admin privilege escalation, encryption key wrapping (MASTER_KEY/SIGNING_KEY never reach the client, nonces never reused), input validation coverage, and dependency/CI/secret-in-git-history checks.
 
+**Follow-up fixes after an automated commit review flagged the first round's own fixes (same day, commit fdc9bb1):**
+6. **SMS fix #1 only moved the DoS, it didn't close it:** making `sendSms()` enforce the shared cap for every kind meant a member spamming `/api/phone/send` (3/hour per user, in-memory) could alone burn most of the daily pool (up to ~72 of a 75 default) and starve everyone else's real alerts. Fixed: non-alert kinds (verify/test/invite) may now use at most `max(5, 20% of daily_cap)` of a day's pool; alerts always keep the rest.
+7. **Video limit fix was fail-open on crafted metadata:** `videoLimitProblem()` treated a video stream with no readable width/height/duration as passing (0 vs the 4096px cap is never "too big"), so a file with a valid-looking but incomplete video stream skipped the size/length cap entirely. Fixed: now fails closed ("This video could not be read") whenever a video stream exists but its dimensions or duration can't be read, while still allowing the case ffprobe-missing-entirely was already documented to allow (owner decision: "ffprobe missing must not break videos") by only changing this one function, not the outer catch.
+
 See [[project-link-c-deleted-message-notice]], [[project-link-c-media-history-fix-nov8]], [[project-link-c-sms-schedule]].
