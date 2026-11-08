@@ -46,12 +46,16 @@ export type UploadSession = {
 
 /** Loads an upload session that belongs to the caller (404 otherwise, so ids cannot be probed). */
 export async function ownedSession(userId: string, id: string): Promise<UploadSession> {
-  const { data } = await adminClient()
+  const { data, error } = await adminClient()
     .from('upload_sessions')
     .select('*')
     .eq('id', parseId(id))
     .eq('user_id', userId)
     .maybeSingle();
+  if (error) {
+    console.error('ownedSession read failed', error.message);
+    throw new HttpError(500, 'Could not load upload');
+  }
   if (!data) throw new HttpError(404, 'Upload not found');
   return data as UploadSession;
 }
@@ -80,12 +84,20 @@ export function isVisibleToViewer(row: {
 /** Permanently removes the stored blob (all versions on B2) and the key row; marks the item deleted. */
 export async function deleteMediaBlobs(mediaId: string) {
   const db = adminClient();
-  const { data: item } = await db.from('media_items').select('mode').eq('id', mediaId).maybeSingle();
-  const { data: key } = await db
+  const { data: item, error: itemErr } = await db.from('media_items').select('mode').eq('id', mediaId).maybeSingle();
+  if (itemErr) {
+    console.error('deleteMediaBlobs: item read failed', itemErr.message);
+    throw new HttpError(500, 'Could not load media');
+  }
+  const { data: key, error: keyErr } = await db
     .from('media_keys')
     .select('storage,object_key,preview_object_key')
     .eq('media_id', mediaId)
     .maybeSingle();
+  if (keyErr) {
+    console.error('deleteMediaBlobs: key read failed', keyErr.message);
+    throw new HttpError(500, 'Could not load media');
+  }
   if (key && item) {
     const store = storeFor(key.storage as 'b2' | 'local', item.mode as 'normal' | 'once' | 'timed');
     // Idempotent: a missing object is treated as already deleted so a retry after a partial failure completes.

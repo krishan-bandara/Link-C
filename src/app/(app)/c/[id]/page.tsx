@@ -22,7 +22,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   if (!conv) notFound();
   const otherId = (conv.user_a === user.id ? conv.user_b : conv.user_a) as string;
 
-  const [{ data: profs }, { data: msgs }, { data: shares }, { data: prefs }, { data: chatWp }] = await Promise.all([
+  const [{ data: profs }, { data: msgs, error: msgsErr }, { data: shares }, { data: prefs }, { data: chatWp }] = await Promise.all([
     supabase.from('profiles').select('id,display_name,role,avatar_asset_id,about').in('id', [user.id, otherId]),
     supabase.from('messages').select(MSG_COLS).eq('conversation_id', id).order('created_at', { ascending: false }).limit(50),
     supabase
@@ -39,11 +39,19 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
       .eq('conversation_id', id)
       .maybeSingle(),
   ]);
+  if (msgsErr) {
+    console.error('chat page: messages load failed', msgsErr.message);
+    throw new Error('Could not load messages');
+  }
   const messages = ((msgs ?? []) as Msg[]).reverse();
   const ids = messages.filter((m) => m.type === 'media').map((m) => m.id);
-  const { data: media } = ids.length
+  const { data: media, error: mediaErr } = ids.length
     ? await supabase.from('media_items').select(MEDIA_COLS).in('message_id', ids)
-    : { data: [] as Media[] };
+    : { data: [] as Media[], error: null };
+  if (mediaErr) {
+    console.error('chat page: media load failed', mediaErr.message);
+    throw new Error('Could not load media');
+  }
 
   const me = profs?.find((p) => p.id === user.id);
   const other = profs?.find((p) => p.id === otherId);

@@ -76,7 +76,7 @@ async function uploadCleanup() {
     .from('upload_sessions')
     .select('id')
     .or(
-      `and(expires_at.lt.${now},status.neq.processing),expires_at.lt.${agoIso(2 * 3600_000)},and(status.eq.failed,created_at.lt.${agoIso(10 * 60_000)}),and(status.eq.processing,created_at.lt.${agoIso(30 * 60_000)})`, // a crash mid-processing leaves 'processing' behind
+      `and(expires_at.lt.${now},status.neq.processing),and(status.neq.processing,expires_at.lt.${agoIso(2 * 3600_000)}),and(status.eq.failed,created_at.lt.${agoIso(10 * 60_000)}),and(status.eq.processing,created_at.lt.${agoIso(3 * 3600_000)})`, // slow/queued processing must survive; only a crash-orphaned 'processing' row older than 3 h is removed
     )
     .limit(100);
   if (error) throw new Error(error.message);
@@ -192,7 +192,7 @@ const capValue = (v: unknown, fallback: number) => (v === null || v === undefine
 async function smsAlerts() {
   const db = adminClient();
   const { data: st, error } = await db.from('sms_settings').select('*').eq('id', 1).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(`sms_settings: ${error.message}`);
   if (!st || !st.enabled || !st.api_url) return;
   let quiet = false;
   try {
@@ -209,7 +209,7 @@ async function smsAlerts() {
   const monthlyCap = capValue(st.monthly_cap, 300);
 
   const { data: cands, error: cerr } = await db.rpc('sms_candidates_v3', { p_offline_seconds: offlineSeconds });
-  if (cerr) throw new Error(cerr.message);
+  if (cerr) throw new Error(`sms_candidates_v3: ${cerr.message}`);
   // Muted chats are already excluded by sms_candidates_v3. People inside their Do-not-disturb hours are skipped WITHOUT touching
   // step, last attempt or caps: they stay candidates, and one alert follows when the quiet hours end (if still unread and offline).
   const dnd = await loadDnd(((cands ?? []) as SmsCand[]).map((c) => c.user_id));
@@ -239,7 +239,7 @@ async function smsAlerts() {
     .eq('kind', 'alert')
     .like('provider_status', 'http 2%')
     .gte('sent_at', monthStart(new Date(), TZ));
-  if (mErr) throw new Error(mErr.message);
+  if (mErr) throw new Error(`sms_log month count: ${mErr.message}`);
   // A timed-out send may still have been delivered, so it counts toward the pool like a success.
   const { count: monthTimeouts, error: mtErr } = await db
     .from('sms_log')
@@ -247,7 +247,7 @@ async function smsAlerts() {
     .eq('kind', 'alert')
     .eq('provider_status', 'error timeout')
     .gte('sent_at', monthStart(new Date(), TZ));
-  if (mtErr) throw new Error(mtErr.message);
+  if (mtErr) throw new Error(`sms_log month timeouts: ${mtErr.message}`);
   let sentThisMonth = (monthCount ?? 0) + (monthTimeouts ?? 0);
 
   // The daily count is ONE shared pool for all members together (an umbrella), counted per calendar day in the local time zone.
@@ -257,14 +257,14 @@ async function smsAlerts() {
     .eq('kind', 'alert')
     .like('provider_status', 'http 2%')
     .gte('sent_at', dayStart(new Date(), TZ));
-  if (tErr) throw new Error(tErr.message);
+  if (tErr) throw new Error(`sms_log day count: ${tErr.message}`);
   const { count: todayTimeouts, error: ttErr } = await db
     .from('sms_log')
     .select('id', { count: 'exact', head: true })
     .eq('kind', 'alert')
     .eq('provider_status', 'error timeout')
     .gte('sent_at', dayStart(new Date(), TZ));
-  if (ttErr) throw new Error(ttErr.message);
+  if (ttErr) throw new Error(`sms_log day timeouts: ${ttErr.message}`);
   let sentToday = (todayCount ?? 0) + (todayTimeouts ?? 0);
 
   const capTraced = new Set<string>(); // 'cap reached' is written once per person per tick
@@ -281,7 +281,13 @@ async function smsAlerts() {
     }
 
     // Read the number BEFORE claiming so an unreadable number does not look like a send attempt.
-    const { data: prof } = await db.from('profiles').select('phone_enc, sms_template').eq('id', c.user_id).maybeSingle();
+    const { data: prof, error: profErr } = await db.from('profiles').select('phone_enc, sms_template').eq('id', c.user_id).maybeSingle();
+    if (profErr) {
+      logErr('sms profile read', new Error(profErr.message));
+      await traceFailure(c.user_id, 'error profile read failed', c.first_unread);
+      await deferChat(c.user_id, c.conversation_id, 2 * 60_000);
+      continue;
+    }
     const phone = readPhone(prof?.phone_enc as string | null | undefined);
     if (!phone) {
       const why = prof?.phone_enc ? 'error phone unreadable' : 'error no phone';
@@ -374,6 +380,7 @@ async function smsAlerts() {
       .not('provider_status', 'like', 'cap reached')
       .not('provider_status', 'like', 'error no phone')
       .not('provider_status', 'like', 'error phone unreadable')
+      .not('provider_status', 'like', 'error profile read failed')
       .gte('sent_at', agoIso(3600_000));
     await deferChat(c.user_id, c.conversation_id, (failCount ?? 0) >= 5 ? 30 * 60_000 : 2 * 60_000);
   }
@@ -394,7 +401,11 @@ async function pushAlerts() {
   for (const c of pushCands) {
     // Do-not-disturb: skip without touching last_push_at, so one push goes out when quiet hours end (muted chats are filtered in SQL).
     if (!alertAllowed({ dnd: dnd.get(c.user_id) })) continue;
-    const { data: subs } = await db.from('push_subscriptions').select('id,endpoint,p256dh,auth').eq('user_id', c.user_id);
+    const { data: subs, error: subErr } = await db.from('push_subscriptions').select('id,endpoint,p256dh,auth').eq('user_id', c.user_id);
+    if (subErr) {
+      logErr('push subscriptions read', new Error(subErr.message));
+      continue; // do not mark as pushed: retried next tick
+    }
     let anyOk = false;
     for (const s of subs ?? []) {
       const r = await sendPush(s as PushSub, { title: st.title as string, body: st.body as string });

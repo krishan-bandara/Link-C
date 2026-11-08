@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import './chat.css';
+import { holdAlive } from '@/lib/idle-client';
 import { useDialogFocus } from './useDialogFocus';
 
 export type OpenedSnap = { id: string; token: string; kind: 'image' | 'video'; mime: string; timerSeconds: number | null };
@@ -16,6 +17,11 @@ export default function SnapViewer({ snap, onClose }: { snap: OpenedSnap; onClos
   const flagged = useRef(false);
   const started = useRef(false);
   const closed = useRef(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [needsTap, setNeedsTap] = useState(false);
+  const [vidPlaying, setVidPlaying] = useState(false);
+  useEffect(() => (vidPlaying ? holdAlive() : undefined), [vidPlaying]); // playing video counts as activity
 
   const close = useCallback(() => {
     if (closed.current) return;
@@ -88,18 +94,33 @@ export default function SnapViewer({ snap, onClose }: { snap: OpenedSnap; onClos
       onDragStart={block}
       onClick={timerSeconds ? undefined : close}
     >
-      {kind === 'image' ? (
+      {loadFailed ? (
+        <div className="flex flex-col items-center gap-3 px-6 text-center text-white" role="alert">
+          <p className="text-sm">Could not load.</p>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              close();
+            }}
+            className="rounded-full bg-white/15 px-5 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            Close
+          </button>
+        </div>
+      ) : kind === 'image' ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           alt=""
           draggable={false}
           onLoad={start}
-          onError={close}
+          onError={() => setLoadFailed(true)}
           className="pointer-events-none max-h-full max-w-full object-contain"
         />
       ) : (
         <video
+          ref={videoRef}
           src={src}
           autoPlay
           playsInline
@@ -107,11 +128,39 @@ export default function SnapViewer({ snap, onClose }: { snap: OpenedSnap; onClos
           controlsList="nodownload noplaybackrate"
           disablePictureInPicture
           disableRemotePlayback
-          onPlaying={start}
-          onError={close}
+          onLoadedData={() => {
+            // iOS may block autoplay: if play() is refused, ask for a tap instead of showing a frozen frame
+            videoRef.current?.play().catch((e: unknown) => {
+              if (e instanceof DOMException && e.name === 'AbortError') return;
+              setNeedsTap(true);
+            });
+          }}
+          onPlay={() => setVidPlaying(true)}
+          onPause={() => setVidPlaying(false)}
+          onEnded={() => setVidPlaying(false)}
+          onPlaying={() => {
+            setNeedsTap(false);
+            start();
+          }}
+          onError={() => {
+            setVidPlaying(false);
+            setLoadFailed(true);
+          }}
           onClick={(e) => e.stopPropagation()}
           className="max-h-full max-w-full object-contain"
         />
+      )}
+      {needsTap && !loadFailed && kind === 'video' && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            videoRef.current?.play().then(() => setNeedsTap(false)).catch(() => {});
+          }}
+          className="absolute inset-0 m-auto h-16 w-40 rounded-full bg-white/20 text-base font-medium text-white backdrop-blur-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          Tap to play
+        </button>
       )}
       <div className="safe-top absolute right-3 top-3 flex items-center gap-2">
         {timerSeconds ? (

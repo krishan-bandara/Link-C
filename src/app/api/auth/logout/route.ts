@@ -6,8 +6,14 @@ import { ACTIVITY_COOKIE } from '@/lib/idle';
 // Ends this browser's session (used when the person confirms a page refresh or close).
 export const POST = handle(async (req: Request) => {
   const origin = req.headers.get('origin');
-  if (origin && new URL(origin).host !== new URL(req.url).host && origin !== (process.env.APP_URL ?? '')) {
-    throw new HttpError(403, 'Not allowed');
+  if (origin) {
+    let sameHost = false;
+    try {
+      sameHost = new URL(origin).host === new URL(req.url).host;
+    } catch {
+      // "null" or malformed Origin: treated as cross-site
+    }
+    if (!sameHost && origin !== (process.env.APP_URL ?? '')) throw new HttpError(403, 'Not allowed');
   }
   const supabase = await supabaseServer();
   await supabase.auth.signOut({ scope: 'local' }).catch(() => {});

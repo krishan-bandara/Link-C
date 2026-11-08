@@ -6,3 +6,5 @@
 - [Link-C review round Nov 3](project_link-c-review-round-nov3.md) - Nov 3: 20 review + 11 fix agents (SMS worker, HD, offline wipe, snaps, uploads, deploy script); pushed 4f59b3b, deployed, migrations 32+33 APPLIED Nov 3 (SMS now 30 s/5/10); server git pull needs ssh config fix; open decisions listed
 - [Beginner builder](user_beginner-builder.md) - beginner dev, wants plain explanations, grill-me questions, security and low cost
 - [Use parallel agents](feedback_use-parallel-agents.md) - split big builds across agents; keep Link-C separate from Softlogic accounts
+- [Link-C media history fix Nov 8](project_link-c-media-history-fix-nov8.md) - Nov 8: old media not loading = missing grant on media_items.hd (migration 34 applied live); 24-agent review + 7 fix agents, 339 tests pass, committed locally, owner must push + deploy; leftovers listed
+- [No Claude co-author tag](feedback_no-claude-coauthor-tag.md) - owner wants no Co-Authored-By Claude trailer in commits; 5 old commits have it (history rewrite needs owner OK)

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { formatDuration } from '@/lib/chat/voice';
+import { holdAlive } from '@/lib/idle-client';
 import './voice.css';
 
 /** Only one voice message plays at a time: the one playing registers its pause function here. */
@@ -17,6 +18,7 @@ export default function AudioPlayer({ src, mine, durationHint }: { src: string; 
   const [dur, setDur] = useState<number | null>(durationHint && durationHint > 0 ? durationHint : null);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
   const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   const speedRef = useRef(speed);
   speedRef.current = speed;
 
@@ -90,6 +92,7 @@ export default function AudioPlayer({ src, mine, durationHint }: { src: string; 
     a.addEventListener('error', onError);
     setFailed(false);
     a.src = src;
+    void retry; // retry counter is a dependency: bumping it rebuilds the audio element
 
     return () => {
       a.pause();
@@ -105,7 +108,10 @@ export default function AudioPlayer({ src, mine, durationHint }: { src: string; 
       a.load();
       audioRef.current = null;
     };
-  }, [src, durationHint]);
+  }, [src, durationHint, retry]);
+
+  // Playing counts as activity so IdleGuard does not sign the person out mid-playback; cleanup releases on pause/end/unmount.
+  useEffect(() => (playing ? holdAlive() : undefined), [playing]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = speed;
@@ -141,9 +147,9 @@ export default function AudioPlayer({ src, mine, durationHint }: { src: string; 
 
   if (failed) {
     return (
-      <p className="ap-err" role="alert">
-        Could not play this voice message
-      </p>
+      <button type="button" className="ap-err" role="alert" onClick={() => setRetry((n) => n + 1)}>
+        Could not play this voice message. Tap to retry
+      </button>
     );
   }
 

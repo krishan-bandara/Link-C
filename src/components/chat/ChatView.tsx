@@ -49,6 +49,7 @@ import type { ComposerHandle } from './Composer';
 import './chat.css';
 
 const PAGE = 50;
+const MEDIA_RETRY_MS = [800, 3000, 8000];
 
 function dayLabel(iso: string) {
   const d = new Date(iso);
@@ -208,7 +209,20 @@ export default function ChatView({
   }, [supabase, conversationId]);
 
   // ---- state merging helpers
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const mediaRef = useRef(media);
+  mediaRef.current = media;
+  const recentIds = useRef(new Set<string>());
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
   const upsertMsg = useCallback((m: Msg) => {
+    recentIds.current.add(m.id);
     setMessages((cur) => {
       const i = cur.findIndex((x) => x.id === m.id);
       if (i >= 0) {
@@ -241,43 +255,104 @@ export default function ChatView({
     });
   }, []);
 
+  // Loads media rows; logs errors and retries (0.8 s, 3 s, 8 s) for messages that still have no media entry.
   const fetchMedia = useCallback(
-    async (messageIds: string[]) => {
+    async (messageIds: string[], attempt = 0): Promise<void> => {
       if (!messageIds.length) return;
-      const { data } = await supabase.from('media_items').select(MEDIA_COLS).in('message_id', messageIds);
-      if (data?.length) setMedia((cur) => ({ ...cur, ...Object.fromEntries((data as Media[]).map((m) => [m.message_id, m])) }));
+      const { data, error } = await supabase.from('media_items').select(MEDIA_COLS).in('message_id', messageIds);
+      if (error) console.error('fetchMedia failed', error);
+      const got = new Set<string>();
+      if (data?.length) {
+        for (const m of data as Media[]) got.add(m.message_id);
+        setMedia((cur) => ({ ...cur, ...Object.fromEntries((data as Media[]).map((m) => [m.message_id, m])) }));
+      }
+      const missing = messageIds.filter((id) => !got.has(id) && !mediaRef.current[id]);
+      if (missing.length && attempt < MEDIA_RETRY_MS.length) {
+        setTimeout(() => {
+          if (aliveRef.current) void fetchMedia(missing, attempt + 1);
+        }, MEDIA_RETRY_MS[attempt]);
+      }
     },
     [supabase],
   );
 
   const refetch = useCallback(async () => {
-    const { data } = await supabase
-      .from('messages')
-      .select(MSG_COLS)
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: false })
-      .limit(PAGE);
-    if (!data) return;
-    const rows = data as Msg[];
+    recentIds.current = new Set(); // ids that arrive (realtime/send) while this fetch is running must not be dropped
+    const newest = async (before?: string) => {
+      let q = supabase.from('messages').select(MSG_COLS).eq('conversation_id', conversationId);
+      if (before) q = q.lt('created_at', before);
+      return q.order('created_at', { ascending: false }).limit(PAGE);
+    };
+    const { data, error } = await newest();
+    if (error || !data) {
+      console.error('refetch failed', error);
+      return;
+    }
+    let all = data as Msg[];
+    const local = messagesRef.current;
+    const localIds = new Set(local.map((m) => m.id));
+    const lastLocal = local[local.length - 1];
+    // a full page that is entirely newer than what we hold: there is a gap, page back until it overlaps
+    let replace = false;
+    if (lastLocal && all.length >= PAGE && !all.some((r) => localIds.has(r.id)) && all[all.length - 1].created_at > lastLocal.created_at) {
+      replace = true;
+      for (let i = 0; i < 5; i++) {
+        const { data: more, error: e2 } = await newest(all[all.length - 1].created_at);
+        if (e2 || !more) break; // keep what we have and replace the list with it
+        all = all.concat(more as Msg[]);
+        if ((more as Msg[]).some((r) => localIds.has(r.id)) || more.length < PAGE) {
+          replace = !(more as Msg[]).some((r) => localIds.has(r.id));
+          break;
+        }
+      }
+    }
+    const rows = all;
+    const fetchedIds = new Set(rows.map((r) => r.id));
+    const oldest = rows.length ? rows[rows.length - 1].created_at : null;
+    const recent = recentIds.current;
     setMessages((cur) => {
-      const map = new Map(cur.map((m) => [m.id, m]));
+      const map = new Map<string, Msg>();
+      for (const m of cur) {
+        if (fetchedIds.has(m.id) || recent.has(m.id)) map.set(m.id, m);
+        else if (!replace && oldest !== null && m.created_at <= oldest) map.set(m.id, m); // older than the fetched window: keep
+        // otherwise it is missing from the server (a missed DELETE): drop it
+      }
       for (const r of rows) map.set(r.id, r);
       return [...map.values()].sort(byTime);
     });
-    await fetchMedia(rows.filter((r) => r.type === 'media').map((r) => r.id));
+    if (replace) setHasMore(rows.length >= PAGE);
+    const ids = new Set(rows.filter((r) => r.type === 'media').map((r) => r.id));
+    for (const m of local) if (m.type === 'media' && !mediaRef.current[m.id]) ids.add(m.id);
+    await fetchMedia([...ids]);
   }, [supabase, conversationId, fetchMedia]);
 
   // ---- realtime: messages, media, location
   useEffect(() => {
     const filter = `conversation_id=eq.${conversationId}`;
-    let first = true;
     let cancelled = false;
+    let retries = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let ch: ReturnType<typeof supabase.channel> | undefined;
-    void (async () => {
+    const scheduleReconnect = () => {
+      if (cancelled || retryTimer) return;
+      const delay = Math.min(30000, 1000 * 2 ** retries++);
+      retryTimer = setTimeout(() => {
+        retryTimer = undefined;
+        if (!cancelled) void connect();
+      }, delay);
+    };
+    const connect = async () => {
       // Realtime must know who we are before subscribing, otherwise row level security treats us as anonymous.
-      await supabase.realtime.setAuth();
+      try {
+        await supabase.realtime.setAuth();
+      } catch (e) {
+        console.error('realtime setAuth failed', e);
+        scheduleReconnect();
+        return;
+      }
       if (cancelled) return;
-      ch = supabase
+      let dead = false;
+      const mine = supabase
       .channel(`chat:${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter }, (p) => {
         const m = p.new as Msg;
@@ -300,14 +375,24 @@ export default function ChatView({
         if (row?.id) setShare(row);
       })
       .subscribe((status) => {
+        if (cancelled || dead) return;
         if (status === 'SUBSCRIBED') {
-          if (!first) void refetch(); // catch up after a reconnect
-          first = false;
+          retries = 0;
+          void refetch(); // catch up on anything missed before/while connecting
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // drop the dead channel, refresh auth and resubscribe after a backoff
+          dead = true;
+          ch = undefined;
+          void supabase.removeChannel(mine);
+          scheduleReconnect();
         }
       });
-    })();
+      ch = mine;
+    };
+    void connect();
     return () => {
       cancelled = true;
+      clearTimeout(retryTimer);
       if (ch) void supabase.removeChannel(ch);
     };
   }, [supabase, conversationId, me, upsertMsg, dropMessage, fetchMedia, markSeen, refetch, clearTyping]);
@@ -449,23 +534,31 @@ export default function ChatView({
     const first = messages[0];
     if (!first || loadingMore) return;
     setLoadingMore(true);
-    const { data } = await supabase
-      .from('messages')
-      .select(MSG_COLS)
-      .eq('conversation_id', conversationId)
-      .lt('created_at', first.created_at)
-      .order('created_at', { ascending: false })
-      .limit(PAGE);
-    const rows = ((data ?? []) as Msg[]).reverse();
-    setHasMore(rows.length >= PAGE);
-    prevHeight.current = listRef.current?.scrollHeight ?? null;
-    setMessages((cur) => {
-      const map = new Map(cur.map((m) => [m.id, m]));
-      for (const r of rows) if (!map.has(r.id)) map.set(r.id, r);
-      return [...map.values()].sort(byTime);
-    });
-    await fetchMedia(rows.filter((r) => r.type === 'media').map((r) => r.id));
-    setLoadingMore(false);
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(MSG_COLS)
+        .eq('conversation_id', conversationId)
+        .lt('created_at', first.created_at)
+        .order('created_at', { ascending: false })
+        .limit(PAGE);
+      if (error || !data) {
+        console.error('loadEarlier failed', error);
+        flash('Could not load earlier messages. Try again.');
+        return;
+      }
+      const rows = (data as Msg[]).reverse();
+      setHasMore(rows.length >= PAGE);
+      prevHeight.current = listRef.current?.scrollHeight ?? null;
+      setMessages((cur) => {
+        const map = new Map(cur.map((m) => [m.id, m]));
+        for (const r of rows) if (!map.has(r.id)) map.set(r.id, r);
+        return [...map.values()].sort(byTime);
+      });
+      await fetchMedia(rows.filter((r) => r.type === 'media').map((r) => r.id));
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   // ---- actions
@@ -606,7 +699,7 @@ export default function ChatView({
     const { error } = await supabase.rpc('clear_chat', { conv: conversationId });
     setClearing(false);
     setClearAsk(false);
-    if (error) return;
+    if (error) return flash('Could not clear the chat. Try again.');
     setMessages([]);
     setMedia({});
     setHasMore(false);

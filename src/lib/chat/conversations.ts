@@ -7,7 +7,8 @@ export async function loadConversations(supabase: SupabaseClient, me: string): P
   if (error) throw error; // a failed read must not look like "no conversations"
   if (!convs?.length) return [];
   const otherIds = convs.map((c) => (c.user_a === me ? c.user_b : c.user_a) as string);
-  const { data: profs } = await supabase.from('profiles').select('id,display_name,avatar_asset_id,about').in('id', otherIds);
+  const { data: profs, error: profErr } = await supabase.from('profiles').select('id,display_name,avatar_asset_id,about').in('id', otherIds);
+  if (profErr) throw profErr; // never replace a good list with one showing 'Member' for everyone
   const people = new Map((profs ?? []).map((p) => [p.id as string, p]));
 
   const items = await Promise.all(
@@ -28,10 +29,13 @@ export async function loadConversations(supabase: SupabaseClient, me: string): P
           .neq('sender_id', me)
           .is('read_at', null),
       ]);
+      if (last.error) throw last.error;
+      if (unread.error) throw unread.error;
       // For a media message the list shows what kind it is (Photo / Video / Voice message), never the content.
       let lastBody = (last.data?.body as string | undefined) ?? null;
       if (last.data?.type === 'media') {
-        const { data: mi } = await supabase.from('media_items').select('kind,mode').eq('message_id', last.data.id).maybeSingle();
+        const { data: mi, error: miErr } = await supabase.from('media_items').select('kind,mode').eq('message_id', last.data.id).maybeSingle();
+        if (miErr) throw miErr;
         lastBody = mi?.mode && mi.mode !== 'normal' ? 'Snap' : mi?.kind === 'audio' ? 'Voice message' : mi?.kind === 'video' ? 'Video' : mi?.kind === 'image' ? 'Photo' : null;
       }
       return {

@@ -93,19 +93,21 @@ export default async function AdminDashboard() {
   const onlineCount = online.error ? null : (online.count ?? 0);
 
   // Members quiet for 3+ days (owner session runs the health RPC; failures are ignored).
-  let inactiveCount = 0;
+  let inactiveCount: number | null = 0;
   try {
-    const { data: health } = await (await supabaseServer()).rpc('admin_member_health');
+    const { data: health, error: healthErr } = await (await supabaseServer()).rpc('admin_member_health');
+    if (healthErr) throw healthErr;
     const nowMs = Date.now();
     inactiveCount = ((health ?? []) as { login_disabled: boolean; last_seen_at: string | null; last_sign_in_at: string | null }[]).filter((m) =>
       needsAttention(classify(m.last_seen_at, m.last_sign_in_at, nowMs).status, !!m.login_disabled),
     ).length;
   } catch {
-    /* health tile is optional */
+    inactiveCount = null; // unknown, not 0
   }
 
   const attn: Attn[] = [];
-  if (inactiveCount > 0) attn.push({ icon: 'clock', tone: 'amber', text: `${inactiveCount} member${inactiveCount === 1 ? '' : 's'} inactive.`, href: '/admin/health', cta: 'Members health' });
+  if (inactiveCount === null) attn.push({ icon: 'clock', tone: 'amber', text: 'Member activity is unknown (the health check failed).', href: '/admin/health', cta: 'Members health' });
+  else if (inactiveCount > 0) attn.push({ icon: 'clock', tone: 'amber', text: `${inactiveCount} member${inactiveCount === 1 ? '' : 's'} inactive.`, href: '/admin/health', cta: 'Members health' });
   if (driver !== 'b2') attn.push({ icon: 'server', tone: 'amber', text: `Media storage driver is "${driver}" (this server's disk, not Backblaze B2).`, href: '#storage', cta: 'See storage' });
   if (snapPct >= 80) attn.push({ icon: 'disk', tone: 'amber', text: `Snap storage is at ${snapPct.toFixed(0)}% of its cap.`, href: '/admin/settings', cta: 'Raise the cap' });
   if (tempPct >= 80) attn.push({ icon: 'disk', tone: 'amber', text: `Temporary uploads are at ${tempPct.toFixed(0)}% of their cap.`, href: '/admin/settings', cta: 'Raise the cap' });

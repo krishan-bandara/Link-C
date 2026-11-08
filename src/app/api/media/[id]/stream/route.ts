@@ -30,11 +30,15 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   const id = parseId((await params).id);
 
   // RLS: participants only
-  const { data: item } = await supabase
+  const { data: item, error: itemErr } = await supabase
     .from('media_items')
     .select('id,sender_id,mode,mime,kind,deleted_at')
     .eq('id', id)
     .maybeSingle();
+  if (itemErr) {
+    console.error('media stream: item read failed', itemErr.message);
+    throw new HttpError(500, 'Could not load media');
+  }
   if (!item) throw new HttpError(404, 'Not found');
   if (item.deleted_at) throw new HttpError(410, 'This media is no longer available');
 
@@ -45,11 +49,15 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
     if (item.sender_id === user.id || !ok) throw new HttpError(403, 'Not allowed');
   }
 
-  const { data: key } = await adminClient()
+  const { data: key, error: keyErr } = await adminClient()
     .from('media_keys')
     .select('storage,object_key,wrapped_key,plaintext_size,preview_object_key,preview_wrapped_key,preview_size')
     .eq('media_id', id)
     .maybeSingle();
+  if (keyErr) {
+    console.error('media stream: key read failed', keyErr.message);
+    throw new HttpError(500, 'Could not load media');
+  }
   if (!key) throw new HttpError(410, 'This media is no longer available');
 
   // ?v=preview: HD photos have a lighter copy for the chat bubble; everything else serves the full file.
@@ -64,7 +72,7 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   const headers: Record<string, string> = {
     'Content-Type': usePreview ? 'image/webp' : item.mime,
     'Accept-Ranges': 'bytes',
-    'Cache-Control': usePreview && !snap ? 'private, max-age=3600' : 'private, no-store',
+    'Cache-Control': !snap && (usePreview || item.kind === 'image' || item.kind === 'audio') ? 'private, max-age=3600' : 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
     'Content-Disposition': 'inline',
   };
@@ -85,15 +93,32 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   const gen = decryptRange((s, e) => store.getRange(objectKey, s, e), unwrapKey(wrappedKey), size, start, end);
   // View once means once: an image snap is burned after the first request, whether or not it used a Range header.
   const burnAfter = snap && item.kind === 'image';
+  // Prime the first chunk so storage/B2/decrypt failures become a clean error instead of a broken body.
+  let first: IteratorResult<Uint8Array | Buffer>;
+  try {
+    first = await gen.next();
+  } catch (e) {
+    console.error(`media stream: first read failed (media ${id})`, e instanceof Error ? e.message : e);
+    await gen.return(undefined).catch(() => undefined);
+    throw new HttpError(502, 'Could not read this media');
+  }
   if (burnAfter) {
     // One-time image: claim it atomically so two parallel fetches cannot both succeed.
-    const { data: claimed } = await adminClient()
+    // Only after the first read worked, so a failed read never burns the snap.
+    const { data: claimed, error: claimErr } = await adminClient()
       .from('media_items')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
       .is('deleted_at', null)
       .select('id');
-    if (!claimed?.length) throw new HttpError(410, 'This media is no longer available');
+    if (claimErr || !claimed?.length) {
+      await gen.return(undefined).catch(() => undefined);
+      if (claimErr) {
+        console.error('media stream: snap claim failed', claimErr.message);
+        throw new HttpError(500, 'Could not load media');
+      }
+      throw new HttpError(410, 'This media is no longer available');
+    }
   }
   const burn = () =>
     void (async () => {
@@ -110,10 +135,12 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   const onAbort = () => void gen.return(undefined);
   req.signal.addEventListener('abort', onAbort, { once: true });
 
+  let pending: IteratorResult<Uint8Array | Buffer> | null = first;
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
-        const r = await gen.next();
+        const r = pending ?? (await gen.next());
+        pending = null;
         if (r.done) {
           req.signal.removeEventListener('abort', onAbort);
           controller.close();
@@ -122,6 +149,7 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
           controller.enqueue(new Uint8Array(r.value));
         }
       } catch (e) {
+        console.error(`media stream: read failed mid-stream (media ${id})`, e instanceof Error ? e.message : e);
         controller.error(e);
         if (burnAfter) burn();
       }

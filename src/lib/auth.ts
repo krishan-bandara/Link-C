@@ -20,7 +20,8 @@ export async function requireUser() {
 /** Owner role is read from the database on every call, never trusted from the client. */
 export async function requireOwner() {
   const ctx = await requireUser();
-  const { data } = await adminClient().from('profiles').select('role').eq('id', ctx.user.id).single();
+  const { data, error } = await adminClient().from('profiles').select('role').eq('id', ctx.user.id).single();
+  if (error) throw new HttpError(500, 'Could not verify permissions');
   if (data?.role !== 'owner') throw new HttpError(403, 'Owner only');
   return ctx;
 }

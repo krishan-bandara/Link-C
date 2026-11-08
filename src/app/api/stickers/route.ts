@@ -9,18 +9,21 @@ type S = { id: string; emoji: string | null };
 export const GET = handle(async () => {
   const { user } = await requireUser();
   const db = adminClient();
-  const { data: saved } = await db
+  const { data: saved, error: savedErr } = await db
     .from('user_stickers')
     .select('sticker_id,added_at')
     .eq('user_id', user.id)
     .order('added_at', { ascending: false });
+  if (savedErr) throw new HttpError(500, 'Could not load stickers');
   const ids = (saved ?? []).map((r) => r.sticker_id as string);
-  const { data: rows } = ids.length ? await db.from('stickers').select('id,emoji').in('id', ids) : { data: [] as S[] };
+  const { data: rows, error: rowsErr } = ids.length ? await db.from('stickers').select('id,emoji').in('id', ids) : { data: [] as S[], error: null };
+  if (rowsErr) throw new HttpError(500, 'Could not load stickers');
   const byId = new Map((rows ?? []).map((r) => [r.id as string, r as S]));
   const mine = ids.flatMap((id) => (byId.has(id) ? [{ id, emoji: byId.get(id)!.emoji }] : []));
 
-  const { data: packs } = await db.from('sticker_packs').select('id,name').order('created_at');
-  const { data: ps } = await db.from('stickers').select('id,emoji,pack_id').not('pack_id', 'is', null).order('created_at');
+  const { data: packs, error: packsErr } = await db.from('sticker_packs').select('id,name').order('created_at');
+  const { data: ps, error: psErr } = await db.from('stickers').select('id,emoji,pack_id').not('pack_id', 'is', null).order('created_at');
+  if (packsErr || psErr) throw new HttpError(500, 'Could not load stickers');
   return NextResponse.json(
     {
       mine,
@@ -39,11 +42,12 @@ export const POST = handle(async (req: Request) => {
   if (!rateLimit(`sticker:${user.id}`, 30, 3600_000)) throw new HttpError(429, 'Too many stickers, try again later');
   const emoji = parseEmoji(new URL(req.url).searchParams.get('emoji'));
   const db = adminClient();
-  const { count } = await db
+  const { count, error: countErr } = await db
     .from('stickers')
     .select('id', { count: 'exact', head: true })
     .eq('creator_id', user.id)
     .is('pack_id', null);
+  if (countErr) throw new HttpError(500, 'Could not create sticker');
   if ((count ?? 0) >= MAX_OWN_STICKERS) throw new HttpError(409, `You can create up to ${MAX_OWN_STICKERS} stickers. Delete one first.`);
   const buffer = await readBodyCapped(req, MAX_BYTES.sticker);
   const asset = await storeAsset({ ownerId: user.id, kind: 'sticker', buffer });
@@ -56,6 +60,7 @@ export const POST = handle(async (req: Request) => {
     await deleteAsset(asset.id).catch(() => {});
     throw new Error('could not create sticker');
   }
-  await db.from('user_stickers').insert({ user_id: user.id, sticker_id: data.id });
+  const { error: linkErr } = await db.from('user_stickers').insert({ user_id: user.id, sticker_id: data.id });
+  if (linkErr) throw new HttpError(500, 'Sticker created but could not be added to your list');
   return NextResponse.json({ id: data.id });
 });

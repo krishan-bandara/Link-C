@@ -17,8 +17,14 @@ const noStore = { 'Cache-Control': 'no-store' };
 export const POST = handle(async (req: Request) => {
   // Login must come from our own pages (blocks cross-site login forgery).
   const origin = req.headers.get('origin');
-  if (origin && new URL(origin).host !== new URL(req.url).host && origin !== (process.env.APP_URL ?? '')) {
-    throw new HttpError(403, 'Not allowed');
+  if (origin) {
+    let sameHost = false;
+    try {
+      sameHost = new URL(origin).host === new URL(req.url).host;
+    } catch {
+      // "null" or malformed Origin: treated as cross-site
+    }
+    if (!sameHost && origin !== (process.env.APP_URL ?? '')) throw new HttpError(403, 'Not allowed');
   }
   if (!rateLimit(`login:${clientIp(req)}`, 20, 10 * 60_000)) {
     return NextResponse.json(

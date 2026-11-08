@@ -63,8 +63,8 @@ export function prefsFromRow(r: Row | null | undefined): Prefs {
 }
 
 export async function loadPrefs(supabase: SupabaseClient, userId: string): Promise<Prefs> {
-  const { data } = await supabase.from('user_prefs').select(PREF_COLS).eq('user_id', userId).maybeSingle();
-  if (!data) await supabase.from('user_prefs').insert({ user_id: userId });
+  const { data, error } = await supabase.from('user_prefs').select(PREF_COLS).eq('user_id', userId).maybeSingle();
+  if (!error && !data) await supabase.from('user_prefs').insert({ user_id: userId });
   return prefsFromRow(data as Row | null);
 }
 

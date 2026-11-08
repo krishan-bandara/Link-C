@@ -109,15 +109,24 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
   );
 
   const reqId = useRef(0);
-  const refresh = useCallback(async () => {
-    const mine = ++reqId.current;
-    const next = await loadConversations(supabaseBrowser(), meId).catch(() => null);
-    if (mine !== reqId.current) return; // a newer refresh started: ignore this older answer
-    if (next) {
-      setItems(next);
-      setLoaded(true);
-    }
-  }, [meId]);
+  const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const refresh = useCallback(
+    async (isRetry = false) => {
+      const mine = ++reqId.current;
+      const next = await loadConversations(supabaseBrowser(), meId).catch(() => null);
+      if (mine !== reqId.current) return; // a newer refresh started: ignore this older answer
+      if (next) {
+        setItems(next);
+        setLoaded(true);
+      } else if (isRetry !== true) {
+        // failed: keep the old list and try once more shortly
+        clearTimeout(retry.current);
+        retry.current = setTimeout(() => void refresh(true), 5000);
+      }
+    },
+    [meId],
+  );
+  useEffect(() => () => clearTimeout(retry.current), []);
 
   useEffect(() => unlockAudioOnFirstTouch(), []);
 
@@ -128,7 +137,7 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
       if (!id) return;
       setItems((cur) => cur.map((c) => (c.id === id && c.unread ? { ...c, unread: 0 } : c)));
       clearTimeout(timer.current);
-      timer.current = setTimeout(refresh, 600);
+      timer.current = setTimeout(() => void refresh(), 600);
     };
     window.addEventListener('lc-read', onRead);
     return () => window.removeEventListener('lc-read', onRead);
@@ -143,7 +152,7 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
     const supabase = supabaseBrowser();
     const schedule = () => {
       clearTimeout(timer.current);
-      timer.current = setTimeout(refresh, 600);
+      timer.current = setTimeout(() => void refresh(), 600);
     };
     let ch: ReturnType<typeof supabase.channel> | undefined;
     let cancelled = false;
@@ -166,7 +175,7 @@ export function ConversationsProvider({ me, initial, children }: { me: Me; initi
               cur
                 .map((c) =>
                   c.id === m.conversation_id
-                    ? { ...c, lastBody: m.body ?? null, lastType: m.type ?? null, lastAt: m.created_at ?? c.lastAt, lastMine: m.sender_id === meId, lastRead: false, unread: m.sender_id === meId || (c.id === m.conversation_id && window.location.pathname === `/c/${c.id}` && document.visibilityState === 'visible') ? c.unread : c.unread + 1 }
+                    ? { ...c, lastBody: m.type === 'media' ? null : (m.body ?? null), lastType: m.type ?? null, lastAt: m.created_at ?? c.lastAt, lastMine: m.sender_id === meId, lastRead: false, unread: m.sender_id === meId || (c.id === m.conversation_id && window.location.pathname === `/c/${c.id}` && document.visibilityState === 'visible') ? c.unread : c.unread + 1 }
                     : c,
                 )
                 .sort((a, b) => (b.lastAt ?? '').localeCompare(a.lastAt ?? '')),

@@ -49,10 +49,17 @@ export const POST = handle(async (req: Request) => {
   const supabase = await supabaseServer();
   const { data: again } = await supabase.auth.signInWithPassword({ email: user.email, password: next });
   const token = again?.session?.access_token;
-  if (token) {
-    const sid = (JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()) as { session_id?: string }).session_id;
-    if (sid) await adminClient().rpc('revoke_other_sessions', { p_user: user.id, p_keep: sid });
+  if (!token) {
+    // Password is changed but this browser could not be signed back in: end every session and ask for a fresh login.
+    await adminClient().rpc('revoke_user_sessions', { p_user: user.id });
+    await audit(user.id, 'password_changed', user.id).catch(() => {});
+    return NextResponse.json(
+      { error: 'Your password was changed, but we could not keep you signed in. Please sign in again.', signedOut: true },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
+  const sid = (JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()) as { session_id?: string }).session_id;
+  if (sid) await adminClient().rpc('revoke_other_sessions', { p_user: user.id, p_keep: sid });
   await audit(user.id, 'password_changed', user.id);
   return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
 });

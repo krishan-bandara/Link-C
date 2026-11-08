@@ -69,9 +69,12 @@ async function putChunk(req: Request, { params }: { params: Promise<{ id: string
   await rename(tmpPath, finalPath);
 
   // The session may have moved on (completed, failed, cleaned up) while we were writing: do not leave an orphan chunk.
-  const { data: cur } = await adminClient().from('upload_sessions').select('status').eq('id', s.id).maybeSingle();
+  const { data: cur } = await adminClient().from('upload_sessions').select('status,received').eq('id', s.id).maybeSingle();
   if (!cur || cur.status !== 'uploading') {
-    await rm(finalPath, { force: true }).catch(() => {});
+    // A late duplicate PUT of a part that is already recorded must not delete the good chunk file.
+    const rec = [...(Array.isArray(s.received) ? s.received : []), ...(Array.isArray(cur?.received) ? (cur.received as number[]) : [])];
+    const already = rec.includes(i);
+    if (!already) await rm(finalPath, { force: true }).catch(() => {});
     throw new HttpError(409, 'Upload is not accepting chunks');
   }
 

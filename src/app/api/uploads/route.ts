@@ -47,18 +47,20 @@ export const POST = handle(async (req: Request) => {
     throw new HttpError(415, 'Only JPEG, PNG, WebP, GIF, MP4, MOV, WebM and voice-note audio (WebM, MP4, OGG, MP3) files are allowed');
   }
   const db = adminClient();
-  const { data: st } = await db.from('app_settings').select('*').eq('id', 1).single();
+  const { data: st, error: stErr } = await db.from('app_settings').select('*').eq('id', 1).single();
+  if (stErr) throw new Error(`app_settings read failed: ${stErr.message}`);
   if (!st) throw new Error('settings missing');
   const kind = kindOf(b.mime);
   const maxMb = kind === 'audio' ? AUDIO_MAX_MB : kind === 'image' ? st.photo_max_mb : st.video_max_mb;
   if (b.size > maxMb * 1024 * 1024) throw new HttpError(413, `File is too large (max ${maxMb} MB)`);
 
   return withUserLock(user.id, async () => {
-  const { data: active } = await db
+  const nowIso = new Date().toISOString();
+  const { data: active, error: actErr } = await db
     .from('upload_sessions')
     .select('user_id,total_size,status,created_at,last_chunk_at')
-    .in('status', ['uploading', 'processing'])
-    .gt('expires_at', new Date().toISOString());
+    .or(`and(status.eq.uploading,expires_at.gt.${nowIso}),status.eq.processing`);
+  if (actErr) throw new Error(`upload_sessions read failed: ${actErr.message}`);
   const rows = active ?? [];
   // An upload nobody has sent a piece to for 5 minutes was abandoned (app closed, phone slept): it must not block new ones.
   const staleBefore = Date.now() - 5 * 60_000;
@@ -67,9 +69,9 @@ export const POST = handle(async (req: Request) => {
   if (rows.filter((r) => r.user_id === user.id && live(r)).length >= st.max_inflight_uploads) {
     throw new HttpError(429, 'Too many uploads in progress, please wait');
   }
-  // Processing writes raw + clean + preview + encrypted copies, so each byte uploaded costs about 3 bytes of disk.
-  const used = rows.reduce((n, r) => n + Number(r.total_size) * 3, 0);
-  if (used + b.size * 3 > st.temp_cap_mb * 1024 * 1024) {
+  // Processing writes raw + clean + preview + encrypted copies, so each byte uploaded costs about 4.5 bytes of disk.
+  const used = rows.reduce((n, r) => n + Number(r.total_size) * 4.5, 0);
+  if (used + b.size * 4.5 > st.temp_cap_mb * 1024 * 1024) {
     throw new HttpError(429, 'Server is busy with other uploads, try again shortly');
   }
 

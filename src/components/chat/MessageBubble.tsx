@@ -9,6 +9,7 @@ import Linkify from './Linkify';
 import AudioPlayer from './AudioPlayer';
 import { QuoteInBubble, type Quote } from './ReplyQuote';
 import { buzz } from '@/lib/chat/haptics';
+import { holdAlive } from '@/lib/idle-client';
 import { canEdit } from '@/lib/chat/edit';
 import { BUBBLE_SHADOW, FOCUS } from './ui';
 
@@ -47,6 +48,8 @@ function MediaBody({
   const [failed, setFailed] = useState(false);
   const [attempt, setTry] = useState(0); // bumped on retry so the browser refetches
   const [loaded, setLoaded] = useState(false); // the grey placeholder box is only needed until the picture is there
+  const [vidPlaying, setVidPlaying] = useState(false);
+  useEffect(() => (vidPlaying ? holdAlive() : undefined), [vidPlaying]); // playing video counts as activity
   if (!media) return <div className="cv-media-ph h-48 w-64 max-w-full rounded-xl" role="status" aria-label="Loading media" />;
   if (media.mode === 'normal') {
     if (media.deleted_at)
@@ -80,18 +83,30 @@ function MediaBody({
           </button>
           )
         ) : (
+          failed ? (
+            <button type="button" onClick={() => { setFailed(false); setTry((n) => n + 1); }} className={`flex h-48 w-64 max-w-full flex-col items-center justify-center gap-1 rounded-xl bg-panel-2/60 px-3 text-center text-sm text-muted ${FOCUS}`} data-swipeok>
+              <span>Could not load.</span>
+              <span className="font-medium text-accent">Tap to retry</span>
+            </button>
+          ) : (
           <>
             <video
-              src={src}
+              key={attempt}
+              src={attempt ? `${src}?r=${attempt}` : src}
               controls
               preload="metadata"
               playsInline
               onLoadedMetadata={onMediaLoad}
+              onPlay={() => setVidPlaying(true)}
+              onPause={() => setVidPlaying(false)}
+              onEnded={() => setVidPlaying(false)}
+              onError={() => { setVidPlaying(false); setFailed(true); }}
               className="min-h-48 max-h-72 w-64 max-w-full rounded-xl bg-black"
             />
             {/* transparent strip over the top of the video: the native controls are at the bottom, so a long-press here still opens the message menu */}
             <div aria-hidden className="absolute inset-x-0 top-0 h-10 rounded-t-xl pr-12" />
           </>
+          )
         )}
         <button
           type="button"

@@ -13,11 +13,15 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
   if (!rateLimit(`open:${user.id}`, 60, 60_000)) throw new HttpError(429, 'Too many requests');
 
   // RLS: only conversation participants can see the row
-  const { data: item } = await supabase
+  const { data: item, error: itemErr } = await supabase
     .from('media_items')
     .select('id,sender_id,mode,kind')
     .eq('id', id)
     .maybeSingle();
+  if (itemErr) {
+    console.error('media open: item read failed', itemErr.message);
+    throw new HttpError(500, 'Could not load snap');
+  }
   if (!item) throw new HttpError(404, 'Not found');
   if (item.kind === 'audio') throw new HttpError(400, 'Voice messages are not snaps');
   if (item.mode === 'normal') throw new HttpError(400, 'Not a snap');
@@ -25,7 +29,7 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
 
   // Atomic claim: only one caller can flip viewed_at from null.
   const db = adminClient();
-  const { data: won } = await db
+  const { data: won, error: wonErr } = await db
     .from('media_items')
     .update({ viewed_at: new Date().toISOString() })
     .eq('id', id)
@@ -34,6 +38,10 @@ export const POST = handle(async (_req: Request, { params }: { params: Promise<{
     .in('mode', ['once', 'timed'])
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .select('kind,mime,timer_seconds');
+  if (wonErr) {
+    console.error('media open: claim failed', wonErr.message);
+    throw new HttpError(500, 'Could not open snap');
+  }
   if (!won?.length) throw new HttpError(409, GONE);
 
   await db.from('view_events').insert({ media_id: id, viewer_id: user.id });

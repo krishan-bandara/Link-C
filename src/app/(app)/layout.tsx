@@ -24,10 +24,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!profile) redirect('/login');
   if (!profile.notice_accepted_at) redirect('/onboarding');
 
-  const { data: row } = await supabase.from('user_prefs').select(PREF_COLS).eq('user_id', user.id).maybeSingle();
-  if (!row) await supabase.from('user_prefs').insert({ user_id: user.id });
+  const { data: row, error: prefsErr } = await supabase.from('user_prefs').select(PREF_COLS).eq('user_id', user.id).maybeSingle();
+  if (!prefsErr && !row) await supabase.from('user_prefs').insert({ user_id: user.id });
   const prefs = prefsFromRow(row);
-  if (!prefs.wizardDone) redirect('/welcome');
+  // On a read error render with defaults; do NOT bounce the member to the welcome wizard.
+  if (!prefsErr && !prefs.wizardDone) redirect('/welcome');
 
   const conversations = await loadConversations(supabase, user.id).catch(() => []); // client list refreshes on its own
 

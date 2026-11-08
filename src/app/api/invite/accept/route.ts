@@ -76,8 +76,17 @@ export const POST = handle(async (req: Request) => {
         await admin.auth.admin.deleteUser(uid).catch(() => {}); // roll back so the link can be retried
         return await fail(500, 'Something went wrong');
       }
-      await admin.from('invites').update({ accepted_at: new Date().toISOString() }).eq('id', inv.id);
-      await audit(uid, 'invite_accepted', uid);
+      // The account exists now: bookkeeping failures must not turn this into a failed (and released) invite.
+      try {
+        await admin.from('invites').update({ accepted_at: new Date().toISOString() }).eq('id', inv.id);
+      } catch (e) {
+        console.error('invite accepted_at update failed', e instanceof Error ? e.message : 'unknown');
+      }
+      try {
+        await audit(uid, 'invite_accepted', uid);
+      } catch (e) {
+        console.error('invite audit failed', e instanceof Error ? e.message : 'unknown');
+      }
     } else {
       const uid = await findAuthUserId(email);
       if (!uid) return await fail(400, EXPIRED);

@@ -34,8 +34,11 @@ export function useReactions(supabase: SupabaseClient, me: string, messageIds: s
   const load = useCallback(
     async (ids: string[]) => {
       if (!ids.length) return;
-      const { data } = await supabase.from('message_reactions').select('message_id,user_id,emoji').in('message_id', ids);
-      if (!data) return;
+      const { data, error } = await supabase.from('message_reactions').select('message_id,user_id,emoji').in('message_id', ids);
+      if (error || !data) {
+        if (error) console.error('reactions load failed', error.message);
+        return;
+      }
       for (const id of ids) loaded.current.add(id);
       setMap((cur) => {
         let next = new Map(cur);
@@ -74,7 +77,11 @@ export function useReactions(supabase: SupabaseClient, me: string, messageIds: s
         })
         .subscribe((status) => {
           if (status !== 'SUBSCRIBED') return;
-          if (!first) void load([...loaded.current].slice(-100)); // catch up after a reconnect
+          if (!first) {
+            // catch up after a reconnect: re-fetch every loaded id, 100 at a time
+            const all = [...loaded.current];
+            for (let i = 0; i < all.length; i += 100) void load(all.slice(i, i + 100));
+          }
           first = false;
         });
     })();

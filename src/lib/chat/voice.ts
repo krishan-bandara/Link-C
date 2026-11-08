@@ -13,7 +13,10 @@ type RecorderLike = { isTypeSupported?: (t: string) => boolean };
 export function pickAudioMime(MR: RecorderLike | undefined | null = typeof MediaRecorder === 'undefined' ? null : MediaRecorder): string | null {
   if (!MR) return null;
   if (typeof MR.isTypeSupported !== 'function') return 'audio/webm';
-  for (const m of CANDIDATES) {
+  // Safari/iOS can record mp4 and cannot always play WebM back, so try mp4 first there.
+  const safari = typeof navigator !== 'undefined' && /safari/i.test(navigator.userAgent) && !/chrome|chromium|crios|fxios|android|edg/i.test(navigator.userAgent);
+  const order = safari ? (['audio/mp4', ...CANDIDATES.filter((c) => c !== 'audio/mp4')] as const) : CANDIDATES;
+  for (const m of order) {
     try {
       if (MR.isTypeSupported(m)) return m;
     } catch {

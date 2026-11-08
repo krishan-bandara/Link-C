@@ -78,9 +78,11 @@ export async function processUpload(sessionId: string): Promise<void> {
   let stored: { name: 'b2' | 'local'; del: () => Promise<void> } | null = null;
   let messageId: string | null = null;
   try {
-    const { data } = await db.from('upload_sessions').select('*').eq('id', sessionId).single();
+    const { data, error: sErr } = await db.from('upload_sessions').select('*').eq('id', sessionId).single();
+    if (sErr || !data) throw new Error(`upload_sessions read failed: ${sErr?.message ?? 'not found'}`);
     const s = data as UploadSession;
-    const { data: st } = await db.from('app_settings').select('photo_max_mb,video_max_mb').eq('id', 1).single();
+    const { data: st, error: stErr } = await db.from('app_settings').select('photo_max_mb,video_max_mb').eq('id', 1).single();
+    if (stErr) throw new Error(`app_settings read failed: ${stErr.message}`);
     const dir = workDir(sessionId);
     await mkdir(dir, { recursive: true });
 

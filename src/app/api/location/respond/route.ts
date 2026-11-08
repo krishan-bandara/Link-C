@@ -24,21 +24,25 @@ export const POST = handle(async (req: Request) => {
   if (b.action === 'accept') {
     if (!b.minutes) throw new HttpError(400, 'Choose a duration');
     const expiresAt = new Date(Date.now() + b.minutes * 60_000).toISOString();
-    const { error } = await db
+    const { data: upd, error } = await db
       .from('location_shares')
       .update({ status: 'active', duration_minutes: b.minutes, expires_at: expiresAt })
       .eq('id', share.id)
-      .eq('status', 'requested');
+      .eq('status', 'requested')
+      .select('id');
     if (error) throw new Error('location update failed');
+    if (!upd || upd.length === 0) throw new HttpError(409, 'This request is no longer open');
     await audit(user.id, 'location_accepted', share.id);
     return NextResponse.json({ ok: true, expiresAt });
   }
-  const { error } = await db
+  const { data: dec, error } = await db
     .from('location_shares')
     .update({ status: 'declined' })
     .eq('id', share.id)
-    .eq('status', 'requested');
+    .eq('status', 'requested')
+    .select('id');
   if (error) throw new Error('location update failed');
+  if (!dec || dec.length === 0) throw new HttpError(409, 'This request is no longer open');
   await audit(user.id, 'location_declined', share.id);
   return NextResponse.json({ ok: true });
 });

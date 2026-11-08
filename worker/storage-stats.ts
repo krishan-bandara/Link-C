@@ -48,10 +48,18 @@ async function sumRows(fetchPage: (from: number, to: number) => PromiseLike<{ da
 async function notifyOwner(level: AlertLevel): Promise<boolean> {
   if (!pushConfigured()) return false;
   const db = adminClient();
-  const { data: owners } = await db.from('profiles').select('id').eq('role', 'owner');
+  const { data: owners, error: oErr } = await db.from('profiles').select('id').eq('role', 'owner');
+  if (oErr) {
+    console.error('[worker] storage alert: owners read failed:', oErr.message);
+    return false;
+  }
   const ids = (owners ?? []).map((o) => o.id as string);
   if (!ids.length) return false;
-  const { data: subs } = await db.from('push_subscriptions').select('id,endpoint,p256dh,auth').in('user_id', ids);
+  const { data: subs, error: subErr } = await db.from('push_subscriptions').select('id,endpoint,p256dh,auth').in('user_id', ids);
+  if (subErr) {
+    console.error('[worker] storage alert: push_subscriptions read failed:', subErr.message);
+    return false;
+  }
   let anyOk = false;
   for (const s of subs ?? []) {
     const r = await sendPush(s as PushSub, {
@@ -83,6 +91,7 @@ export async function storageStatsStep(): Promise<void> {
     db.from('app_settings').select('disk_free_alert_pct,b2_budget_gb,b2_alert_pct').eq('id', 1).single(),
     db.from('storage_stats').select('alert_level,alert_sent_at').eq('id', 1).maybeSingle(),
   ]);
+  if (prev.error) console.error('[worker] storage_stats read failed:', prev.error.message);
   if (settings.error || !settings.data) throw new Error('app_settings unavailable');
 
   const level = alertLevel({

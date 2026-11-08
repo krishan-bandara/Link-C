@@ -39,6 +39,22 @@ function waitOnline(signal?: AbortSignal) {
   });
 }
 
+/** fetch that retries with backoff on HTTP 429 and on network errors (TypeError). Other statuses are returned as-is. */
+async function fetchRetry(url: string, init: RequestInit, signal: AbortSignal): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    if (signal.aborted) throw new UploadError('Cancelled');
+    try {
+      await waitOnline(signal);
+      const res = await fetch(url, init);
+      if (res.status !== 429 || attempt >= 5) return res;
+    } catch (e) {
+      if (signal.aborted) throw new UploadError('Cancelled');
+      if (!(e instanceof TypeError) || attempt >= 5) throw e;
+    }
+    await sleep(Math.min(8000, 500 * 2 ** attempt), signal);
+  }
+}
+
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new UploadError((data as { error?: string }).error ?? `Request failed (${res.status})`);
@@ -100,19 +116,23 @@ async function runUpload(
     hooks.onCreated?.(uploadId);
   } else {
     const created = await json<{ uploadId: string; chunkSize: number; totalChunks: number }>(
-      await fetch('/api/uploads', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          conversationId: opts.conversationId,
-          mime: file.type,
-          size: file.size,
-          mode: opts.mode,
-          timerSeconds: opts.mode === 'timed' ? opts.timerSeconds : null,
-          replyTo: opts.replyTo ?? null,
-        }),
+      await fetchRetry(
+        '/api/uploads',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            conversationId: opts.conversationId,
+            mime: file.type,
+            size: file.size,
+            mode: opts.mode,
+            timerSeconds: opts.mode === 'timed' ? opts.timerSeconds : null,
+            replyTo: opts.replyTo ?? null,
+          }),
+          signal,
+        },
         signal,
-      }),
+      ),
     );
     ({ uploadId, chunkSize, totalChunks } = created);
     setId(uploadId);
@@ -201,7 +221,7 @@ async function runUpload(
   if (failure) throw failure;
 
   if (!nothingToSend) {
-    const c = await fetch(`/api/uploads/${uploadId}/complete`, { method: 'POST', signal });
+    const c = await fetchRetry(`/api/uploads/${uploadId}/complete`, { method: 'POST', signal }, signal);
     if (c.status !== 202 && !c.ok) await json(c);
   }
 

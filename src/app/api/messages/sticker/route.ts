@@ -12,6 +12,10 @@ export const POST = handle(async (req: Request) => {
   const b = body.parse(await req.json());
   if (!rateLimit(`stickermsg:${user.id}`, 60, 60_000)) throw new HttpError(429, 'Slow down');
   await requireConversation(supabase, user.id, b.conversationId);
+  if (b.replyTo) {
+    const { data: target } = await supabase.from('messages').select('id').eq('id', b.replyTo).eq('conversation_id', b.conversationId).maybeSingle();
+    if (!target) throw new HttpError(400, 'The message you are replying to was not found');
+  }
   if (!(await canViewSticker(user.id, b.stickerId, true))) throw new HttpError(404, 'Sticker not found');
   const { data, error } = await adminClient()
     .from('messages')

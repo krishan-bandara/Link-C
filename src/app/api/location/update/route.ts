@@ -29,10 +29,15 @@ export const POST = handle(async (req: Request) => {
     }
     throw new HttpError(410, 'Sharing has ended');
   }
-  const { error } = await db
+  const now = new Date().toISOString();
+  const { data: upd, error } = await db
     .from('location_shares')
-    .update({ last_lat: b.lat, last_lng: b.lng, last_accuracy: b.accuracy ?? null, last_at: new Date().toISOString() })
-    .eq('id', share.id);
+    .update({ last_lat: b.lat, last_lng: b.lng, last_accuracy: b.accuracy ?? null, last_at: now })
+    .eq('id', share.id)
+    .eq('status', 'active')
+    .gt('expires_at', now)
+    .select('id');
   if (error) throw new Error('location update failed');
+  if (!upd || upd.length === 0) throw new HttpError(410, 'Sharing has ended');
   return NextResponse.json({ ok: true });
 });

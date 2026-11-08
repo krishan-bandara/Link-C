@@ -94,6 +94,13 @@ export class B2Store implements BlobStore {
       return false;
     }
     await pipeline(body, createWriteStream(destPath));
+    if (res.ContentLength != null) {
+      const written = (await stat(destPath)).size;
+      if (written !== res.ContentLength) {
+        await rm(destPath, { force: true });
+        throw new Error(`b2 download truncated: got ${written} of ${res.ContentLength} bytes`);
+      }
+    }
     return true;
   }
   async put(key: string, localPath: string) {
@@ -165,8 +172,11 @@ export class B2Store implements BlobStore {
 export class CachedStore implements BlobStore {
   readonly name = 'b2' as const;
   private inflight = new Map<string, Promise<string | null>>();
+  /** Keys known to exceed maxObject, so later reads go straight to ranged B2 GETs (bounded, oldest dropped). */
+  private tooBig = new Set<string>();
+  private static readonly TOO_BIG_MAX = 5000;
   constructor(
-    private inner: B2Store,
+    private inner: Pick<B2Store, 'put' | 'getRange' | 'delete' | 'downloadTo'>,
     private dir: string,
     private maxTotal = 2 * 1024 ** 3,
     private maxObject = 64 * 1024 ** 2,
@@ -180,7 +190,7 @@ export class CachedStore implements BlobStore {
     await mkdir(this.dir, { recursive: true });
     const size = (await stat(localPath)).size;
     if (size <= this.maxObject) await copyFile(localPath, this.p(key)).catch(() => {});
-    await this.evict();
+    await this.evict().catch(() => {});
   }
   private async cached(key: string): Promise<string | null> {
     const file = this.p(key);
@@ -191,15 +201,22 @@ export class CachedStore implements BlobStore {
     } catch {
       /* not cached */
     }
+    if (this.tooBig.has(key)) return null;
     let job = this.inflight.get(key);
     if (!job) {
       job = (async () => {
         await mkdir(this.dir, { recursive: true });
         const tmp = `${file}.${randomBytes(6).toString('hex')}.tmp`;
         try {
-          if (!(await this.inner.downloadTo(key, tmp, this.maxObject))) return null;
+          if (!(await this.inner.downloadTo(key, tmp, this.maxObject))) {
+            this.tooBig.add(key);
+            if (this.tooBig.size > CachedStore.TOO_BIG_MAX) {
+              this.tooBig.delete(this.tooBig.values().next().value as string);
+            }
+            return null;
+          }
           await rename(tmp, file);
-          await this.evict();
+          await this.evict().catch(() => {});
           return file;
         } catch (e) {
           await rm(tmp, { force: true });
@@ -213,9 +230,23 @@ export class CachedStore implements BlobStore {
     return job;
   }
   async getRange(key: string, start: number, endInclusive: number) {
-    const file = await this.cached(key);
+    let file = await this.cached(key);
     if (!file) return this.inner.getRange(key, start, endInclusive);
-    const fh = await open(file, 'r');
+    let fh;
+    try {
+      fh = await open(file, 'r');
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+      // Evicted between the check and the open: fetch again once, then fall back to B2.
+      file = await this.cached(key);
+      if (!file) return this.inner.getRange(key, start, endInclusive);
+      try {
+        fh = await open(file, 'r');
+      } catch (e2) {
+        if ((e2 as NodeJS.ErrnoException).code !== 'ENOENT') throw e2;
+        return this.inner.getRange(key, start, endInclusive);
+      }
+    }
     try {
       const len = endInclusive - start + 1;
       const buf = Buffer.alloc(len);
@@ -230,7 +261,14 @@ export class CachedStore implements BlobStore {
     await this.inner.delete(key);
   }
   private async evict() {
-    const names = (await readdir(this.dir).catch(() => [])).filter((n) => !n.endsWith('.tmp'));
+    const all = await readdir(this.dir).catch(() => [] as string[]);
+    // Sweep stale partial downloads (older than 1 hour) left by crashes.
+    for (const n of all.filter((x) => x.endsWith('.tmp'))) {
+      const f = path.join(this.dir, n);
+      const s = await stat(f).catch(() => null);
+      if (s && Date.now() - s.mtimeMs > 3_600_000) await rm(f, { force: true });
+    }
+    const names = all.filter((n) => !n.endsWith('.tmp'));
     const files = await Promise.all(
       names.map(async (n) => {
         const s = await stat(path.join(this.dir, n)).catch(() => null);
