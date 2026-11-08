@@ -72,7 +72,7 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
   const headers: Record<string, string> = {
     'Content-Type': usePreview ? 'image/webp' : item.mime,
     'Accept-Ranges': 'bytes',
-    'Cache-Control': !snap && (usePreview || item.kind === 'image' || item.kind === 'audio') ? 'private, max-age=3600' : 'private, no-store',
+    'Cache-Control': usePreview && !snap ? 'private, max-age=3600' : 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
     'Content-Disposition': 'inline',
   };

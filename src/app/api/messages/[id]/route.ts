@@ -16,10 +16,11 @@ export const DELETE = handle(async (_req: Request, { params }: { params: Promise
 
   const db = adminClient();
   const { data: media } = await db.from('media_items').select('id').eq('message_id', id).maybeSingle();
-  // Delete the row first so a failed delete never leaves a message whose media is already gone.
+  // Blobs first: deleting the message row cascades to media_items/media_keys, after which the stored files could
+  // no longer be found and would stay in storage. deleteMediaBlobs is idempotent, so a retry completes it.
+  if (media) await deleteMediaBlobs(media.id as string);
   const { error } = await db.from('messages').delete().eq('id', id);
   if (error) throw new Error('delete failed');
-  if (media) await deleteMediaBlobs(media.id as string);
   await audit(user.id, 'message_deleted', id);
   return NextResponse.json({ ok: true });
 });
