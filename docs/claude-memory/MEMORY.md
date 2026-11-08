@@ -8,3 +8,4 @@
 - [Use parallel agents](feedback_use-parallel-agents.md) - split big builds across agents; keep Link-C separate from Softlogic accounts
 - [Link-C media history fix Nov 8](project_link-c-media-history-fix-nov8.md) - Nov 8: old media not loading = missing grant on media_items.hd (migration 34 applied live); 24-agent review + 7 fix agents, 339 tests pass, committed locally, owner must push + deploy; leftovers listed
 - [No Claude co-author tag](feedback_no-claude-coauthor-tag.md) - owner wants no Co-Authored-By Claude trailer in commits; 5 old commits have it (history rewrite needs owner OK)
+- [Link-C deleted message notice](project_link-c-deleted-message-notice.md) - Nov 8: 'This message was deleted' notice like WhatsApp (messages.deleted_at, migration 35 applied live), code committed, owner must push + deploy

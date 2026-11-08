@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, CornerUpLeft, CheckCheck, Download, EyeOff, MoreHorizontal, Pencil, Plus, StickerIcon, Trash2, Timer } from 'lucide-react';
+import { Ban, Camera, Check, CornerUpLeft, CheckCheck, Download, EyeOff, MoreHorizontal, Pencil, Plus, StickerIcon, Trash2, Timer } from 'lucide-react';
 import type { Media, Msg } from '@/lib/chat/types';
 import { isBigEmoji, QUICK_REACTIONS } from '@/lib/chat/emoji';
 import { stickerSrc } from '@/lib/chat/stickers';
@@ -266,7 +266,8 @@ export default function MessageBubble({
 
   const sticker = msg.type === 'sticker';
   const big = msg.type === 'text' && isBigEmoji(msg.body);
-  const bare = sticker || big; // no bubble fill
+  const deleted = !!msg.deleted_at; // "delete for everyone": only a grey notice is left
+  const bare = !deleted && (sticker || big); // no bubble fill
   const snap = msg.type === 'media' && media && media.mode !== 'normal';
   const mineReaction = reactions?.get(me);
   const counts = new Map<string, number>();
@@ -286,6 +287,10 @@ export default function MessageBubble({
 
   // Swipe right on a message to reply (touch screens).
   const onTouchStart = (e: React.TouchEvent) => {
+    if (deleted) {
+      swipe.current = null; // nothing to reply to
+      return;
+    }
     // never fight the video controls, the voice seek bar or other buttons
     if ((e.target as HTMLElement).closest('video,audio,input[type=range],button:not([data-swipeok])')) {
       swipe.current = null;
@@ -324,7 +329,7 @@ export default function MessageBubble({
 
   const meta = (
     <span className={`flex items-center gap-1 text-xs leading-none text-muted ${bare ? 'cv-meta-chip rounded-full px-2 py-1' : ''}`}>
-      {msg.type === 'text' && msg.edited_at && <span>edited</span>}
+      {msg.type === 'text' && msg.edited_at && !deleted && <span>edited</span>}
       <span>{time}</span>
       {mine && <Ticks m={msg} />}
       <button
@@ -346,7 +351,7 @@ export default function MessageBubble({
     onReact(msg.id, emoji);
   };
   const menuItem = `flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors hover:bg-accent/10 ${FOCUS}`;
-  const pill = (
+  const pill = deleted ? null : (
     <div className="cv-pill flex items-center gap-0.5 rounded-full px-1.5 py-1" role="group" aria-label="React">
       {QUICK_REACTIONS.map((e) => (
         <button
@@ -414,8 +419,14 @@ export default function MessageBubble({
             }
           }}
         >
-          <QuoteInBubble q={quote} mine={mine} onJump={onJump} />
-          {msg.type === 'media' ? (
+          <QuoteInBubble q={deleted ? null : quote} mine={mine} onJump={onJump} />
+          {deleted ? (
+            <p className="flow-root select-none px-3 py-1.5 text-[15px] italic leading-snug text-muted">
+              <Ban className="mr-1.5 inline h-4 w-4 align-[-3px]" aria-hidden />
+              {mine ? 'You deleted this message' : 'This message was deleted'}
+              <span className="float-right ml-3 mt-2.5 not-italic">{meta}</span>
+            </p>
+          ) : msg.type === 'media' ? (
             <>
               <MediaBody media={media} mine={mine} opening={opening} onOpenSnap={onOpenSnap} onZoom={onZoom} onSaveMedia={onSaveMedia} onMediaLoad={onMediaLoad} />
               <div className="flex justify-end px-2 pb-0.5 pt-1">{meta}</div>
@@ -465,6 +476,8 @@ export default function MessageBubble({
           >
           {place !== 'below' && pill}
           <div ref={menuRef} className="cv-menu overflow-hidden rounded-xl py-1 shadow-xl" role="menu" onKeyDown={onMenuKey}>
+            {!deleted && (
+            <>
             <button
               type="button"
               role="menuitem"
@@ -526,6 +539,8 @@ export default function MessageBubble({
                 <Download className="h-4 w-4" /> Save
               </button>
             )}
+            </>
+            )}
             <button
               type="button"
               role="menuitem"
@@ -537,7 +552,7 @@ export default function MessageBubble({
             >
               <Trash2 className="h-4 w-4" /> Delete for me
             </button>
-            {mine && (
+            {mine && !deleted && (
               <button
                 type="button"
                 role="menuitem"
@@ -553,7 +568,7 @@ export default function MessageBubble({
           </div>
           </div>
         )}
-        {counts.size > 0 && (
+        {!deleted && counts.size > 0 && (
           <div className={`z-[1] -mt-2 flex flex-wrap gap-1 ${mine ? 'justify-end pr-2' : 'justify-start pl-2'}`}>
             {[...counts].map(([emoji, n]) => (
               <ReactionChip key={emoji} emoji={emoji} n={n} own={mineReaction === emoji} animate={armed} onToggle={() => { buzz(10); onReact(msg.id, emoji); }} />

@@ -17,7 +17,7 @@ export async function loadConversations(supabase: SupabaseClient, me: string): P
       const [last, unread] = await Promise.all([
         supabase
           .from('messages')
-          .select('id,body,type,created_at,sender_id,read_at')
+          .select('id,body,type,created_at,sender_id,read_at,deleted_at')
           .eq('conversation_id', c.id)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -27,13 +27,16 @@ export async function loadConversations(supabase: SupabaseClient, me: string): P
           .select('id', { count: 'exact', head: true })
           .eq('conversation_id', c.id)
           .neq('sender_id', me)
+          .is('deleted_at', null)
           .is('read_at', null),
       ]);
       if (last.error) throw last.error;
       if (unread.error) throw unread.error;
       // For a media message the list shows what kind it is (Photo / Video / Voice message), never the content.
       let lastBody = (last.data?.body as string | undefined) ?? null;
-      if (last.data?.type === 'media') {
+      const lastDeleted = !!last.data?.deleted_at;
+      if (lastDeleted) lastBody = 'This message was deleted';
+      else if (last.data?.type === 'media') {
         const { data: mi, error: miErr } = await supabase.from('media_items').select('kind,mode').eq('message_id', last.data.id).maybeSingle();
         if (miErr) throw miErr;
         lastBody = mi?.mode && mi.mode !== 'normal' ? 'Snap' : mi?.kind === 'audio' ? 'Voice message' : mi?.kind === 'video' ? 'Video' : mi?.kind === 'image' ? 'Photo' : null;
@@ -45,7 +48,7 @@ export async function loadConversations(supabase: SupabaseClient, me: string): P
         otherAvatar: (people.get(otherId)?.avatar_asset_id as string | null | undefined) ?? null,
         otherAbout: (people.get(otherId)?.about as string | null | undefined) ?? null,
         lastBody,
-        lastType: (last.data?.type as string | undefined) ?? null,
+        lastType: lastDeleted ? 'text' : ((last.data?.type as string | undefined) ?? null),
         lastAt: (last.data?.created_at as string | undefined) ?? null,
         lastMine: last.data?.sender_id === me,
         lastRead: !!last.data?.read_at,

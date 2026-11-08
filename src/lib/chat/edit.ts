@@ -5,8 +5,8 @@ export const EDIT_WINDOW_MS = 15 * 60 * 1000;
 export const EDIT_MAX_CHARS = 4000;
 
 /** True when `me` may edit this message right now: own plain text, still inside the edit window. */
-export function canEdit(msg: Pick<Msg, 'sender_id' | 'type' | 'created_at'>, me: string, now: number = Date.now()): boolean {
-  if (msg.type !== 'text' || msg.sender_id !== me) return false;
+export function canEdit(msg: Pick<Msg, 'sender_id' | 'type' | 'created_at'> & { deleted_at?: string | null }, me: string, now: number = Date.now()): boolean {
+  if (msg.type !== 'text' || msg.sender_id !== me || msg.deleted_at) return false;
   const sent = Date.parse(msg.created_at);
   if (Number.isNaN(sent)) return false;
   return now - sent < EDIT_WINDOW_MS;

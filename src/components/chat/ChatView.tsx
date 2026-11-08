@@ -489,7 +489,7 @@ export default function ChatView({
 
   function startReply(id: string) {
     const m = messages.find((x) => x.id === id);
-    if (!m || m.type === 'system') return;
+    if (!m || m.type === 'system' || m.deleted_at) return;
     setEditingId(null);
     setReplyTo(m);
     composerRef.current?.focusBox();
@@ -719,7 +719,10 @@ export default function ChatView({
       ok = !!res?.ok;
     }
     setDeleting(false);
-    if (ok) dropMessage(id);
+    if (ok && scope === 'all') {
+      // keep a grey "This message was deleted" notice, like WhatsApp; the server already erased the content and files
+      setMessages((cur) => cur.map((m) => (m.id === id ? { ...m, body: '', sticker_id: null, deleted_at: new Date().toISOString() } : m)));
+    } else if (ok) dropMessage(id);
     else flash('Could not delete. Try again.');
     setConfirmId(null);
   }

@@ -10,6 +10,7 @@ export type Msg = {
   delivered_at: string | null;
   read_at: string | null;
   edited_at?: string | null;
+  deleted_at?: string | null; // set by "delete for everyone": body and media are gone, a notice is shown
 };
 
 export type Media = {
@@ -44,7 +45,7 @@ export type LocationShare = {
   created_at: string;
 };
 
-export const MSG_COLS = 'id,conversation_id,sender_id,body,type,sticker_id,reply_to,created_at,delivered_at,read_at,edited_at';
+export const MSG_COLS = 'id,conversation_id,sender_id,body,type,sticker_id,reply_to,created_at,delivered_at,read_at,edited_at,deleted_at';
 export const MEDIA_COLS =
   'id,message_id,conversation_id,sender_id,kind,mime,size_bytes,mode,hd,timer_seconds,viewed_at,deleted_at,expires_at,created_at';
 export const SHARE_COLS =
