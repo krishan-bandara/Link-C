@@ -41,12 +41,19 @@ export function videoLimitProblem(probe: unknown): string | null {
     format?: { duration?: string };
   } | null;
   const video = p?.streams?.find((s) => s.codec_type === 'video');
-  const w = video?.width ?? 0;
-  const h = video?.height ?? 0;
-  const durationStr = p?.format?.duration ?? video?.duration;
+  if (!video) return null; // no video stream at all: probeProblem() already rejects this case with its own message
+  // Fail CLOSED (not open) once a video stream genuinely exists: a real, valid video stream always reports its own
+  // width/height, and the container always reports a duration somewhere (format or stream). A video that lacks either
+  // is more likely a crafted/malformed file trying to dodge this cap than a normal file ffprobe merely struggled with
+  // (total ffprobe failure, e.g. the binary being missing, is a different case handled before this function is ever called).
+  const w = video.width ?? 0;
+  const h = video.height ?? 0;
+  if (!w || !h) return 'This video could not be read';
+  const durationStr = p?.format?.duration ?? video.duration;
   const duration = durationStr ? Number(durationStr) : NaN;
+  if (!Number.isFinite(duration)) return 'This video could not be read';
   const tooBig = Math.max(w, h) > MAX_IMAGE_SIDE_PX;
-  const tooLong = Number.isFinite(duration) && duration > MAX_VIDEO_DURATION_S;
+  const tooLong = duration > MAX_VIDEO_DURATION_S;
   if (tooBig || tooLong) return `Video is too large (max ${MAX_IMAGE_SIDE_PX}px) or too long (max ${MAX_VIDEO_DURATION_S / 60} minutes)`;
   return null;
 }

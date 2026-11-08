@@ -25,10 +25,16 @@ describe('videoLimitProblem', () => {
     expect(videoLimitProblem(videoStream(640, 480, String(MAX_VIDEO_DURATION_S + 1)))).toMatch(/too long/);
   });
 
-  it('is permissive when fields are missing or unparsable (ffmpeg remains the backstop)', () => {
-    expect(videoLimitProblem({ streams: [{ codec_type: 'video' }] })).toBeNull();
+  it('is permissive only when there is no video stream at all (a different check rejects that case)', () => {
     expect(videoLimitProblem({ streams: [] })).toBeNull();
     expect(videoLimitProblem(null)).toBeNull();
-    expect(videoLimitProblem(videoStream(640, 480, 'not-a-number'))).toBeNull();
+  });
+
+  it('fails closed when a video stream exists but its size or length cannot be read (crafted/malformed metadata)', () => {
+    expect(videoLimitProblem({ streams: [{ codec_type: 'video' }] })).toMatch(/could not be read/);
+    expect(videoLimitProblem(videoStream(0, 480, '10'))).toMatch(/could not be read/);
+    expect(videoLimitProblem(videoStream(640, 0, '10'))).toMatch(/could not be read/);
+    expect(videoLimitProblem(videoStream(640, 480, 'not-a-number'))).toMatch(/could not be read/);
+    expect(videoLimitProblem({ streams: [{ codec_type: 'video', width: 640, height: 480 }] })).toMatch(/could not be read/);
   });
 });

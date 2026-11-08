@@ -177,10 +177,16 @@ export async function sendSms(opts: {
   const monthlyCap = capValue(s.monthly_cap, 300);
   const dayIso = localBoundaryIso(now, SMS_TZ, 'day');
   const monthIso = localBoundaryIso(now, SMS_TZ, 'month');
-  const countSince = async (sinceIso: string) => {
-    const { count: ok, error: okErr } = await db.from('sms_log').select('id', { count: 'exact', head: true }).like('provider_status', 'http 2%').gte('sent_at', sinceIso);
+  const countSince = async (sinceIso: string, kindFilter?: 'non-alert') => {
+    let okQ = db.from('sms_log').select('id', { count: 'exact', head: true }).like('provider_status', 'http 2%').gte('sent_at', sinceIso);
+    let toQ = db.from('sms_log').select('id', { count: 'exact', head: true }).eq('provider_status', 'error timeout').gte('sent_at', sinceIso);
+    if (kindFilter === 'non-alert') {
+      okQ = okQ.neq('kind', 'alert');
+      toQ = toQ.neq('kind', 'alert');
+    }
+    const { count: ok, error: okErr } = await okQ;
     if (okErr) throw new Error(okErr.message);
-    const { count: to, error: toErr } = await db.from('sms_log').select('id', { count: 'exact', head: true }).eq('provider_status', 'error timeout').gte('sent_at', sinceIso);
+    const { count: to, error: toErr } = await toQ;
     if (toErr) throw new Error(toErr.message);
     return (ok ?? 0) + (to ?? 0);
   };
@@ -192,6 +198,20 @@ export async function sendSms(opts: {
     return fail('cap reached'); // a count that cannot be read fails closed, same as "cap reached"
   }
   if (sentToday >= dailyCap || sentThisMonth >= monthlyCap) return fail('cap reached');
+
+  // Reserve most of the shared pool for real offline alerts: a member spamming self-service sends (phone verification,
+  // or an owner's test send) must not be able to exhaust the whole daily budget and starve everyone else's alerts.
+  // Non-alert kinds (verify/test/invite) together may use at most this smaller slice of today's cap.
+  if (opts.kind !== 'alert') {
+    const nonAlertCap = Math.max(5, Math.floor(dailyCap * 0.2));
+    let sentNonAlertToday: number;
+    try {
+      sentNonAlertToday = await countSince(dayIso, 'non-alert');
+    } catch {
+      return fail('cap reached');
+    }
+    if (sentNonAlertToday >= nonAlertCap) return fail('cap reached');
+  }
 
   if (!validateE164(opts.to)) return fail('error bad number');
 
