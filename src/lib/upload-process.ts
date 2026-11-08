@@ -4,7 +4,7 @@ import { mkdir, open, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileTypeFromBuffer } from 'file-type';
 import sharp from 'sharp';
-import { ImageLimitError, MAX_IMAGE_PIXELS, assertImageWithinLimits, makeHdPreview } from '@/lib/image-preview';
+import { ImageLimitError, MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE_PX, assertImageWithinLimits, makeHdPreview } from '@/lib/image-preview';
 import { decryptChunk, encryptFile, newFileKey, unwrapKey, wrapKey } from '@/lib/crypto';
 import { adminClient } from '@/lib/supabase/admin';
 import { snapStore, mediaStore } from '@/lib/storage';
@@ -28,6 +28,29 @@ sharp.cache(false);
 
 class Reject extends Error {}
 
+/** Videos above this length are rejected (voice/video messages are never anywhere near this; it just bounds ffmpeg's work). */
+export const MAX_VIDEO_DURATION_S = 30 * 60;
+
+/**
+ * Pure check of ffprobe's JSON (streams + format) against hard video caps: resolution (same cap as photos) and
+ * duration. Returns an error message or null. No I/O, so it is unit-tested directly.
+ */
+export function videoLimitProblem(probe: unknown): string | null {
+  const p = probe as {
+    streams?: Array<{ codec_type?: string; width?: number; height?: number; duration?: string }>;
+    format?: { duration?: string };
+  } | null;
+  const video = p?.streams?.find((s) => s.codec_type === 'video');
+  const w = video?.width ?? 0;
+  const h = video?.height ?? 0;
+  const durationStr = p?.format?.duration ?? video?.duration;
+  const duration = durationStr ? Number(durationStr) : NaN;
+  const tooBig = Math.max(w, h) > MAX_IMAGE_SIDE_PX;
+  const tooLong = Number.isFinite(duration) && duration > MAX_VIDEO_DURATION_S;
+  if (tooBig || tooLong) return `Video is too large (max ${MAX_IMAGE_SIDE_PX}px) or too long (max ${MAX_VIDEO_DURATION_S / 60} minutes)`;
+  return null;
+}
+
 function runFfmpeg(input: string, output: string, formatArgs: string[], what = 'video'): Promise<void> {
   const bin = process.env.FFMPEG_PATH || 'ffmpeg';
   const args = ['-nostdin', '-y', '-protocol_whitelist', 'file', '-i', input, '-map_metadata', '-1', '-c', 'copy', ...formatArgs, output];
@@ -45,10 +68,12 @@ function runFfmpeg(input: string, output: string, formatArgs: string[], what = '
   });
 }
 
-/** ffprobe -v error -show_streams -of json <file>; 10 s timeout, no shell. Resolves to the parsed JSON. */
+/** ffprobe -v error -show_streams -show_format -of json <file>; 10 s timeout, no shell. Resolves to the parsed JSON.
+ *  -show_format is included (cheap, same call) so duration is available even for containers that only report it
+ *  at the container level rather than per-stream, letting videoLimitProblem() reuse this one probe. */
 function probeStreams(input: string): Promise<unknown> {
   const bin = process.env.FFPROBE_PATH || 'ffprobe';
-  const args = ['-v', 'error', '-protocol_whitelist', 'file', '-show_streams', '-of', 'json', input];
+  const args = ['-v', 'error', '-protocol_whitelist', 'file', '-show_streams', '-show_format', '-of', 'json', input];
   return new Promise((resolve, reject) => {
     const p = spawn(bin, args, { stdio: ['ignore', 'pipe', 'ignore'], shell: false });
     let out = '';
@@ -162,11 +187,9 @@ export async function processUpload(sessionId: string): Promise<void> {
     } else if (kind === 'video') {
       cleanPath = path.join(dir, 'clean');
       // Extra safety check only: if ffprobe is unavailable or cannot read the file, ffmpeg below still validates it,
-      // so videos keep working exactly as before. A file that provably has no picture is rejected.
-      const problem = await probeStreams(rawPath).then(
-        (info) => probeProblem(info, 'video'),
-        () => null,
-      );
+      // so videos keep working exactly as before. A file that provably has no picture, or is too large/long, is rejected.
+      const probeInfo = await probeStreams(rawPath).catch(() => null);
+      const problem = probeInfo ? (probeProblem(probeInfo, 'video') ?? videoLimitProblem(probeInfo)) : null;
       if (problem) throw new Reject(problem);
       const fmt = detected === 'video/webm' ? 'webm' : 'mp4';
       await runFfmpeg(rawPath, cleanPath, fmt === 'mp4' ? ['-f', 'mp4', '-movflags', '+faststart'] : ['-f', 'webm']);

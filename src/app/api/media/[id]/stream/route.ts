@@ -47,6 +47,10 @@ export const GET = handle(async (req: Request, { params }: { params: Promise<{ i
     const t = new URL(req.url).searchParams.get('t');
     const ok = t && verifyToken(t) === `${id}:${user.id}`;
     if (item.sender_id === user.id || !ok) throw new HttpError(403, 'Not allowed');
+    // Defense in depth only: GET requests are exempt from the Origin check in handle() by design, and the token above
+    // is the real gate (bound to this viewer, never forgeable). A browser that sends Sec-Fetch-Site and says this
+    // request is cross-site is refused; a missing header (older browsers, direct same-origin fetch) is accepted.
+    if (req.headers.get('sec-fetch-site') === 'cross-site') throw new HttpError(403, 'Not allowed');
   }
 
   const { data: key, error: keyErr } = await adminClient()

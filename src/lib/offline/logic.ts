@@ -55,8 +55,13 @@ export function pruneIds(records: { key: string; savedAt: number }[], now: numbe
   return [...drop];
 }
 
-/** What is allowed on disk for a message: media is never stored (no snaps, no view-once media), and its body is dropped. */
-export function sanitizeMessage<T extends { type: string; body: string }>(m: T): T {
+/**
+ * What is allowed on disk for a message: media is never stored (no snaps, no view-once media), and its body is
+ * dropped. A message deleted for everyone also has its body and sticker blanked, so "delete for everyone" cannot be
+ * defeated by a cached copy written before the delete (or while the device was offline when it happened).
+ */
+export function sanitizeMessage<T extends { type: string; body: string; sticker_id?: string | null; deleted_at?: string | null }>(m: T): T {
+  if (m.deleted_at) return { ...m, body: '', sticker_id: null };
   return m.type === 'media' ? { ...m, body: '' } : m;
 }
 

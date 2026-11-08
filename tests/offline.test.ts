@@ -76,6 +76,16 @@ describe('privacy helpers', () => {
     expect(sanitizeMessage({ type: 'media', body: 'Snap' }).body).toBe('');
     expect(sanitizeMessage({ type: 'text', body: 'Snap' }).body).toBe('Snap');
   });
+  it('blanks body and sticker_id for a message deleted for everyone, even when not media', () => {
+    const gone = { type: 'text', body: 'secret', sticker_id: null, deleted_at: '2026-01-01T00:00:00Z' };
+    const out = sanitizeMessage(gone);
+    expect(out.body).toBe('');
+    expect(out.sticker_id).toBeNull();
+    expect(sanitizeMessage({ type: 'sticker', body: '', sticker_id: 's1', deleted_at: '2026-01-01T00:00:00Z' }).sticker_id).toBeNull();
+  });
+  it('leaves a non-deleted message untouched', () => {
+    expect(sanitizeMessage({ type: 'text', body: 'hi', deleted_at: null }).body).toBe('hi');
+  });
   it('detects a different user', () => {
     expect(sameUser('a', 'a')).toBe(true);
     expect(sameUser('a', 'b')).toBe(false);

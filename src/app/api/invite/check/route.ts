@@ -8,6 +8,7 @@ export const GET = handle(async (req: Request) => {
   const ip = clientIp(req);
   if (!rateLimit(`invite-check:${ip}`, 30, 10 * 60_000)) throw new HttpError(429, 'Too many attempts. Try again later.');
   const token = new URL(req.url).searchParams.get('token') ?? '';
+  if (token.length > 5000) throw new HttpError(400, 'Invalid request'); // same cap as invite/accept's Body schema
   const found = await lookupInviteToken(token);
   const headers = { 'Cache-Control': 'no-store' };
   if (!found) return NextResponse.json({ valid: false }, { headers });

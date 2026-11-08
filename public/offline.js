@@ -141,7 +141,9 @@
       if (m.type === 'system') { list.appendChild(el('div', 'sys', m.body)); return; }
       var mine = m.sender_id === user;
       var b = el('div', 'b' + (mine ? ' me' : ''));
-      if (m.type === 'media') { b.className += ' na'; b.appendChild(document.createTextNode('Photo or video (not available offline)')); }
+      // "delete for everyone": match the wording MessageBubble.tsx shows live, never the old body/media/sticker.
+      if (m.deleted_at) { b.className += ' na'; b.appendChild(document.createTextNode(mine ? 'You deleted this message' : 'This message was deleted')); }
+      else if (m.type === 'media') { b.className += ' na'; b.appendChild(document.createTextNode('Photo or video (not available offline)')); }
       else if (m.type === 'sticker') { b.className += ' na'; b.appendChild(document.createTextNode('Sticker')); }
       else b.appendChild(document.createTextNode(m.body));
       b.appendChild(el('small', null, fmtTime(m.created_at)));

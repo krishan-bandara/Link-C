@@ -233,10 +233,12 @@ async function smsAlerts() {
   if (!due.length) return;
 
   // Only successful sends count toward the caps; failed attempts do not. If a count cannot be read, send nothing (fail closed).
+  // The pool is shared across every kind of SMS (alerts, invites, test messages, phone verification), not just alerts, so this
+  // mirrors the authoritative check sendSms() itself makes - it just lets the alert loop avoid claiming a chat it cannot send
+  // for. kind is intentionally NOT filtered here any more (used to be .eq('kind', 'alert'), which under-counted the pool).
   const { count: monthCount, error: mErr } = await db
     .from('sms_log')
     .select('id', { count: 'exact', head: true })
-    .eq('kind', 'alert')
     .like('provider_status', 'http 2%')
     .gte('sent_at', monthStart(new Date(), TZ));
   if (mErr) throw new Error(`sms_log month count: ${mErr.message}`);
@@ -244,7 +246,6 @@ async function smsAlerts() {
   const { count: monthTimeouts, error: mtErr } = await db
     .from('sms_log')
     .select('id', { count: 'exact', head: true })
-    .eq('kind', 'alert')
     .eq('provider_status', 'error timeout')
     .gte('sent_at', monthStart(new Date(), TZ));
   if (mtErr) throw new Error(`sms_log month timeouts: ${mtErr.message}`);
@@ -254,14 +255,12 @@ async function smsAlerts() {
   const { count: todayCount, error: tErr } = await db
     .from('sms_log')
     .select('id', { count: 'exact', head: true })
-    .eq('kind', 'alert')
     .like('provider_status', 'http 2%')
     .gte('sent_at', dayStart(new Date(), TZ));
   if (tErr) throw new Error(`sms_log day count: ${tErr.message}`);
   const { count: todayTimeouts, error: ttErr } = await db
     .from('sms_log')
     .select('id', { count: 'exact', head: true })
-    .eq('kind', 'alert')
     .eq('provider_status', 'error timeout')
     .gte('sent_at', dayStart(new Date(), TZ));
   if (ttErr) throw new Error(`sms_log day timeouts: ${ttErr.message}`);
